@@ -1,0 +1,1 @@
+<!doctype html><html lang="en"><head><?php require __DIR__.'/../partials/head.php'; ?></head><body class="guest-page"><main class="guest-shell"><?php require $viewFile; ?></main><?php require __DIR__.'/../partials/scripts.php'; ?></body></html>

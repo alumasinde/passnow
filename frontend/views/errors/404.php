@@ -1,0 +1,1 @@
+<section class="error-page"><div class="error-code">404</div><h1>Page not found</h1><p>The page you're looking for doesn't exist or has moved.</p><a class="btn btn-primary" href="<?=e(url('index.php'))?>">Back to dashboard</a></section>

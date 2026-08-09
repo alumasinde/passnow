@@ -1,0 +1,1 @@
+<section class="error-page"><div class="error-code">403</div><h1>Access denied</h1><p>You don't have permission to access this page in the current tenant.</p><a class="btn btn-primary" href="<?=e(url('index.php'))?>">Back to dashboard</a></section>

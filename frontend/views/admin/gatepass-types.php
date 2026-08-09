@@ -1,0 +1,3 @@
+<section class="page-header"><div><span class="eyebrow">Administration</span><h1>Gatepass types</h1><p>Tenant-configurable records returned by the backend.</p></div><a class="btn btn-primary" href="<?=e(url('gatepass-types-edit.php'))?>"><i class="fa-solid fa-plus"></i> Add</a></section>
+<?php if($r['error']):?><div class="alert alert-warning"><?=e($r['error'])?></div><?php endif;?>
+<section class="content-card"><?php component('data-table',['columns'=>$columns,'rows'=>$r['rows'],'rowActions'=>$actions,'emptyTitle'=>'No records found','emptyMessage'=>'Add the first record for this tenant.']);?></section>

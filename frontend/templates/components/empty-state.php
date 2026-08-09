@@ -1,0 +1,1 @@
+<div class="empty-state"><div class="empty-icon"><i class="fa-regular fa-folder-open"></i></div><h3><?= e($title??'Nothing here yet') ?></h3><?php if(!empty($message)): ?><p><?= e($message) ?></p><?php endif; ?></div>

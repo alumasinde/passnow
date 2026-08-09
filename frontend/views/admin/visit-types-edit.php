@@ -1,0 +1,5 @@
+<section class="page-header"><div><span class="eyebrow">Administration</span><h1><?= $id ? 'Edit' : 'Add' ?> Visit type</h1><p>Changes are validated by the Go API.</p></div><a class="btn btn-secondary" href="<?=e(url('visit-types.php'))?>">Back</a></section>
+<?php if($errors):?><div class="alert alert-danger"><div><?php foreach($errors as $x):?><div><?=e($x)?></div><?php endforeach;?></div></div><?php endif;?>
+<form method="post" class="content-card form-card" data-loading-form><input type="hidden" name="_csrf" value="<?=e(Csrf::token())?>"><div class="form-grid">
+<?php component('field',['name'=>'name','label'=>'Name','value'=>(string)($item['name']??''),'required'=>true]);?><?php component('field',['name'=>'description','label'=>'Description','value'=>(string)($item['description']??''),'required'=>true]);?>
+</div><div class="form-actions"><a class="btn btn-secondary" href="<?=e(url('visit-types.php'))?>">Cancel</a><button class="btn btn-primary" type="submit" data-loading-label="Saving..."><span data-button-label>Save</span></button></div></form>

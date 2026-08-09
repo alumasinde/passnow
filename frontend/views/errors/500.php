@@ -1,0 +1,1 @@
+<section class="error-page"><div class="error-code">500</div><h1>Something went wrong</h1><p>PassNow could not complete that request. Please try again.</p><a class="btn btn-primary" href="<?=e(url('index.php'))?>">Back to dashboard</a></section>

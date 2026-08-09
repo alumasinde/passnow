@@ -1,0 +1,1 @@
+<?php foreach(consumeFlash() as $flash): ?><div class="alert alert-<?= e($flash['type']) ?>" role="alert"><i class="fa-solid fa-circle-info"></i><span><?= e($flash['message']) ?></span><button type="button" class="alert-close" data-dismiss-alert aria-label="Dismiss">&times;</button></div><?php endforeach; ?>
