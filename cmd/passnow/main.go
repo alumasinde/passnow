@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -21,9 +20,7 @@ func main() {
 		app.Run()
 		return
 	case "migrate":
-		err = migrations.Up()
-	case "migrate-status":
-		err = migrations.Status()
+		err = runMigrations(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -35,8 +32,22 @@ func main() {
 	}
 }
 
-func usage() {
-	fmt.Fprintln(os.Stderr, "usage: go run ./cmd/passnow <serve|migrate|migrate-status>")
+func runMigrations(args []string) error {
+	if len(args) == 0 || args[0] == "up" {
+		return migrations.Up()
+	}
+
+	switch args[0] {
+	case "status", "version":
+		return migrations.Status()
+	default:
+		return fmt.Errorf("unknown migration command %q (use: migrate, migrate up, or migrate status)", args[0])
+	}
 }
 
-var _ = errors.New
+func usage() {
+	fmt.Fprintln(os.Stderr, "usage:")
+	fmt.Fprintln(os.Stderr, "  go run ./cmd/passnow serve")
+	fmt.Fprintln(os.Stderr, "  go run ./cmd/passnow migrate")
+	fmt.Fprintln(os.Stderr, "  go run ./cmd/passnow migrate status")
+}
