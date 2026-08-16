@@ -7,7 +7,7 @@ $sessionSecure = $sessionSecureEnv === false
     ? $environment !== 'development'
     : filter_var($sessionSecureEnv, FILTER_VALIDATE_BOOL);
 
-$sessionSameSite = ucfirst(strtolower(trim((string) (getenv('SESSION_SAMESITE') ?: 'Lax')));
+$sessionSameSite = ucfirst(strtolower(trim((string) (getenv('SESSION_SAMESITE') ?: 'Lax'))));
 if (!in_array($sessionSameSite, ['Lax', 'Strict', 'None'], true)) {
     $sessionSameSite = 'Lax';
 }
