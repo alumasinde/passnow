@@ -11,6 +11,9 @@ $sessionSameSite = ucfirst(strtolower(trim((string) (getenv('SESSION_SAMESITE') 
 if (!in_array($sessionSameSite, ['Lax', 'Strict', 'None'], true)) {
     $sessionSameSite = 'Lax';
 }
+if ($sessionSameSite === 'None' && !$sessionSecure) {
+    $sessionSameSite = 'Lax';
+}
 
 $sessionIdleTimeout = max(300, (int) (getenv('SESSION_IDLE_TIMEOUT') ?: 1800));
 $sessionAbsoluteTimeout = max($sessionIdleTimeout, (int) (getenv('SESSION_ABSOLUTE_TIMEOUT') ?: 28800));
