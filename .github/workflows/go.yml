@@ -2,9 +2,9 @@ name: Go CI
 
 on:
   push:
-    branches: [main, 'agent/**']
+    branches: [main, master, 'agent/**']
   pull_request:
-    branches: [main]
+    branches: [main, master]
 
 permissions:
   contents: read
@@ -24,12 +24,12 @@ jobs:
 
       - name: Report formatting
         run: |
-          files=$(gofmt -l .)
+          files="$(gofmt -l .)"
           if [ -n "$files" ]; then
-            echo "The following Go files need gofmt:"
-            echo "$files"
+            echo "Files requiring gofmt:"
+            printf '%s\n' "$files"
           else
-            echo "All Go files are gofmt-clean."
+            echo "Formatting check passed."
           fi
 
       - name: Build
