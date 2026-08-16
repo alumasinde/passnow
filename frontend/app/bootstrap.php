@@ -13,6 +13,10 @@ ini_set('session.cookie_secure', $config['security']['session_secure'] ? '1' : '
 ini_set('session.cookie_samesite', $config['security']['session_samesite']);
 ini_set('session.cookie_lifetime', '0');
 
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+
 session_name($config['app']['session_name']);
 session_start();
 
