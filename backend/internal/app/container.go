@@ -48,7 +48,7 @@ type Container struct {
 	GatepassHandler         *gatepasses.Handler
 	EmployeeHandler         *employees.Handler
 	RoleHandler             *roles.Handler
-	InviteHandler            *invite.Handler
+	InviteHandler           *invite.Handler
 	BootstrapHandler        *platform.Handler
 	DashboardHandler        *dashboard.Handler
 }

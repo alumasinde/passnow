@@ -19,4 +19,4 @@ migrate-status:
 	go run ./cmd/passnow migrate status
 
 docker-dev:
-	docker compose -f docker-compose.dev.yml up --build
+	docker compose -f ../docker-compose.dev.yml up --build

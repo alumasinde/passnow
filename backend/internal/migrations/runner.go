@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	migrationfiles "gatepass/migrations"
 	"gatepass/internal/config"
+	migrationfiles "gatepass/migrations"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/golang-migrate/migrate/v4"

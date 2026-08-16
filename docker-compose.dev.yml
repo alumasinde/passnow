@@ -18,7 +18,9 @@ services:
       retries: 20
 
   app:
-    build: .
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
       mysql:
@@ -38,7 +40,10 @@ services:
       APPROVED_GATEPASS_TTL: 24h
     ports:
       - "8080:8080"
-    command: ["/bin/sh", "-c", "/app/passnow migrate && exec /app/passnow-api"]
+    command:
+      - /bin/sh
+      - -c
+      - /app/passnow migrate && exec /app/passnow-api
 
 volumes:
   passnow_mysql:
