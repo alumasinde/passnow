@@ -1,0 +1,44 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: gatepass
+      MYSQL_USER: passnow
+      MYSQL_PASSWORD: passnow-dev-password
+      MYSQL_ROOT_PASSWORD: root-dev-password
+    ports:
+      - "3306:3306"
+    volumes:
+      - passnow_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      APP_ENV: development
+      HTTP_ADDR: :8080
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: passnow
+      DB_PASSWORD: passnow-dev-password
+      DB_NAME: gatepass
+      JWT_SECRET: local-development-secret-change-this-before-production-123456
+      BASE_DOMAIN: localhost
+      PLATFORM_BOOTSTRAP_TOKEN: local-bootstrap-token
+      GATEPASS_WORKER_INTERVAL: 1m
+      APPROVED_GATEPASS_TTL: 24h
+    ports:
+      - "8080:8080"
+    command: ["/bin/sh", "-c", "/app/passnow migrate && exec /app/passnow-api"]
+
+volumes:
+  passnow_mysql:
