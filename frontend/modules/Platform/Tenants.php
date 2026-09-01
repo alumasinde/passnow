@@ -1,1 +1,36 @@
-<?php declare(strict_types=1); require_once __DIR__.'/../app/App.php'; Auth::requirePlatform(); $api=App::api();$error='';$tenants=[];try{if(requestMethod()==='POST'){Csrf::requireValid($_POST['_csrf']??null);Auth::platformApi($api,'PATCH','/api/v1/platform/tenants/'.(int)$_POST['id'].'/status',['status'=>(string)$_POST['status']]);flash('success','Tenant status updated.');redirect('platform.php');}$data=Auth::platformApi($api,'GET','/api/v1/platform/tenants');$tenants=$data['tenants']??[];}catch(Throwable $e){$error=$e->getMessage();}App::render('admin/tenants/index',['tenants'=>$tenants,'error'=>$error]);
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/../app/App.php';
+
+Auth::requirePlatform();
+
+$api = App::api();
+$error = '';
+$tenants = [];
+
+try {
+    if (requestMethod() === 'POST') {
+        Csrf::requireValid($_POST['_csrf'] ?? null);
+
+        Auth::platformApi(
+            $api,
+            'PATCH',
+            '/api/v1/platform/tenants/' . (int) $_POST['id'] . '/status',
+            ['status' => (string) $_POST['status']]
+        );
+
+        flash('success', 'Tenant status updated.');
+        redirect('platform/tenants');
+    }
+
+    $data = Auth::platformApi($api, 'GET', '/api/v1/platform/tenants');
+    $tenants = $data['tenants'] ?? [];
+} catch (Throwable $e) {
+    $error = $e->getMessage();
+}
+
+App::render('admin/tenants/index', [
+    'tenants' => $tenants,
+    'error' => $error,
+], 'platform');
