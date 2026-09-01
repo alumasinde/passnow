@@ -24,21 +24,15 @@ BASE_DOMAIN=passnow.test
 
 For tenant database provisioning, also set:
 
-```env
 TENANT_DB_ENCRYPTION_KEY=your-32-byte-base64-key
-```
 
 ## 3. Run Platform migrations
 
-```powershell
 go run ./cmd/migrate -scope platform -action up
-```
 
 Check status:
 
-```powershell
 go run ./cmd/migrate -scope platform -action status
-```
 
 ## 4. Tenant migrations
 
