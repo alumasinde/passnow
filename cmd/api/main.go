@@ -88,7 +88,7 @@ func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *rou
 	gpSvc := gatepasses.NewService(gpRepo, gpTypeRepo, deptRepo, visitorRepo, visitRepo, workflowRepo, roleRepo, settingsRepo, auditRepo, userRepo)
 	inviteSvc := invite.NewService(userRepo, roleRepo, cfg.BcryptCost)
 	employeeSvc := employees.NewService(employeeRepo, userRepo, roleRepo)
-	bootstrapSvc := platform.NewService(tenantRepo, userRepo, roleRepo, cfg.BcryptCost)
+	bootstrapSvc := platform.NewService(tenantRepo, userRepo, roleRepo, cfg.BcryptCost).WithBaseDomain(cfg.BaseDomain)
 	if cfg.TenantDBEncryptionKey != "" {
 		if cipher, err := tenantdb.NewCipher(cfg.TenantDBEncryptionKey); err == nil {
 			bootstrapSvc.WithTenantDatabase(
