@@ -17,11 +17,11 @@ final class ApiClient
             $localTenantSlug = strtolower($segments[0]);
         }
 
-        // Local development can use /{tenant}/login while production can use
-        // a tenant subdomain/custom domain. Prefix API requests only for the
-        // path-based local mode.
+        // Local development can use /{tenant}/login in the browser, but the
+        // Go API routes themselves remain /api/v1/.... Resolve the tenant with
+        // X-Tenant-Slug instead of prefixing the API path. Prefixing here would
+        // make the router receive /{tenant}/api/v1/... and return an HTML 404.
         if ($localTenantSlug !== '' && ($baseDomain === '' || stripos($tenantHost, $baseDomain) === false)) {
-            $requestPath = '/' . $localTenantSlug . $requestPath;
             $tenantHost = '';
         }
 
