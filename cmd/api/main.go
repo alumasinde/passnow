@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"gatepass/internal/approvals"
 	"gatepass/internal/audit"
