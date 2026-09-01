@@ -65,7 +65,18 @@ func (r *Repository) ReconcilePlatformDomains(ctx context.Context, baseDomain st
    SELECT id FROM tenant_domains
    WHERE tenant_id=? AND domain LIKE CONCAT('%.', ?) AND domain_type='custom'
    ORDER BY is_primary DESC, id ASC LIMIT 1`, item.id, baseDomain).Scan(&oldID)
-  if err == nil {
+  if err != nil && err != sql.ErrNoRows {
+   _ = tx.Rollback()
+   return err
+  }
+
+  var exists int
+  err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM tenant_domains WHERE tenant_id=? AND domain=?`, item.id, generated).Scan(&exists)
+  if err != nil {
+   _ = tx.Rollback()
+   return err
+  }
+  if oldID != 0 && exists == 0 {
    _, err = tx.ExecContext(ctx, `
     UPDATE tenant_domains
     SET domain=?, domain_type='subdomain', is_verified=1, updated_at=NOW()
@@ -74,13 +85,8 @@ func (r *Repository) ReconcilePlatformDomains(ctx context.Context, baseDomain st
     _ = tx.Rollback()
     return err
    }
-  } else if err != sql.ErrNoRows {
-   _ = tx.Rollback()
-   return err
+   exists = 1
   }
-
-  var exists int
-  err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM tenant_domains WHERE tenant_id=? AND domain=?`, item.id, generated).Scan(&exists)
   if err != nil {
    _ = tx.Rollback()
    return err
