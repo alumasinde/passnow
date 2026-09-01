@@ -137,6 +137,7 @@ func (s *Service) configureTenantDatabase(ctx context.Context, tenantID int64, n
 	if mode == "" { mode = "existing" }
 	creds := tenantdb.Credentials{Host: strings.TrimSpace(in.DatabaseHost), Port: strings.TrimSpace(in.DatabasePort), Database: strings.TrimSpace(in.DatabaseName), Username: strings.TrimSpace(in.DatabaseUsername), Password: in.DatabasePassword}
 	if creds.Port == "" { creds.Port = "3306" }
+	if mode != "create" && mode != "existing" { return errors.New("database mode must be create or existing") }
 	if mode == "create" {
 		if s.provisioner == nil || !s.provisioner.Enabled() { return errors.New("tenant database provisioning is not configured") }
 		if creds.Host == "" { creds.Host = s.provisionerHost() }
