@@ -6,7 +6,6 @@
 -- entry) may not need an employee record at all.
 CREATE TABLE employees (
     id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tenant_id       BIGINT UNSIGNED NOT NULL,
     employee_number VARCHAR(40)  NOT NULL,
     first_name      VARCHAR(100) NOT NULL,
     last_name       VARCHAR(100) NOT NULL,
@@ -21,10 +20,9 @@ CREATE TABLE employees (
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at      DATETIME NULL,
 
-    UNIQUE KEY uq_employees_tenant_number (tenant_id, employee_number),
-    KEY idx_employees_tenant_department (tenant_id, department_id),
-    KEY idx_employees_tenant_user (tenant_id, user_id),
-    CONSTRAINT fk_employees_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+    UNIQUE KEY uq_employees_number (employee_number),
+    KEY idx_employees_department (department_id),
+    KEY idx_employees_user (user_id),
     CONSTRAINT fk_employees_department FOREIGN KEY (department_id) REFERENCES departments(id),
     CONSTRAINT fk_employees_user FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
