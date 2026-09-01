@@ -6,22 +6,22 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	// HTTP
 	HTTPAddr        string
 	ReadTimeout     time.Duration
 	WriteTimeout    time.Duration
 	IdleTimeout     time.Duration
 	ShutdownTimeout time.Duration
 
-	// MySQL — single local server, all tenants share the schema and are
-	// isolated logically via tenant_id, not via separate databases.
 	DBHost            string
 	DBPort            string
 	DBUser            string
@@ -31,34 +31,26 @@ type Config struct {
 	DBMaxIdleConns    int
 	DBConnMaxLifetime time.Duration
 
-	// Auth
 	JWTSecret       string
 	AccessTokenTTL  time.Duration
 	RefreshTokenTTL time.Duration
 	BcryptCost      int
 
-	// Tenancy / routing
-	// BaseDomain is the platform's own domain used for the subdomain and
-	// path-prefix fallback, e.g. "gatepass.example.com". Tenants may
-	// ADDITIONALLY map their own custom domain (tenants.custom_domain);
-	// custom-domain resolution is tried first, then subdomain, then path.
-	BaseDomain string
-
-	// PlatformBootstrapToken gates the one-time tenant-provisioning
-	// endpoint (see internal/platform). Empty means the endpoint is
-	// closed. Set it to provision your first tenant(s), then unset/rotate
-	// it — it is not meant to be a long-lived secret.
+	BaseDomain             string
 	PlatformBootstrapToken string
+	Env                    string
 
-	Env string // "development" | "production"
-
-	// Background workers. Workers are process-wide; tenant-specific business
-	// state remains in MySQL and is always filtered by tenant_id.
 	GatepassWorkerInterval time.Duration
 	ApprovedGatepassTTL    time.Duration
 }
 
 func Load() (*Config, error) {
+	// Load .env when present. Existing process environment variables win,
+	// which keeps production deployments and CI configuration authoritative.
+	if err := godotenv.Load(); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("config: load .env: %w", err)
+	}
+
 	cfg := &Config{
 		HTTPAddr:        getEnv("HTTP_ADDR", ":8080"),
 		ReadTimeout:     getDuration("HTTP_READ_TIMEOUT", 10*time.Second),
@@ -80,11 +72,10 @@ func Load() (*Config, error) {
 		RefreshTokenTTL: getDuration("REFRESH_TOKEN_TTL", 30*24*time.Hour),
 		BcryptCost:      getInt("BCRYPT_COST", 12),
 
-		BaseDomain: getEnv("BASE_DOMAIN", "localhost"),
-
+		BaseDomain:             getEnv("BASE_DOMAIN", "localhost"),
 		PlatformBootstrapToken: getEnv("PLATFORM_BOOTSTRAP_TOKEN", ""),
-
 		Env:                    getEnv("APP_ENV", "development"),
+
 		GatepassWorkerInterval: getDuration("GATEPASS_WORKER_INTERVAL", time.Minute),
 		ApprovedGatepassTTL:    getDuration("APPROVED_GATEPASS_TTL", 24*time.Hour),
 	}
@@ -99,9 +90,6 @@ func Load() (*Config, error) {
 }
 
 func (c *Config) MySQLDSN() string {
-	// parseTime=true so DATETIME/TIMESTAMP scan into time.Time.
-	// multiStatements intentionally OFF — never allow batched statements
-	// on a connection that also carries tenant-scoped queries.
 	return fmt.Sprintf(
 		"%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=UTC",
 		c.DBUser, c.DBPassword, c.DBHost, c.DBPort, c.DBName,
