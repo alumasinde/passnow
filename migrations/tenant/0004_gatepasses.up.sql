@@ -4,21 +4,18 @@
 -- approval already in progress.
 CREATE TABLE approval_workflows (
     id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tenant_id   BIGINT UNSIGNED NOT NULL,
     name        VARCHAR(120) NOT NULL,
     active      TINYINT(1) NOT NULL DEFAULT 1,
     created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at  DATETIME NULL,
 
-    UNIQUE KEY uq_workflows_tenant_name (tenant_id, name),
-    CONSTRAINT fk_workflows_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+    UNIQUE KEY uq_workflows_name (name),
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE approval_workflow_steps (
     id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     workflow_id     BIGINT UNSIGNED NOT NULL,
-    tenant_id       BIGINT UNSIGNED NOT NULL, -- denormalized for tenant-scoped queries without a join
     step_order      SMALLINT UNSIGNED NOT NULL,
     label           VARCHAR(80) NOT NULL,      -- e.g. "HOD", "Security Manager", "General Manager"
     approver_type   ENUM('role','specific_user') NOT NULL DEFAULT 'role',
@@ -28,7 +25,6 @@ CREATE TABLE approval_workflow_steps (
 
     UNIQUE KEY uq_workflow_step_order (workflow_id, step_order),
     CONSTRAINT fk_wfsteps_workflow FOREIGN KEY (workflow_id) REFERENCES approval_workflows(id) ON DELETE CASCADE,
-    CONSTRAINT fk_wfsteps_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id),
     CONSTRAINT fk_wfsteps_role FOREIGN KEY (role_id) REFERENCES roles(id),
     CONSTRAINT fk_wfsteps_user FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT chk_wfsteps_approver CHECK (
@@ -43,7 +39,6 @@ CREATE TABLE approval_workflow_steps (
 -- machine in internal/gatepasses for the full rules.
 CREATE TABLE gatepass_types (
     id                   BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tenant_id            BIGINT UNSIGNED NOT NULL,
     name                 VARCHAR(120) NOT NULL,
     code                 VARCHAR(30)  NOT NULL,
     direction            ENUM('in','out','both') NOT NULL DEFAULT 'out',
@@ -63,14 +58,12 @@ CREATE TABLE gatepass_types (
     updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at           DATETIME NULL,
 
-    UNIQUE KEY uq_gatepass_types_tenant_code (tenant_id, code),
-    CONSTRAINT fk_gptypes_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+    UNIQUE KEY uq_gatepass_types_code (code),
     CONSTRAINT fk_gptypes_workflow FOREIGN KEY (workflow_id) REFERENCES approval_workflows(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE gatepasses (
     id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tenant_id       BIGINT UNSIGNED NOT NULL,
 
     gatepass_type_id BIGINT UNSIGNED NOT NULL,
     pass_number     VARCHAR(50) NOT NULL,
@@ -117,14 +110,12 @@ CREATE TABLE gatepasses (
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at      DATETIME NULL,
 
-    UNIQUE KEY uq_gatepasses_tenant_number (tenant_id, pass_number),
+    UNIQUE KEY uq_gatepasses_number (pass_number),
     UNIQUE KEY uq_gatepasses_qr_token (qr_token),
-    KEY idx_gatepasses_tenant_status (tenant_id, status),
-    KEY idx_gatepasses_tenant_requester_user (tenant_id, requester_user_id),
-    KEY idx_gatepasses_tenant_requester_visitor (tenant_id, requester_visitor_id),
-    KEY idx_gatepasses_tenant_visit (tenant_id, visit_id),
-
-    CONSTRAINT fk_gp_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+    KEY idx_gatepasses_status (status),
+    KEY idx_gatepasses_requester_user (requester_user_id),
+    KEY idx_gatepasses_requester_visitor (requester_visitor_id),
+    KEY idx_gatepasses_visit (visit_id),
     CONSTRAINT fk_gp_type FOREIGN KEY (gatepass_type_id) REFERENCES gatepass_types(id),
     CONSTRAINT fk_gp_department FOREIGN KEY (department_id) REFERENCES departments(id),
     CONSTRAINT fk_gp_requester_user FOREIGN KEY (requester_user_id) REFERENCES users(id),
@@ -142,7 +133,6 @@ CREATE TABLE gatepasses (
 CREATE TABLE gatepass_approvals (
     id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     gatepass_id   BIGINT UNSIGNED NOT NULL,
-    tenant_id     BIGINT UNSIGNED NOT NULL,
     step_order    SMALLINT UNSIGNED NOT NULL,
     label         VARCHAR(80) NOT NULL,
     approver_type ENUM('role','specific_user') NOT NULL,
@@ -160,7 +150,6 @@ CREATE TABLE gatepass_approvals (
     UNIQUE KEY uq_gp_approval_step (gatepass_id, step_order),
     KEY idx_gp_approvals_gatepass (gatepass_id),
     CONSTRAINT fk_gpapp_gatepass FOREIGN KEY (gatepass_id) REFERENCES gatepasses(id) ON DELETE CASCADE,
-    CONSTRAINT fk_gpapp_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id),
     CONSTRAINT fk_gpapp_role FOREIGN KEY (role_id) REFERENCES roles(id),
     CONSTRAINT fk_gpapp_user FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -168,7 +157,6 @@ CREATE TABLE gatepass_approvals (
 CREATE TABLE gatepass_items (
     id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     gatepass_id   BIGINT UNSIGNED NOT NULL,
-    tenant_id     BIGINT UNSIGNED NOT NULL,
 
     name          VARCHAR(160) NOT NULL,
     description   VARCHAR(255) NULL,
@@ -185,7 +173,6 @@ CREATE TABLE gatepass_items (
 
     KEY idx_gp_items_gatepass (gatepass_id),
     CONSTRAINT fk_gpitems_gatepass FOREIGN KEY (gatepass_id) REFERENCES gatepasses(id) ON DELETE CASCADE,
-    CONSTRAINT fk_gpitems_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT IGNORE INTO permissions (code, label) VALUES
