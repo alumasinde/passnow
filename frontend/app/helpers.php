@@ -1,7 +1,12 @@
 <?php
 declare(strict_types=1);
 final class AppContext { private static array $config=[]; public static function init(array $config):void{self::$config=$config;} public static function config(?string $key=null,mixed $default=null):mixed{if($key===null)return self::$config;$v=self::$config;foreach(explode('.',$key) as $part){if(!is_array($v)||!array_key_exists($part,$v))return $default;$v=$v[$part];}return $v;} }
-function e(mixed $value):string{return htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
+function e(mixed $value):string{
+    if (is_string($value) && preg_match('/^\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:?\\d{2})?$/', $value)) {
+        $value = FormatDate($value);
+    }
+    return htmlspecialchars((string)$value, ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8');
+}
 function url(string $path=''):string{$base=(string)AppContext::config('app.base_url','');return $base.'/'.ltrim($path,'/');}
 function asset(string $path):string{return url('assets/'.ltrim($path,'/'));}
 function redirect(string $path):never{header('Location: '.(preg_match('~^https?://~i',$path)?$path:url($path)));exit;}
