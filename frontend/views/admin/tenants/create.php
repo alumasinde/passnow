@@ -74,16 +74,3 @@
     </form>
 </section>
 
-<script>
-document.getElementById('tenant_name')?.addEventListener('input', function () {
-    const slug = document.getElementById('tenant_slug');
-    if (slug.dataset.edited === '1') return;
-    slug.value = this.value.toLowerCase().trim()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
-});
-document.getElementById('tenant_slug')?.addEventListener('input', function () {
-    this.dataset.edited = '1';
-    this.value = this.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
-});
-</script>
