@@ -17,8 +17,14 @@ final class ApiClient
         $raw = curl_exec($ch);
         if ($raw === false) {
             $err = curl_error($ch);
+            $errno = curl_errno($ch);
             curl_close($ch);
-            throw new ApiException('The API could not be reached.', 0, ['transport_error' => $err]);
+
+            throw new ApiException(
+                'The API could not be reached: ' . ($err !== '' ? $err : 'Unknown cURL transport error.'),
+                0,
+                ['transport_error' => $err, 'transport_errno' => $errno, 'url' => $url]
+            );
         }
         $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         curl_close($ch);
