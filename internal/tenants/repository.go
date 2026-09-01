@@ -55,3 +55,8 @@ func (r *Repository) UpdateStatus(ctx context.Context,id int64,status Status) er
 }
 func (r *Repository) SetCustomDomain(ctx context.Context,id int64,domain string)error{_,err:=r.db.ExecContext(ctx,"UPDATE tenants SET custom_domain=?, custom_domain_verified=0,updated_at=NOW() WHERE id=?",domain,id);return err}
 func (r *Repository) VerifyCustomDomain(ctx context.Context,id int64)error{res,err:=r.db.ExecContext(ctx,"UPDATE tenants SET custom_domain_verified=1,updated_at=NOW() WHERE id=? AND custom_domain IS NOT NULL",id);if err!=nil{return err};n,_:=res.RowsAffected();if n==0{return ErrNotFound};return nil}
+
+
+func (r *Repository) Update(ctx context.Context, id int64, name, slug string) error {
+ res,err:=r.db.ExecContext(ctx,"UPDATE tenants SET name=?, slug=?, updated_at=NOW() WHERE id=? AND deleted_at IS NULL",strings.TrimSpace(name),strings.ToLower(strings.TrimSpace(slug)),id);if err!=nil{return err};n,_:=res.RowsAffected();if n==0{return ErrNotFound};return nil
+}
