@@ -40,13 +40,15 @@ func ResolveTenant(repo *tenants.Repository, baseDomain string) func(http.Handle
 
 			switch {
 			case host != "" && !strings.HasSuffix(host, "."+base) && host != base:
-				// Looks like a third-party domain -> try custom-domain match.
-				t, err = repo.ByCustomDomain(ctx, host)
+				// Resolve every registered domain first, including PassNow subdomains.
+				t, err = repo.ByDomain(ctx, host)
+				if err != nil { t, err = repo.ByCustomDomain(ctx, host) }
 
 			case strings.HasSuffix(host, "."+base):
-				sub := strings.TrimSuffix(host, "."+baseDomain)
-				if sub != "" && sub != "www" {
-					t, err = repo.BySlug(ctx, sub)
+				t, err = repo.ByDomain(ctx, host)
+				if t == nil {
+					sub := strings.TrimSuffix(host, "."+baseDomain)
+					if sub != "" && sub != "www" { t, err = repo.BySlug(ctx, sub) }
 				}
 			}
 
