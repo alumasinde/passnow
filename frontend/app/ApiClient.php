@@ -3,7 +3,7 @@
 declare(strict_types=1);
 final class ApiClient
 {
-    public function __construct(private readonly string $baseUrl, private readonly int $timeout = 15) {}
+    public function __construct(private readonly string $baseUrl, private readonly int $timeout = 30) {}
     public function request(string $method, string $path, ?array $body = null, ?string $accessToken = null): array
     {
         $url = $this->baseUrl . '/' . ltrim($path, '/');
