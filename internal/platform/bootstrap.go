@@ -205,8 +205,8 @@ func (h *Handler) createTenant(w http.ResponseWriter, r *http.Request) {
 	in.AdminFirstName = strings.TrimSpace(in.AdminFirstName)
 	in.AdminLastName = strings.TrimSpace(in.AdminLastName)
 
-	if in.TenantName == "" || in.TenantSlug == "" || in.AdminEmail == "" || in.AdminFirstName == "" || in.AdminLastName == "" || len(in.AdminPassword) < 12 {
-		httpx.WriteError(w, httpx.ErrValidation.WithMessage("organization, slug, admin name, email, and a 12+ character password are required"))
+	if in.TenantName == "" || in.TenantSlug == "" || in.AdminEmail == "" || in.AdminFirstName == "" || in.AdminLastName == "" || len(in.AdminPassword) < 12 || strings.TrimSpace(in.DatabaseHost) == "" || strings.TrimSpace(in.DatabaseName) == "" || strings.TrimSpace(in.DatabaseUsername) == "" || in.DatabasePassword == "" {
+		httpx.WriteError(w, httpx.ErrValidation.WithMessage("organization, slug, admin name, email, 12+ character password, and tenant database details are required"))
 		return
 	}
 	if !validSlug(in.TenantSlug) {
