@@ -15,7 +15,24 @@ API_BASE_URL=http://192.168.100.11:8080
 APP_BASE_URL=http://192.168.100.11:8000
 ```
 
-## 3. Run database migrations
+## 3. Tenant database encryption (Phase A)
+
+Add a 32-byte base64 key to `.env` before using tenant database provisioning:
+
+```powershell
+[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))
+```
+
+Then add the generated value:
+
+```env
+TENANT_DB_ENCRYPTION_KEY=generated-value
+TENANT_DB_MAX_OPEN_CONNS=10
+TENANT_DB_MAX_IDLE_CONNS=5
+TENANT_DB_CONN_MAX_LIFETIME=5m
+```
+
+## 4. Run database migrations
 
 ```powershell
 go run ./cmd/migrate -action up
@@ -23,13 +40,13 @@ go run ./cmd/migrate -action up
 
 Migrations that have already been applied will be skipped.
 
-## 4. Test the backend
+## 5. Test the backend
 
 ```powershell
 go test ./...
 ```
 
-## 5. Start the Go API
+## 6. Start the Go API
 
 ```powershell
 go run ./cmd/api
@@ -41,7 +58,7 @@ API:
 http://192.168.100.11:8080
 ```
 
-## 6. Start the PHP frontend
+## 7. Start the PHP frontend
 
 From the project root:
 
