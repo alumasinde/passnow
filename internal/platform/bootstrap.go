@@ -15,6 +15,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
+	"strings"
 
 	"gatepass/internal/auth"
 	"gatepass/internal/httpx"
@@ -139,17 +140,41 @@ func (h *Handler) BootstrapTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.createTenant(w, r)
+}
+
+// CreateTenant is the platform-admin authenticated onboarding endpoint.
+// The caller is already authenticated by PlatformAdmin middleware.
+func (h *Handler) CreateTenant(w http.ResponseWriter, r *http.Request) {
+	h.createTenant(w, r)
+}
+
+func (h *Handler) createTenant(w http.ResponseWriter, r *http.Request) {
 	var in BootstrapInput
 	if !httpx.DecodeJSON(w, r, &in) {
 		return
 	}
-	if in.TenantName == "" || in.TenantSlug == "" || in.AdminEmail == "" || len(in.AdminPassword) < 12 {
-		httpx.WriteError(w, httpx.ErrValidation.WithMessage("tenant_name, tenant_slug, admin_email, and admin_password (12+ chars) are required"))
+	in.TenantName = strings.TrimSpace(in.TenantName)
+	in.TenantSlug = strings.ToLower(strings.TrimSpace(in.TenantSlug))
+	in.AdminEmail = strings.ToLower(strings.TrimSpace(in.AdminEmail))
+	in.AdminFirstName = strings.TrimSpace(in.AdminFirstName)
+	in.AdminLastName = strings.TrimSpace(in.AdminLastName)
+
+	if in.TenantName == "" || in.TenantSlug == "" || in.AdminEmail == "" || in.AdminFirstName == "" || in.AdminLastName == "" || len(in.AdminPassword) < 12 {
+		httpx.WriteError(w, httpx.ErrValidation.WithMessage("organization, slug, admin name, email, and a 12+ character password are required"))
+		return
+	}
+	if !validSlug(in.TenantSlug) {
+		httpx.WriteError(w, httpx.ErrValidation.WithMessage("slug must be 3-50 lowercase letters, numbers, or hyphens"))
 		return
 	}
 
 	result, err := h.svc.Bootstrap(r.Context(), in)
 	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "duplicate") || strings.Contains(strings.ToLower(err.Error()), "unique") {
+			httpx.WriteError(w, httpx.ErrValidation.WithMessage("organization slug or administrator email is already in use"))
+			return
+		}
 		httpx.WriteError(w, httpx.ErrInternal)
 		return
 	}
