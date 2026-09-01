@@ -1,89 +1,51 @@
-## Backend Setup
+# PassNow — Quick Local Setup
 
-Configure your `.env` with your local MySQL and application settings. Make sure MySQL is running.
+## 1. Pull latest code
 
-### Run migrations
-
-go run ./cmd/migrate -action up
-
-### Run tests
-
-go test ./...
-
-### Start the backend
-
-go run ./cmd/api
-
-Backend health check:
-
-http://localhost:8080/healthz
-
----
-
-## Frontend
-
-Start Apache and MySQL from XAMPP.
-
-Open the frontend using the configured local URL.
-
-The frontend communicates with the Go backend API.
-
----
-
-## Testing from Phone
-
-Ensure your laptop and phone are connected to the same Wi-Fi.
-
-Find your laptop IP:
-
-ipconfig
-
-Example:
-
-text
-192.168.100.11
-
-
-Test the backend:
-
-text
-http://192.168.100.11:8080/healthz
-
-
-For tenant API routes:
-
-text
-http://192.168.100.11:8080/TENANT-SLUG/api/v1/...
-
-
-Make sure the backend listens on:
-
-text
-:8080
-
-
-and Windows Firewall allows port `8080`.
-
----
-
-## Daily Development Workflow
-
-
+```powershell
 git pull origin main
+```
 
+## 2. Configure `.env`
+
+Set your database values and:
+
+```env
+API_BASE_URL=http://192.168.100.11:8080
+APP_BASE_URL=http://192.168.100.11:8000
+```
+
+## 3. Run migrations
+
+```powershell
 go run ./cmd/migrate -action up
+```
 
+## 4. Test backend
+
+```powershell
 go test ./...
+```
 
+## 5. Start Go API
+
+```powershell
 go run ./cmd/api
+```
 
+## 6. Start frontend
 
-Before pushing changes:
+From the repository root:
 
+```powershell
+php -S 0.0.0.0:8000 -t frontend/public frontend/public/router.php
+```
 
-go test ./...
-git status
-git add .
-git commit -m "describe your change"
-git push origin main
+Then open:
+
+```text
+http://192.168.100.11:8000/login
+```
+
+Do not use `php -S 0.0.0.0:8000 frontend/public/router.php` without `-t frontend/public`; PHP can resolve the relative router path incorrectly for incoming requests.
 
