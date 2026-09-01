@@ -16,6 +16,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"database/sql"
 
 	"gatepass/internal/auth"
 	"gatepass/internal/httpx"
@@ -85,62 +86,76 @@ type BootstrapResult struct {
 // leaves no partial tenant behind.
 func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapResult, error) {
 	token, err := randomHex()
-	if err != nil {
-		return nil, err
-	}
-	hash, err := auth.HashPassword(in.AdminPassword, s.bcryptCost)
-	if err != nil {
-		return nil, err
+	if err != nil { return nil, err }
+	if s.dbRepo == nil || s.cipher == nil || s.installer == nil {
+		return nil, errors.New("tenant database onboarding is not configured")
 	}
 
+	// Only the tenant registry is created in the platform database.
 	tx, err := s.userRepo.BeginTx(ctx)
-	if err != nil {
-		return nil, err
-	}
+	if err != nil { return nil, err }
 	defer tx.Rollback()
 
 	tenantID, err := s.tenantRepo.CreateTx(ctx, tx, &tenants.Tenant{
 		Name: in.TenantName, Slug: in.TenantSlug, CustomDomainToken: token,
 	})
-	if err != nil {
+	if err != nil { return nil, err }
+	if err := tx.Commit(); err != nil { return nil, err }
+
+	if s.baseDomain != "" && s.baseDomain != "localhost" {
+		if err := s.tenantRepo.AddDomain(ctx, tenantID, in.TenantSlug+"."+s.baseDomain, tenants.DomainSubdomain, true, true); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := s.configureTenantDatabase(ctx, tenantID, in.TenantName, in.TenantSlug, token, in); err != nil {
 		return nil, err
 	}
 
-	roleID, err := s.roleRepo.CreateRoleTx(ctx, tx, tenantID, "Tenant Admin", true)
-	if err != nil {
-		return nil, err
+	creds := tenantdb.Credentials{
+		Host: strings.TrimSpace(in.DatabaseHost), Port: strings.TrimSpace(in.DatabasePort),
+		Database: strings.TrimSpace(in.DatabaseName), Username: strings.TrimSpace(in.DatabaseUsername),
+		Password: in.DatabasePassword,
 	}
-	if err := s.roleRepo.GrantAllPermissions(ctx, tx, roleID); err != nil {
-		return nil, err
+	if strings.EqualFold(strings.TrimSpace(in.DatabaseMode), "create") && s.provisioner != nil {
+		creds.Host, creds.Port = s.provisioner.Host(), s.provisioner.Port()
 	}
+	if creds.Port == "" { creds.Port = "3306" }
 
-	userID, err := s.userRepo.CreateTx(ctx, tx, &users.User{
+	tenantDB, err := sql.Open("mysql", tenantMySQLDSN(creds))
+	if err != nil { return nil, err }
+	defer tenantDB.Close()
+	if err := tenantDB.PingContext(ctx); err != nil { return nil, err }
+
+	// Everything below is tenant-owned and therefore runs against tenantDB.
+	tenantUserRepo := users.NewRepository(tenantDB)
+	tenantRoleRepo := roles.NewRepository(tenantDB)
+	hash, err := auth.HashPassword(in.AdminPassword, s.bcryptCost)
+	if err != nil { return nil, err }
+	tenantTx, err := tenantUserRepo.BeginTx(ctx)
+	if err != nil { return nil, err }
+	defer tenantTx.Rollback()
+
+	roleID, err := tenantRoleRepo.CreateRoleTx(ctx, tenantTx, tenantID, "Tenant Admin", true)
+	if err != nil { return nil, err }
+	if err := tenantRoleRepo.GrantAllPermissions(ctx, tenantTx, roleID); err != nil { return nil, err }
+	userID, err := tenantUserRepo.CreateTx(ctx, tenantTx, &users.User{
 		Email: in.AdminEmail, PasswordHash: hash, FirstName: in.AdminFirstName, LastName: in.AdminLastName,
 	})
-	if err != nil {
+	if err != nil { return nil, err }
+	if _, err := tenantRoleRepo.CreateMembershipTx(ctx, tenantTx, tenantID, userID, roleID, roles.MembershipActive); err != nil {
 		return nil, err
 	}
+	if err := tenantTx.Commit(); err != nil { return nil, err }
 
-	if _, err := s.roleRepo.CreateMembershipTx(ctx, tx, tenantID, userID, roleID, roles.MembershipActive); err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-
-	if s.baseDomain != "" && s.baseDomain != "localhost" { _ = s.tenantRepo.AddDomain(ctx, tenantID, in.TenantSlug+"."+s.baseDomain, tenants.DomainSubdomain, true, true) }
-
-	if s.dbRepo == nil || s.cipher == nil || s.installer == nil { return nil, errors.New("tenant database onboarding is not configured") }
-	if err := s.configureTenantDatabase(ctx, tenantID, in.TenantName, in.TenantSlug, token, in); err != nil { return nil, err }
-
-	databaseHost := strings.TrimSpace(in.DatabaseHost)
-	if strings.EqualFold(strings.TrimSpace(in.DatabaseMode), "create") && s.provisioner != nil {
-		databaseHost = s.provisioner.Host()
-	}
+	databaseHost := creds.Host
 	primaryDomain := ""
 	if s.baseDomain != "" && s.baseDomain != "localhost" { primaryDomain = in.TenantSlug+"."+s.baseDomain }
-	return &BootstrapResult{TenantID: tenantID, Slug: in.TenantSlug, AdminID: userID, RoleID: roleID, DatabaseStatus: "ready", DatabaseName: strings.TrimSpace(in.DatabaseName), DatabaseHost: databaseHost, PrimaryDomain: primaryDomain}, nil
+	return &BootstrapResult{
+		TenantID: tenantID, Slug: in.TenantSlug, AdminID: userID, RoleID: roleID,
+		DatabaseStatus: "ready", DatabaseName: creds.Database, DatabaseHost: databaseHost,
+		PrimaryDomain: primaryDomain,
+	}, nil
 }
 
 func (s *Service) configureTenantDatabase(ctx context.Context, tenantID int64, name, slug, token string, in BootstrapInput) error {
@@ -221,7 +236,7 @@ func (h *Handler) createTenant(w http.ResponseWriter, r *http.Request) {
 	in.AdminFirstName = strings.TrimSpace(in.AdminFirstName)
 	in.AdminLastName = strings.TrimSpace(in.AdminLastName)
 
-	if in.TenantName == "" || in.TenantSlug == "" || in.AdminEmail == "" || in.AdminFirstName == "" || in.AdminLastName == "" || len(in.AdminPassword) < 12 || strings.TrimSpace(in.DatabaseHost) == "" || strings.TrimSpace(in.DatabaseName) == "" || strings.TrimSpace(in.DatabaseUsername) == "" || in.DatabasePassword == "" {
+	if in.TenantName == "" || in.TenantSlug == "" || in.AdminEmail == "" || in.AdminFirstName == "" || in.AdminLastName == "" || len(in.AdminPassword) < 12 || strings.TrimSpace(in.DatabaseHost) == "" || strings.TrimSpace(in.DatabaseName) == "" || strings.TrimSpace(in.DatabaseUsername) == "" {
 		httpx.WriteError(w, httpx.ErrValidation.WithMessage("organization, slug, admin name, email, 12+ character password, and tenant database details are required"))
 		return
 	}
@@ -240,4 +255,9 @@ func (h *Handler) createTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusCreated, result)
+}
+
+
+func tenantMySQLDSN(c tenantdb.Credentials) string {
+	return c.Username + ":" + c.Password + "@tcp(" + c.Host + ":" + c.Port + ")/" + c.Database + "?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=UTC"
 }
