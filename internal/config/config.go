@@ -1,8 +1,6 @@
-// Package config loads process-wide configuration. There is exactly ONE
-// config for the whole platform binary — tenants are DATA in MySQL, not
-// separate deployments or separate .env files. Never add a per-tenant
-// config loader; tenant-specific behaviour belongs in the tenants/settings
-// tables and is read at request time via the resolved tenant context.
+// Package config loads process-wide configuration. The process has one
+// platform configuration, while tenant database credentials are stored in the
+// platform database encrypted at rest and resolved dynamically at request time.
 package config
 
 import (
@@ -30,6 +28,16 @@ type Config struct {
 	DBMaxOpenConns    int
 	DBMaxIdleConns    int
 	DBConnMaxLifetime time.Duration
+
+	TenantDBEncryptionKey string
+	TenantDBMaxOpenConns int
+	TenantDBMaxIdleConns int
+	TenantDBConnMaxLifetime time.Duration
+
+	DBProvisionHost string
+	DBProvisionPort string
+	DBProvisionUser string
+	DBProvisionPassword string
 
 	JWTSecret       string
 	AccessTokenTTL  time.Duration
@@ -66,6 +74,16 @@ func Load() (*Config, error) {
 		DBMaxOpenConns:    getInt("DB_MAX_OPEN_CONNS", 25),
 		DBMaxIdleConns:    getInt("DB_MAX_IDLE_CONNS", 25),
 		DBConnMaxLifetime: getDuration("DB_CONN_MAX_LIFETIME", 5*time.Minute),
+
+		TenantDBEncryptionKey: getEnv("TENANT_DB_ENCRYPTION_KEY", ""),
+		TenantDBMaxOpenConns: getInt("TENANT_DB_MAX_OPEN_CONNS", 10),
+		TenantDBMaxIdleConns: getInt("TENANT_DB_MAX_IDLE_CONNS", 5),
+		TenantDBConnMaxLifetime: getDuration("TENANT_DB_CONN_MAX_LIFETIME", 5*time.Minute),
+
+		DBProvisionHost: getEnv("DB_PROVISION_HOST", getEnv("DB_HOST", "127.0.0.1")),
+		DBProvisionPort: getEnv("DB_PROVISION_PORT", getEnv("DB_PORT", "3306")),
+		DBProvisionUser: getEnv("DB_PROVISION_USER", ""),
+		DBProvisionPassword: getEnv("DB_PROVISION_PASSWORD", ""),
 
 		JWTSecret:       getEnv("JWT_SECRET", ""),
 		AccessTokenTTL:  getDuration("ACCESS_TOKEN_TTL", 15*time.Minute),
