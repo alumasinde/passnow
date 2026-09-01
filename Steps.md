@@ -1,89 +1,53 @@
-## Backend Setup
+# PassNow Quick Setup
 
-Configure your `.env` with your local MySQL and application settings. Make sure MySQL is running.
+## 1. Create `.env`
 
-### Run migrations
+Copy `.env.example` to `.env` and update your MySQL credentials, JWT secret, and `TENANT_HOST`.
 
-go run ./cmd/migrate -action up
+## 2. Backend
 
-### Run tests
+From the repository root:
 
-go test ./...
+    go run ./cmd/migrate -action up
+    go test ./...
+    go run ./cmd/api
 
-### Start the backend
+Health check:
 
-go run ./cmd/api
+    http://localhost:8080/healthz
 
-Backend health check:
+## 3. Frontend
 
-http://localhost:8080/healthz
+Open another terminal from the repository root:
 
----
+    php -S 127.0.0.1:8000 -t frontend/public
 
-## Frontend
+Open:
 
-Start Apache and MySQL from XAMPP.
+    http://localhost:8000
 
-Open the frontend using the configured local URL.
+The frontend and backend both read the same root `.env`.
 
-The frontend communicates with the Go backend API.
+## Daily workflow
 
----
+    git pull origin main
+    go run ./cmd/migrate -action up
+    go test ./...
+    go run ./cmd/api
 
-## Testing from Phone
+In another terminal:
 
-Ensure your laptop and phone are connected to the same Wi-Fi.
-
-Find your laptop IP:
-
-ipconfig
-
-Example:
-
-text
-192.168.100.11
+    php -S 127.0.0.1:8000 -t frontend/public
 
 
-Test the backend:
+## Platform Admin (Phase 1)
 
-text
-http://192.168.100.11:8080/healthz
+After creating or bootstrapping a user, grant that existing user PassNow platform access:
 
+    go run ./cmd/platform-admin -email admin@example.com -role owner
 
-For tenant API routes:
+Platform login endpoint:
 
-text
-http://192.168.100.11:8080/TENANT-SLUG/api/v1/...
+    POST /api/v1/platform/auth/login
 
-
-Make sure the backend listens on:
-
-text
-:8080
-
-
-and Windows Firewall allows port `8080`.
-
----
-
-## Daily Development Workflow
-
-
-git pull origin main
-
-go run ./cmd/migrate -action up
-
-go test ./...
-
-go run ./cmd/api
-
-
-Before pushing changes:
-
-
-go test ./...
-git status
-git add .
-git commit -m "describe your change"
-git push origin main
-
+The returned platform token is only valid for platform routes and cannot be used against tenant APIs.
