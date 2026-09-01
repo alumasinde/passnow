@@ -67,6 +67,25 @@
             </div>
         </div>
 
+        <div class="form-section">
+            <h2>Tenant database</h2>
+            <p class="muted">Choose whether PassNow should create a new database or connect to one that already exists.</p>
+            <div class="form-grid">
+                <div class="field field-span-2">
+                    <label for="database_mode">Database setup</label>
+                    <select id="database_mode" name="database_mode">
+                        <option value="existing" <?= $form['database_mode']==='existing'?'selected':'' ?>>Use existing database</option>
+                        <option value="create" <?= $form['database_mode']==='create'?'selected':'' ?>>Create new database</option>
+                    </select>
+                </div>
+                <div class="field"><label for="database_host">Host</label><input id="database_host" name="database_host" value="<?= e($form['database_host']) ?>" required></div>
+                <div class="field"><label for="database_port">Port</label><input id="database_port" name="database_port" value="<?= e($form['database_port']) ?>" required></div>
+                <div class="field"><label for="database_name">Database name</label><input id="database_name" name="database_name" value="<?= e($form['database_name']) ?>" required maxlength="64" pattern="[A-Za-z0-9_]+"></div>
+                <div class="field"><label for="database_username">Database user</label><input id="database_username" name="database_username" value="<?= e($form['database_username']) ?>" required></div>
+                <div class="field field-span-2"><label for="database_password">Database password</label><input id="database_password" name="database_password" type="password" required autocomplete="new-password"><small>The password is encrypted before being stored in the platform database.</small></div>
+            </div>
+        </div>
+
         <div class="form-actions">
             <a class="btn btn-secondary" href="<?= e(url('platform/tenants')) ?>">Cancel</a>
             <button class="btn btn-primary" type="submit">Create organization</button>
