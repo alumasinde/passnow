@@ -38,3 +38,14 @@ function oldOr(string $key, mixed $fallback = ''): mixed
 {
     return array_key_exists($key, $_POST) ? $_POST[$key] : $fallback;
 }
+
+function FormatDate(mixed $value, string $format = 'Y-m-d: H:i'): string
+{
+    if ($value === null || $value === '') return '—';
+    try {
+        if ($value instanceof DateTimeInterface) return $value->format($format);
+        return (new DateTimeImmutable((string)$value))->format($format);
+    } catch (Throwable) {
+        return (string)$value;
+    }
+}
