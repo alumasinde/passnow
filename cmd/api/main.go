@@ -130,6 +130,50 @@ func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *rou
 	return tenantRepo, api, platform.NewHandler(bootstrapSvc, cfg.PlatformBootstrapToken), platformAdminHandler, platformAdminRepo
 }
 
+
+func buildTenantAPI(db *sql.DB, cfg *config.Config) *routes.API {
+	jwtSecret := []byte(cfg.JWTSecret)
+	userRepo := users.NewRepository(db)
+	roleRepo := roles.NewRepository(db)
+	refreshRepo := auth.NewRefreshTokenRepository(db)
+	settingsRepo := settings.NewRepository(db)
+	auditRepo := audit.NewRepository(db)
+	idTypeRepo := visitors.NewIDTypeRepository(db)
+	companyRepo := visitors.NewCompanyRepository(db)
+	visitorRepo := visitors.NewRepository(db)
+	visitTypeRepo := visits.NewVisitTypeRepository(db)
+	deptRepo := departments.NewRepository(db)
+	visitRepo := visits.NewRepository(db)
+	workflowRepo := approvals.NewRepository(db)
+	gpTypeRepo := gatepasses.NewTypeRepository(db)
+	gpItemRepo := gatepasses.NewItemRepository(db)
+	gpRepo := gatepasses.NewRepository(db, gpItemRepo)
+	employeeRepo := employees.NewRepository(db)
+
+	authSvc := auth.NewService(userRepo, roleRepo, refreshRepo, jwtSecret, cfg.BcryptCost, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
+	visitorSvc := visitors.NewService(visitorRepo, idTypeRepo, companyRepo, settingsRepo, auditRepo)
+	visitSvc := visits.NewService(visitRepo, visitorRepo, visitTypeRepo, deptRepo, auditRepo)
+	gpSvc := gatepasses.NewService(gpRepo, gpTypeRepo, deptRepo, visitorRepo, visitRepo, workflowRepo, roleRepo, settingsRepo, auditRepo, userRepo)
+	inviteSvc := invite.NewService(userRepo, roleRepo, cfg.BcryptCost)
+	employeeSvc := employees.NewService(employeeRepo, userRepo, roleRepo)
+
+	api := routes.NewAPI(jwtSecret, roleRepo)
+	api.AuthHandler = auth.NewHandler(authSvc)
+	api.VisitorHandler = visitors.NewHandler(visitorSvc, idTypeRepo, companyRepo)
+	api.VisitorSettingsHandler = settings.NewVisitorSettingsHandler(settingsRepo)
+	api.GatepassSettingsHandler = settings.NewGatepassSettingsHandler(settingsRepo)
+	api.VisitTypeHandler = visits.NewVisitTypeHandler(visitTypeRepo)
+	api.DepartmentHandler = departments.NewHandler(deptRepo)
+	api.VisitHandler = visits.NewHandler(visitSvc)
+	api.WorkflowHandler = approvals.NewHandler(workflowRepo)
+	api.GatepassHandler = gatepasses.NewHandler(gpSvc, gpTypeRepo)
+	api.EmployeeHandler = employees.NewHandler(employeeSvc)
+	api.RoleHandler = roles.NewHandler(roleRepo)
+	api.InviteHandler = invite.NewHandler(inviteSvc)
+	api.DashboardHandler = dashboard.NewHandler(dashboard.NewRepository(db))
+	return api
+}
+
 func newServer(cfg *config.Config, db *sql.DB, tenantRepo *tenants.Repository, bootstrapHandler *platform.Handler, platformAdminHandler *platform.AdminHandler, platformAdminRepo *platform.AdminRepository, jwtSecret []byte) (*http.Server, context.CancelFunc) {
 	rootMux := http.NewServeMux()
 
