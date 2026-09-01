@@ -23,6 +23,25 @@ final class Router
     public function dispatch(string $path): void
     {
         $path = rtrim($path, '/') ?: '/';
+
+        // Local tenant development uses /{tenant-slug}/{route}. Strip the
+        // tenant prefix only when the remaining path is a real application
+        // route, so normal platform routes are not affected.
+        if (!isset($this->routes[$path])) {
+            $parts = array_values(array_filter(explode('/', trim($path, '/')), static fn ($part) => $part !== ''));
+            if (count($parts) >= 2) {
+                $tenantSlug = strtolower((string) array_shift($parts));
+                $tenantPath = '/' . implode('/', $parts);
+                $reserved = ['platform', 'assets', 'api'];
+                if (
+                    $tenantSlug !== '' &&
+                    !in_array($tenantSlug, $reserved, true) &&
+                    isset($this->routes[$tenantPath])
+                ) {
+                    $path = $tenantPath;
+                }
+            }
+        }
         $canonical = [
             '/login.php' => '/login', '/logout.php' => '/logout', '/dashboard.php' => '/dashboard',
             '/visitors.php' => '/visitors', '/visits.php' => '/visits', '/gatepasses.php' => '/gatepasses',
