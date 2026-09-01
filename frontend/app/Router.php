@@ -20,7 +20,7 @@ final class Router
         '/approvals'=>'Approvals/Index.php','/approvals.php'=>'Approvals/Index.php','/approval.php'=>'Approvals/Show.php','/approval-decision.php'=>'Approvals/Decision.php','/approval-workflows.php'=>'Approvals/Workflows.php','/approval-workflow-edit.php'=>'Approvals/WorkflowEdit.php',
         '/admin/users'=>'Admin/Users.php','/users.php'=>'Admin/Users.php','/user.php'=>'Admin/User.php','/admin/roles'=>'Admin/Roles.php','/roles.php'=>'Admin/Roles.php','/role-permissions.php'=>'Admin/RolePermissions.php','/id-types.php'=>'Admin/IdTypes.php','/id-types-edit.php'=>'Admin/IdTypeEdit.php','/invitations.php'=>'Admin/Invitations.php','/invite-user.php'=>'Admin/InviteUser.php',
         '/settings'=>'Settings/Index.php','/settings.php'=>'Settings/Index.php',
-        '/platform/login'=>'Platform/Login.php','/platform-login.php'=>'Platform/Login.php','/platform/tenants'=>'Platform/Tenants.php','/platform.php'=>'Platform/Tenants.php',
+        '/platform/login'=>'Platform/Login.php','/platform-login.php'=>'Platform/Login.php','/platform/tenants'=>'Platform/Tenants.php','/platform.php'=>'Platform/Tenants.php','/platform/tenants/create'=>'Platform/CreateTenant.php',
     ];
 
     public function dispatch(string $path): void
