@@ -18,7 +18,7 @@ import (
 
 func main() {
 	action := flag.String("action", "up", "up or status")
-	scope := flag.String("scope", "legacy", "legacy, platform, or tenant")
+	scope := flag.String("scope", "platform", "platform or tenant")
 	dir := flag.String("dir", "", "migration directory override")
 	host := flag.String("host", "", "tenant database host")
 	port := flag.String("port", "3306", "tenant database port")
@@ -35,10 +35,6 @@ func main() {
 	var lockName string
 
 	switch *scope {
-	case "legacy":
-		db, err = database.Connect(cfg)
-		migrationDir = "migrations"
-		lockName = migrations.LockPrefix + "_legacy"
 	case "platform":
 		db, err = database.Connect(cfg)
 		migrationDir = "migrations/platform"
@@ -51,7 +47,7 @@ func main() {
 		if *dir == "" { migrationDir = "migrations/tenant" } else { migrationDir = *dir }
 		lockName = migrations.LockPrefix + "_tenant_" + *name
 	default:
-		log.Fatalf("unknown scope %q (use legacy, platform, or tenant)", *scope)
+		log.Fatalf("unknown scope %q (use platform or tenant)", *scope)
 	}
 	if err != nil { log.Fatalf("database: %v", err) }
 	defer db.Close()
