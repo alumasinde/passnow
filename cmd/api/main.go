@@ -24,6 +24,7 @@ import (
 	"gatepass/internal/routes"
 	"gatepass/internal/settings"
 	"gatepass/internal/tenants"
+	"gatepass/internal/tenantdb"
 	"gatepass/internal/users"
 	"gatepass/internal/visitors"
 	"gatepass/internal/visits"
@@ -88,6 +89,18 @@ func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *rou
 	inviteSvc := invite.NewService(userRepo, roleRepo, cfg.BcryptCost)
 	employeeSvc := employees.NewService(employeeRepo, userRepo, roleRepo)
 	bootstrapSvc := platform.NewService(tenantRepo, userRepo, roleRepo, cfg.BcryptCost)
+	if cfg.TenantDBEncryptionKey != "" {
+		if cipher, err := tenantdb.NewCipher(cfg.TenantDBEncryptionKey); err == nil {
+			bootstrapSvc.WithTenantDatabase(
+				tenantdb.NewRepository(db),
+				cipher,
+				tenantdb.NewInstaller("migrations/tenant"),
+				tenantdb.NewProvisioner(cfg.DBProvisionHost, cfg.DBProvisionPort, cfg.DBProvisionUser, cfg.DBProvisionPassword),
+			)
+		} else {
+			log.Fatalf("tenant database encryption: %v", err)
+		}
+	}
 	platformAdminRepo := platform.NewAdminRepository(db)
 	platformAdminSvc := platform.NewAdminService(platformAdminRepo, userRepo, jwtSecret, cfg.AccessTokenTTL)
 	platformAdminHandler := platform.NewAdminHandler(platformAdminSvc)
