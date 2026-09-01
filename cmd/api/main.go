@@ -116,7 +116,7 @@ func newServer(cfg *config.Config, db *sql.DB, tenantRepo *tenants.Repository, a
 	rootMux := http.NewServeMux()
 
 	routes.RegisterAPI(tenantMux, api)
-	routes.RegisterWeb(rootMux, db, bootstrapHandler, platformAdminHandler, platformAdminRepo, jwtSecret)
+	routes.RegisterWeb(rootMux, db, bootstrapHandler, platformAdminHandler, platformAdminRepo, tenantRepo, jwtSecret)
 	handler := routes.BuildHandler(cfg, tenantRepo, rootMux, tenantMux)
 
 	workerCtx, workerCancel := context.WithCancel(context.Background())
