@@ -36,6 +36,8 @@ TENANT_DB_CONN_MAX_LIFETIME=5m
 
 ```powershell
 go run ./cmd/migrate -action up
+
+go run ./cmd/migrate -scope platform -action up
 ```
 
 Migrations that have already been applied will be skipped.
