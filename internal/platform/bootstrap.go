@@ -21,6 +21,7 @@ import (
 	"gatepass/internal/httpx"
 	"gatepass/internal/roles"
 	"gatepass/internal/tenants"
+	"gatepass/internal/tenantdb"
 	"gatepass/internal/users"
 )
 
@@ -30,11 +31,20 @@ type Service struct {
 	tenantRepo *tenants.Repository
 	userRepo   *users.Repository
 	roleRepo   *roles.Repository
+	dbRepo     *tenantdb.Repository
+	cipher     *tenantdb.Cipher
+	installer  *tenantdb.Installer
+	provisioner *tenantdb.Provisioner
 	bcryptCost int
 }
 
 func NewService(tenantRepo *tenants.Repository, userRepo *users.Repository, roleRepo *roles.Repository, bcryptCost int) *Service {
 	return &Service{tenantRepo: tenantRepo, userRepo: userRepo, roleRepo: roleRepo, bcryptCost: bcryptCost}
+}
+
+func (s *Service) WithTenantDatabase(repo *tenantdb.Repository, cipher *tenantdb.Cipher, installer *tenantdb.Installer, provisioner *tenantdb.Provisioner) *Service {
+	s.dbRepo, s.cipher, s.installer, s.provisioner = repo, cipher, installer, provisioner
+	return s
 }
 
 type BootstrapInput struct {
@@ -44,6 +54,12 @@ type BootstrapInput struct {
 	AdminPassword  string `json:"admin_password"`
 	AdminFirstName string `json:"admin_first_name"`
 	AdminLastName  string `json:"admin_last_name"`
+	DatabaseMode string `json:"database_mode"`
+	DatabaseHost string `json:"database_host"`
+	DatabasePort string `json:"database_port"`
+	DatabaseName string `json:"database_name"`
+	DatabaseUsername string `json:"database_username"`
+	DatabasePassword string `json:"database_password"`
 }
 
 type BootstrapResult struct {
@@ -51,6 +67,7 @@ type BootstrapResult struct {
 	Slug     string `json:"slug"`
 	AdminID  int64  `json:"admin_user_id"`
 	RoleID   int64  `json:"role_id"`
+	DatabaseStatus string `json:"database_status"`
 }
 
 // Bootstrap atomically creates: the tenant, a "Tenant Admin" system role
@@ -106,8 +123,36 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapR
 		return nil, err
 	}
 
-	return &BootstrapResult{TenantID: tenantID, Slug: in.TenantSlug, AdminID: userID, RoleID: roleID}, nil
+	if s.dbRepo != nil && s.cipher != nil && s.installer != nil {
+		if err := s.configureTenantDatabase(ctx, tenantID, in.TenantName, in.TenantSlug, token, in); err != nil {
+			return nil, err
+		}
+	}
+
+	return &BootstrapResult{TenantID: tenantID, Slug: in.TenantSlug, AdminID: userID, RoleID: roleID, DatabaseStatus: "ready"}, nil
 }
+
+func (s *Service) configureTenantDatabase(ctx context.Context, tenantID int64, name, slug, token string, in BootstrapInput) error {
+	mode := strings.ToLower(strings.TrimSpace(in.DatabaseMode))
+	if mode == "" { mode = "existing" }
+	creds := tenantdb.Credentials{Host: strings.TrimSpace(in.DatabaseHost), Port: strings.TrimSpace(in.DatabasePort), Database: strings.TrimSpace(in.DatabaseName), Username: strings.TrimSpace(in.DatabaseUsername), Password: in.DatabasePassword}
+	if creds.Port == "" { creds.Port = "3306" }
+	if mode == "create" {
+		if s.provisioner == nil || !s.provisioner.Enabled() { return errors.New("tenant database provisioning is not configured") }
+		if creds.Host == "" { creds.Host = s.provisionerHost() }
+		if err := s.provisioner.CreateDatabase(ctx, creds.Database); err != nil { return err }
+	}
+	if err := tenantdb.Verify(ctx, creds); err != nil { return err }
+	secret, err := s.cipher.Encrypt(creds.Password); if err != nil { return err }
+	conn := &tenantdb.Connection{TenantID: tenantID, Host: creds.Host, Port: creds.Port, DatabaseName: creds.Database, Username: creds.Username, EncryptedPassword: secret, Status: tenantdb.StatusVerified}
+	if err := s.dbRepo.Upsert(ctx, conn); err != nil { return err }
+	if err := s.installer.Install(ctx, creds, tenantID, name, slug, token); err != nil {
+		msg := err.Error(); _ = s.dbRepo.MarkStatus(ctx, tenantID, tenantdb.StatusError, false, &msg); return err
+	}
+	return s.dbRepo.MarkStatus(ctx, tenantID, tenantdb.StatusReady, true, nil)
+}
+
+func (s *Service) provisionerHost() string { return "" }
 
 func randomHex() (string, error) {
 	b := make([]byte, 16)
