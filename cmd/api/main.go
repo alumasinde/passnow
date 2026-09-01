@@ -35,7 +35,7 @@ func main() {
 	defer db.Close()
 
 	tenantRepo, api, bootstrapHandler, platformAdminHandler, platformAdminRepo := buildApplication(db, cfg)
-	srv, workerCancel := newServer(cfg, db, tenantRepo, api, bootstrapHandler, platformAdminHandler, platformAdminRepo)
+	srv, workerCancel := newServer(cfg, db, tenantRepo, api, bootstrapHandler, platformAdminHandler, platformAdminRepo, []byte(cfg.JWTSecret))
 	defer workerCancel()
 
 	go serve(srv, cfg)
@@ -111,7 +111,7 @@ func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *rou
 	return tenantRepo, api, platform.NewHandler(bootstrapSvc, cfg.PlatformBootstrapToken), platformAdminHandler, platformAdminRepo
 }
 
-func newServer(cfg *config.Config, db *sql.DB, tenantRepo *tenants.Repository, api *routes.API, bootstrapHandler *platform.Handler, platformAdminHandler *platform.AdminHandler, platformAdminRepo *platform.AdminRepository) (*http.Server, context.CancelFunc) {
+func newServer(cfg *config.Config, db *sql.DB, tenantRepo *tenants.Repository, api *routes.API, bootstrapHandler *platform.Handler, platformAdminHandler *platform.AdminHandler, platformAdminRepo *platform.AdminRepository, jwtSecret []byte) (*http.Server, context.CancelFunc) {
 	tenantMux := http.NewServeMux()
 	rootMux := http.NewServeMux()
 
