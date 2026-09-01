@@ -34,8 +34,8 @@ func main() {
 	db := mustConnectDatabase(cfg)
 	defer db.Close()
 
-	tenantRepo, api, bootstrapHandler := buildApplication(db, cfg)
-	srv, workerCancel := newServer(cfg, db, tenantRepo, api, bootstrapHandler)
+	tenantRepo, api, bootstrapHandler, platformAdminHandler, platformAdminRepo := buildApplication(db, cfg)
+	srv, workerCancel := newServer(cfg, db, tenantRepo, api, bootstrapHandler, platformAdminHandler, platformAdminRepo)
 	defer workerCancel()
 
 	go serve(srv, cfg)
@@ -58,7 +58,7 @@ func mustConnectDatabase(cfg *config.Config) *sql.DB {
 	return db
 }
 
-func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *routes.API, *platform.Handler) {
+func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *routes.API, *platform.Handler, *platform.AdminHandler, *platform.AdminRepository) {
 	jwtSecret := []byte(cfg.JWTSecret)
 
 	// Repositories.
@@ -88,6 +88,9 @@ func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *rou
 	inviteSvc := invite.NewService(userRepo, roleRepo, cfg.BcryptCost)
 	employeeSvc := employees.NewService(employeeRepo, userRepo, roleRepo)
 	bootstrapSvc := platform.NewService(tenantRepo, userRepo, roleRepo, cfg.BcryptCost)
+	platformAdminRepo := platform.NewAdminRepository(db)
+	platformAdminSvc := platform.NewAdminService(platformAdminRepo, userRepo, jwtSecret, cfg.AccessTokenTTL)
+	platformAdminHandler := platform.NewAdminHandler(platformAdminSvc)
 
 	// Handlers and API route dependencies.
 	api := routes.NewAPI(jwtSecret, roleRepo)
@@ -105,15 +108,15 @@ func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *rou
 	api.InviteHandler = invite.NewHandler(inviteSvc)
 	api.DashboardHandler = dashboard.NewHandler(dashboard.NewRepository(db))
 
-	return tenantRepo, api, platform.NewHandler(bootstrapSvc, cfg.PlatformBootstrapToken)
+	return tenantRepo, api, platform.NewHandler(bootstrapSvc, cfg.PlatformBootstrapToken), platformAdminHandler, platformAdminRepo
 }
 
-func newServer(cfg *config.Config, db *sql.DB, tenantRepo *tenants.Repository, api *routes.API, bootstrapHandler *platform.Handler) (*http.Server, context.CancelFunc) {
+func newServer(cfg *config.Config, db *sql.DB, tenantRepo *tenants.Repository, api *routes.API, bootstrapHandler *platform.Handler, platformAdminHandler *platform.AdminHandler, platformAdminRepo *platform.AdminRepository) (*http.Server, context.CancelFunc) {
 	tenantMux := http.NewServeMux()
 	rootMux := http.NewServeMux()
 
 	routes.RegisterAPI(tenantMux, api)
-	routes.RegisterWeb(rootMux, db, bootstrapHandler)
+	routes.RegisterWeb(rootMux, db, bootstrapHandler, platformAdminHandler, platformAdminRepo, jwtSecret)
 	handler := routes.BuildHandler(cfg, tenantRepo, rootMux, tenantMux)
 
 	workerCtx, workerCancel := context.WithCancel(context.Background())
