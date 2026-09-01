@@ -3,24 +3,6 @@
 -- with a composite FK/index; cross-tenant queries are prevented at the
 -- repository layer, but uniqueness constraints are enforced here too.
 
-CREATE TABLE tenants (
-    id                      BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    name                    VARCHAR(160) NOT NULL,
-    slug                    VARCHAR(80)  NOT NULL,
-    status                  ENUM('active','suspended','deleted') NOT NULL DEFAULT 'active',
-
-    custom_domain           VARCHAR(255) NULL,
-    custom_domain_verified  TINYINT(1)   NOT NULL DEFAULT 0,
-    custom_domain_token     VARCHAR(64)  NOT NULL,
-
-    created_at              DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at              DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    deleted_at              DATETIME NULL,
-
-    UNIQUE KEY uq_tenants_slug (slug),
-    UNIQUE KEY uq_tenants_custom_domain (custom_domain)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 CREATE TABLE users (
     id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     -- A user account is global (one login), but access to a tenant is
@@ -42,14 +24,12 @@ CREATE TABLE users (
 
 CREATE TABLE roles (
     id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tenant_id       BIGINT UNSIGNED NOT NULL,
     name            VARCHAR(100) NOT NULL,
     is_system       TINYINT(1) NOT NULL DEFAULT 0, -- seeded roles (Tenant Admin, etc.)
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-    UNIQUE KEY uq_roles_tenant_name (tenant_id, name),
-    CONSTRAINT fk_roles_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+    UNIQUE KEY uq_roles_name (name),
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE permissions (
@@ -75,15 +55,13 @@ CREATE TABLE role_permissions (
 -- minimum revalidate on every privileged action).
 CREATE TABLE tenant_memberships (
     id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tenant_id   BIGINT UNSIGNED NOT NULL,
     user_id     BIGINT UNSIGNED NOT NULL,
     role_id     BIGINT UNSIGNED NOT NULL,
     status      ENUM('active','invited','disabled') NOT NULL DEFAULT 'invited',
     created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-    UNIQUE KEY uq_membership_tenant_user (tenant_id, user_id),
-    CONSTRAINT fk_tm_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+    UNIQUE KEY uq_membership_user (user_id),
     CONSTRAINT fk_tm_user FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT fk_tm_role FOREIGN KEY (role_id) REFERENCES roles(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -103,7 +81,6 @@ CREATE TABLE refresh_tokens (
 
 CREATE TABLE audit_logs (
     id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tenant_id    BIGINT UNSIGNED NULL, -- NULL for platform-level events (e.g. tenant creation)
     actor_user_id BIGINT UNSIGNED NULL,
     action       VARCHAR(64) NOT NULL,
     entity_type  VARCHAR(64) NOT NULL,
@@ -114,7 +91,7 @@ CREATE TABLE audit_logs (
     metadata     JSON NULL,
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    KEY idx_audit_tenant_time (tenant_id, created_at),
+    KEY idx_audit_time (created_at),
     KEY idx_audit_entity (entity_type, entity_id)
     -- No FK to tenants/users on purpose: audit rows must survive even if
     -- referential cleanup happens elsewhere; never allow UPDATE/DELETE on
