@@ -6,9 +6,27 @@ final class ApiClient
     public function __construct(private readonly string $baseUrl, private readonly int $timeout = 30) {}
     public function request(string $method, string $path, ?array $body = null, ?string $accessToken = null): array
     {
-        $url = $this->baseUrl . '/' . ltrim($path, '/');
-        $headers = ['Accept: application/json', 'Content-Type: application/json'];
+        $requestPath = '/' . ltrim($path, '/');
         $tenantHost = (string)AppContext::config('app.tenant_host', '');
+        $baseDomain = strtolower((string)(getenv('BASE_DOMAIN') ?: ''));
+        $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+        $segments = array_values(array_filter(explode('/', trim($currentPath, '/'))));
+        $reserved = ['login', 'logout', 'dashboard', 'platform', 'assets', 'api'];
+        $localTenantSlug = '';
+        if ($segments !== [] && !in_array(strtolower($segments[0]), $reserved, true) && !str_ends_with(strtolower($segments[0]), '.php')) {
+            $localTenantSlug = strtolower($segments[0]);
+        }
+
+        // Local development can use /{tenant}/login while production can use
+        // a tenant subdomain/custom domain. Prefix API requests only for the
+        // path-based local mode.
+        if ($localTenantSlug !== '' && ($baseDomain === '' || stripos($tenantHost, $baseDomain) === false)) {
+            $requestPath = '/' . $localTenantSlug . $requestPath;
+            $tenantHost = '';
+        }
+
+        $url = $this->baseUrl . $requestPath;
+        $headers = ['Accept: application/json', 'Content-Type: application/json'];
         if ($tenantHost !== '') $headers[] = 'Host: ' . $tenantHost;
         if ($accessToken) $headers[] = 'Authorization: Bearer ' . $accessToken;
         $ch = curl_init($url);
@@ -29,8 +47,13 @@ final class ApiClient
         $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         curl_close($ch);
         $decoded = json_decode($raw, true);
-        if (!is_array($decoded)) throw new ApiException('The API returned an invalid response.', $status);
-        if ($status < 200 || $status >= 300) throw new ApiException((string)($decoded['message'] ?? 'The request could not be completed.'), $status, $decoded);
+        if (!is_array($decoded)) {
+            throw new ApiException('The API returned an invalid response (HTTP ' . $status . ').', $status);
+        }
+        if ($status < 200 || $status >= 300) {
+            $message = (string)($decoded['message'] ?? $decoded['error'] ?? 'The request could not be completed.');
+            throw new ApiException($message, $status, $decoded + ['request_url' => $url]);
+        }
         return $decoded;
     }
 }
