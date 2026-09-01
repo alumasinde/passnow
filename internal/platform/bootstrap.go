@@ -123,11 +123,8 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapR
 		return nil, err
 	}
 
-	if s.dbRepo != nil && s.cipher != nil && s.installer != nil {
-		if err := s.configureTenantDatabase(ctx, tenantID, in.TenantName, in.TenantSlug, token, in); err != nil {
-			return nil, err
-		}
-	}
+	if s.dbRepo == nil || s.cipher == nil || s.installer == nil { return nil, errors.New("tenant database onboarding is not configured") }
+	if err := s.configureTenantDatabase(ctx, tenantID, in.TenantName, in.TenantSlug, token, in); err != nil { return nil, err }
 
 	return &BootstrapResult{TenantID: tenantID, Slug: in.TenantSlug, AdminID: userID, RoleID: roleID, DatabaseStatus: "ready"}, nil
 }
