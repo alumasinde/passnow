@@ -61,8 +61,9 @@ func (r *Repository) ReconcilePlatformDomains(ctx context.Context, baseDomain st
   // the canonical slug-based system subdomain. This fixes older rows that
   // were incorrectly saved as custom/pending domains.
   var oldID int64
+  var oldPrimary bool
   err = tx.QueryRowContext(ctx, `
-   SELECT id FROM tenant_domains
+   SELECT id, is_primary FROM tenant_domains
    WHERE tenant_id=? AND domain LIKE CONCAT('%.', ?) AND domain_type='custom'
    ORDER BY is_primary DESC, id ASC LIMIT 1`, item.id, baseDomain).Scan(&oldID)
   if err != nil && err != sql.ErrNoRows {
@@ -86,6 +87,21 @@ func (r *Repository) ReconcilePlatformDomains(ctx context.Context, baseDomain st
     return err
    }
    exists = 1
+  } else if oldID != 0 && exists > 0 {
+   if _, err = tx.ExecContext(ctx, `DELETE FROM tenant_domains WHERE id=? AND tenant_id=?`, oldID, item.id); err != nil {
+    _ = tx.Rollback()
+    return err
+   }
+   if oldPrimary {
+    if _, err = tx.ExecContext(ctx, `UPDATE tenant_domains SET is_primary=0 WHERE tenant_id=?`, item.id); err != nil {
+     _ = tx.Rollback()
+     return err
+    }
+    if _, err = tx.ExecContext(ctx, `UPDATE tenant_domains SET is_primary=1, is_verified=1, updated_at=NOW() WHERE tenant_id=? AND domain=?`, item.id, generated); err != nil {
+     _ = tx.Rollback()
+     return err
+    }
+   }
   }
   if err != nil {
    _ = tx.Rollback()
