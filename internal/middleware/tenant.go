@@ -52,7 +52,15 @@ func ResolveTenant(repo *tenants.Repository, baseDomain string) func(http.Handle
 				}
 			}
 
-			// Path-prefix fallback if no host-based match was found/attempted.
+			// Explicit tenant slug is useful for local development where the
+			// browser is served from one IP/host for every tenant.
+			if t == nil {
+				if slug := strings.ToLower(strings.TrimSpace(r.Header.Get("X-Tenant-Slug"))); slug != "" {
+					t, err = repo.BySlug(ctx, slug)
+				}
+			}
+
+			// Path-prefix fallback if no host/header-based match was found.
 			if t == nil {
 				slug, rest, ok := firstPathSegment(r.URL.Path)
 				if ok {
