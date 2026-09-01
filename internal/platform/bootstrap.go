@@ -152,7 +152,7 @@ func (s *Service) configureTenantDatabase(ctx context.Context, tenantID int64, n
 	return s.dbRepo.MarkStatus(ctx, tenantID, tenantdb.StatusReady, true, nil)
 }
 
-func (s *Service) provisionerHost() string { return "" }
+func (s *Service) provisionerHost() string { if s.provisioner == nil { return "" }; return s.provisioner.Host() }
 
 func randomHex() (string, error) {
 	b := make([]byte, 16)
