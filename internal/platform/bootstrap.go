@@ -14,6 +14,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"database/sql"
@@ -108,6 +109,9 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapR
 		}
 	}
 
+	// Database provisioning is deliberately completed before any tenant-owned
+	// records are created: create/verify database -> run migrations -> seed the
+	// local tenant row -> only then seed roles and the first administrator.
 	if err := s.configureTenantDatabase(ctx, tenantID, in.TenantName, in.TenantSlug, token, in); err != nil {
 		return nil, err
 	}
@@ -125,9 +129,11 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapR
 	tenantDB, err := sql.Open("mysql", tenantMySQLDSN(creds))
 	if err != nil { return nil, err }
 	defer tenantDB.Close()
-	if err := tenantDB.PingContext(ctx); err != nil { return nil, err }
+	if err := tenantDB.PingContext(ctx); err != nil { return nil, fmt.Errorf("verify provisioned tenant database: %w", err) }
 
 	// Everything below is tenant-owned and therefore runs against tenantDB.
+	// The installer has already applied the tenant migration set, including the
+	// permissions catalog required for the initial Tenant Admin role.
 	tenantUserRepo := users.NewRepository(tenantDB)
 	tenantRoleRepo := roles.NewRepository(tenantDB)
 	hash, err := auth.HashPassword(in.AdminPassword, s.bcryptCost)
@@ -138,7 +144,9 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapR
 
 	roleID, err := tenantRoleRepo.CreateRoleTx(ctx, tenantTx, tenantID, "Tenant Admin", true)
 	if err != nil { return nil, err }
-	if err := tenantRoleRepo.GrantAllPermissions(ctx, tenantTx, roleID); err != nil { return nil, err }
+	if err := tenantRoleRepo.GrantAllPermissions(ctx, tenantTx, roleID); err != nil {
+		return nil, fmt.Errorf("seed tenant admin permissions: %w", err)
+	}
 	userID, err := tenantUserRepo.CreateTx(ctx, tenantTx, &users.User{
 		Email: in.AdminEmail, PasswordHash: hash, FirstName: in.AdminFirstName, LastName: in.AdminLastName,
 	})
@@ -146,7 +154,7 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapR
 	if _, err := tenantRoleRepo.CreateMembershipTx(ctx, tenantTx, tenantID, userID, roleID, roles.MembershipActive); err != nil {
 		return nil, err
 	}
-	if err := tenantTx.Commit(); err != nil { return nil, err }
+	if err := tenantTx.Commit(); err != nil { return nil, fmt.Errorf("create tenant administrator: %w", err) }
 
 	databaseHost := creds.Host
 	primaryDomain := ""
