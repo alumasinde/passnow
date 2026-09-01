@@ -51,7 +51,26 @@ final class ApiClient
             throw new ApiException('The API returned an invalid response (HTTP ' . $status . ').', $status);
         }
         if ($status < 200 || $status >= 300) {
-            $message = (string)($decoded['message'] ?? $decoded['error'] ?? 'The request could not be completed.');
+            $messageValue = $decoded['message'] ?? $decoded['error'] ?? 'The request could not be completed.';
+
+            if (is_array($messageValue)) {
+                $parts = [];
+                foreach ($messageValue as $key => $value) {
+                    if (is_array($value)) {
+                        $value = implode(', ', array_map(
+                            static fn ($item): string => is_scalar($item) || $item === null ? (string) $item : json_encode($item),
+                            $value
+                        ));
+                    }
+                    $parts[] = is_string($key) ? $key . ': ' . (string) $value : (string) $value;
+                }
+                $message = $parts !== [] ? implode(' | ', $parts) : 'The request could not be completed.';
+            } elseif (is_scalar($messageValue) || $messageValue === null) {
+                $message = (string) $messageValue;
+            } else {
+                $message = 'The request could not be completed.';
+            }
+
             throw new ApiException($message, $status, $decoded + ['request_url' => $url]);
         }
         return $decoded;
