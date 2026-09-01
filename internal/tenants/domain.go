@@ -4,6 +4,7 @@ import (
  "context"
  "strings"
  "fmt"
+ "database/sql"
  "time"
 )
 
@@ -29,4 +30,77 @@ func (r *Repository) SetPrimaryDomain(ctx context.Context, tenantID, domainID in
 func (r *Repository) ByDomain(ctx context.Context, host string)(*Tenant,error){
  host=normalizeDomain(host);q:=fmt.Sprintf("SELECT %s FROM tenants t INNER JOIN tenant_domains d ON d.tenant_id=t.id WHERE d.domain=? AND d.is_verified=1 AND t.status='active' AND t.deleted_at IS NULL LIMIT 1",selectCols)
  return r.scan(r.db.QueryRowContext(ctx,q,host))
+}
+
+
+// ReconcilePlatformDomains ensures every existing tenant has exactly one
+// system-owned subdomain derived from its current slug. It also repairs older
+// installations that stored *.BASE_DOMAIN entries as custom domains.
+func (r *Repository) ReconcilePlatformDomains(ctx context.Context, baseDomain string) error {
+ baseDomain = normalizeDomain(baseDomain)
+ if baseDomain == "" || baseDomain == "localhost" { return nil }
+
+ rows, err := r.db.QueryContext(ctx, `SELECT id, slug FROM tenants WHERE deleted_at IS NULL`)
+ if err != nil { return err }
+ defer rows.Close()
+ type tenantRow struct{ id int64; slug string }
+ var items []tenantRow
+ for rows.Next() {
+  var item tenantRow
+  if err := rows.Scan(&item.id, &item.slug); err != nil { return err }
+  items = append(items, item)
+ }
+ if err := rows.Err(); err != nil { return err }
+
+ for _, item := range items {
+  generated := normalizeDomain(item.slug + "." + baseDomain)
+  tx, err := r.db.BeginTx(ctx, nil)
+  if err != nil { return err }
+
+  // If an old platform-domain row exists under BASE_DOMAIN, convert it into
+  // the canonical slug-based system subdomain. This fixes older rows that
+  // were incorrectly saved as custom/pending domains.
+  var oldID int64
+  err = tx.QueryRowContext(ctx, `
+   SELECT id FROM tenant_domains
+   WHERE tenant_id=? AND domain LIKE CONCAT('%.', ?) AND domain_type='custom'
+   ORDER BY is_primary DESC, id ASC LIMIT 1`, item.id, baseDomain).Scan(&oldID)
+  if err == nil {
+   _, err = tx.ExecContext(ctx, `
+    UPDATE tenant_domains
+    SET domain=?, domain_type='subdomain', is_verified=1, updated_at=NOW()
+    WHERE id=? AND tenant_id=?`, generated, oldID, item.id)
+   if err != nil {
+    _ = tx.Rollback()
+    return err
+   }
+  } else if err != sql.ErrNoRows {
+   _ = tx.Rollback()
+   return err
+  }
+
+  var exists int
+  err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM tenant_domains WHERE tenant_id=? AND domain=?`, item.id, generated).Scan(&exists)
+  if err != nil {
+   _ = tx.Rollback()
+   return err
+  }
+  if exists == 0 {
+   var count int
+   if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM tenant_domains WHERE tenant_id=?`, item.id).Scan(&count); err != nil {
+    _ = tx.Rollback()
+    return err
+   }
+   _, err = tx.ExecContext(ctx, `
+    INSERT INTO tenant_domains (tenant_id,domain,domain_type,is_primary,is_verified)
+    VALUES (?,?, 'subdomain', ?, 1)`, item.id, generated, count == 0)
+   if err != nil {
+    _ = tx.Rollback()
+    return err
+   }
+  }
+
+  if err := tx.Commit(); err != nil { return err }
+ }
+ return nil
 }
