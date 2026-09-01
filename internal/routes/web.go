@@ -36,6 +36,7 @@ func RegisterWeb(rootMux *http.ServeMux, db *sql.DB, bootstrapHandler *platform.
 	rootMux.HandleFunc("POST /api/v1/platform/auth/login", platformAdminHandler.Login)
 	rootMux.Handle("GET /api/v1/platform/me", middleware.PlatformAdmin(jwtSecret, platformAdminRepo, http.HandlerFunc(platformAdminHandler.Me)))
 	tenantHandler := platform.NewTenantHandler(tenantRepo)
+	rootMux.Handle("POST /api/v1/platform/tenants", middleware.PlatformAdmin(jwtSecret, platformAdminRepo, http.HandlerFunc(bootstrapHandler.CreateTenant)))
 	rootMux.Handle("GET /api/v1/platform/tenants", middleware.PlatformAdmin(jwtSecret, platformAdminRepo, http.HandlerFunc(tenantHandler.List)))
 	rootMux.Handle("GET /api/v1/platform/tenants/{id}", middleware.PlatformAdmin(jwtSecret, platformAdminRepo, http.HandlerFunc(tenantHandler.Get)))
 	rootMux.Handle("PATCH /api/v1/platform/tenants/{id}/status", middleware.PlatformAdmin(jwtSecret, platformAdminRepo, http.HandlerFunc(tenantHandler.UpdateStatus)))
