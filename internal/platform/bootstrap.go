@@ -36,11 +36,14 @@ type Service struct {
 	installer  *tenantdb.Installer
 	provisioner *tenantdb.Provisioner
 	bcryptCost int
+	baseDomain string
 }
 
 func NewService(tenantRepo *tenants.Repository, userRepo *users.Repository, roleRepo *roles.Repository, bcryptCost int) *Service {
 	return &Service{tenantRepo: tenantRepo, userRepo: userRepo, roleRepo: roleRepo, bcryptCost: bcryptCost}
 }
+
+func (s *Service) WithBaseDomain(base string) *Service { s.baseDomain = strings.ToLower(strings.Trim(strings.TrimSpace(base), ".")); return s }
 
 func (s *Service) WithTenantDatabase(repo *tenantdb.Repository, cipher *tenantdb.Cipher, installer *tenantdb.Installer, provisioner *tenantdb.Provisioner) *Service {
 	s.dbRepo, s.cipher, s.installer, s.provisioner = repo, cipher, installer, provisioner
@@ -70,6 +73,7 @@ type BootstrapResult struct {
 	DatabaseStatus string `json:"database_status"`
 	DatabaseName   string `json:"database_name"`
 	DatabaseHost   string `json:"database_host"`
+	PrimaryDomain  string `json:"primary_domain"`
 }
 
 // Bootstrap atomically creates: the tenant, a "Tenant Admin" system role
@@ -125,6 +129,8 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapR
 		return nil, err
 	}
 
+	if s.baseDomain != "" && s.baseDomain != "localhost" { _ = s.tenantRepo.AddDomain(ctx, tenantID, in.TenantSlug+"."+s.baseDomain, tenants.DomainSubdomain, true, true) }
+
 	if s.dbRepo == nil || s.cipher == nil || s.installer == nil { return nil, errors.New("tenant database onboarding is not configured") }
 	if err := s.configureTenantDatabase(ctx, tenantID, in.TenantName, in.TenantSlug, token, in); err != nil { return nil, err }
 
@@ -132,7 +138,9 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapR
 	if strings.EqualFold(strings.TrimSpace(in.DatabaseMode), "create") && s.provisioner != nil {
 		databaseHost = s.provisioner.Host()
 	}
-	return &BootstrapResult{TenantID: tenantID, Slug: in.TenantSlug, AdminID: userID, RoleID: roleID, DatabaseStatus: "ready", DatabaseName: strings.TrimSpace(in.DatabaseName), DatabaseHost: databaseHost}, nil
+	primaryDomain := ""
+	if s.baseDomain != "" && s.baseDomain != "localhost" { primaryDomain = in.TenantSlug+"."+s.baseDomain }
+	return &BootstrapResult{TenantID: tenantID, Slug: in.TenantSlug, AdminID: userID, RoleID: roleID, DatabaseStatus: "ready", DatabaseName: strings.TrimSpace(in.DatabaseName), DatabaseHost: databaseHost, PrimaryDomain: primaryDomain}, nil
 }
 
 func (s *Service) configureTenantDatabase(ctx context.Context, tenantID int64, name, slug, token string, in BootstrapInput) error {
