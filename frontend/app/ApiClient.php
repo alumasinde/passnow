@@ -28,6 +28,7 @@ final class ApiClient
         $url = $this->baseUrl . $requestPath;
         $headers = ['Accept: application/json', 'Content-Type: application/json'];
         if ($tenantHost !== '') $headers[] = 'Host: ' . $tenantHost;
+        if ($localTenantSlug !== '') $headers[] = 'X-Tenant-Slug: ' . $localTenantSlug;
         if ($accessToken) $headers[] = 'Authorization: Bearer ' . $accessToken;
         $ch = curl_init($url);
         curl_setopt_array($ch, [CURLOPT_CUSTOMREQUEST => strtoupper($method), CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_CONNECTTIMEOUT => min($this->timeout, 5), CURLOPT_TIMEOUT => $this->timeout, CURLOPT_HTTPHEADER => $headers, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2]);
