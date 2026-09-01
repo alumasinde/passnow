@@ -12,6 +12,11 @@ $form = [
     'admin_first_name' => '',
     'admin_last_name' => '',
     'admin_email' => '',
+    'database_mode' => 'existing',
+    'database_host' => '127.0.0.1',
+    'database_port' => '3306',
+    'database_name' => '',
+    'database_username' => '',
 ];
 
 if (requestMethod() === 'POST') {
@@ -35,6 +40,12 @@ if (requestMethod() === 'POST') {
             'admin_last_name' => $form['admin_last_name'],
             'admin_email' => $form['admin_email'],
             'admin_password' => $password,
+            'database_mode' => $form['database_mode'],
+            'database_host' => $form['database_host'],
+            'database_port' => $form['database_port'],
+            'database_name' => $form['database_name'],
+            'database_username' => $form['database_username'],
+            'database_password' => (string) ($_POST['database_password'] ?? ''),
         ]);
 
         flash('success', 'Organization and its first administrator were created successfully.');
