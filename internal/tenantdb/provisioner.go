@@ -24,8 +24,11 @@ func (p *Provisioner) Host() string { return p.host }
 
 func (p *Provisioner) Port() string { return p.port }
 
+// Enabled reports whether provisioning can connect. An empty password is valid
+// for local MySQL/MariaDB installations, so only connection location and user
+// are required here.
 func (p *Provisioner) Enabled() bool {
-	return p.host != "" && p.port != "" && p.username != "" && p.password != ""
+	return p.host != "" && p.port != "" && p.username != ""
 }
 
 func (p *Provisioner) CreateDatabase(ctx context.Context, name string) error {
