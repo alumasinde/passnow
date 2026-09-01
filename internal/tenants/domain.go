@@ -2,8 +2,8 @@ package tenants
 
 import (
  "context"
- "database/sql"
  "strings"
+ "fmt"
  "time"
 )
 
