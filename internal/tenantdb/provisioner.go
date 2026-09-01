@@ -20,6 +20,10 @@ func NewProvisioner(host, port, username, password string) *Provisioner {
 	return &Provisioner{host: host, port: port, username: username, password: password}
 }
 
+func (p *Provisioner) Host() string { return p.host }
+
+func (p *Provisioner) Port() string { return p.port }
+
 func (p *Provisioner) Enabled() bool {
 	return p.host != "" && p.port != "" && p.username != "" && p.password != ""
 }
