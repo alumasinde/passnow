@@ -20,7 +20,7 @@ APP_BASE_URL=http://192.168.100.11:8000
 Add a 32-byte base64 key to `.env` before using tenant database provisioning:
 
 ```powershell
-[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))
+$bytes = New-Object byte[] 32; [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes); [Convert]::ToBase64String($bytes)
 ```
 
 Then add the generated value:
