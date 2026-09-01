@@ -63,11 +63,13 @@ type BootstrapInput struct {
 }
 
 type BootstrapResult struct {
-	TenantID int64  `json:"tenant_id"`
-	Slug     string `json:"slug"`
-	AdminID  int64  `json:"admin_user_id"`
-	RoleID   int64  `json:"role_id"`
+	TenantID       int64  `json:"tenant_id"`
+	Slug           string `json:"slug"`
+	AdminID        int64  `json:"admin_user_id"`
+	RoleID         int64  `json:"role_id"`
 	DatabaseStatus string `json:"database_status"`
+	DatabaseName   string `json:"database_name"`
+	DatabaseHost   string `json:"database_host"`
 }
 
 // Bootstrap atomically creates: the tenant, a "Tenant Admin" system role
@@ -126,7 +128,11 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapR
 	if s.dbRepo == nil || s.cipher == nil || s.installer == nil { return nil, errors.New("tenant database onboarding is not configured") }
 	if err := s.configureTenantDatabase(ctx, tenantID, in.TenantName, in.TenantSlug, token, in); err != nil { return nil, err }
 
-	return &BootstrapResult{TenantID: tenantID, Slug: in.TenantSlug, AdminID: userID, RoleID: roleID, DatabaseStatus: "ready"}, nil
+	databaseHost := strings.TrimSpace(in.DatabaseHost)
+	if strings.EqualFold(strings.TrimSpace(in.DatabaseMode), "create") && s.provisioner != nil {
+		databaseHost = s.provisioner.Host()
+	}
+	return &BootstrapResult{TenantID: tenantID, Slug: in.TenantSlug, AdminID: userID, RoleID: roleID, DatabaseStatus: "ready", DatabaseName: strings.TrimSpace(in.DatabaseName), DatabaseHost: databaseHost}, nil
 }
 
 func (s *Service) configureTenantDatabase(ctx context.Context, tenantID int64, name, slug, token string, in BootstrapInput) error {
@@ -137,7 +143,11 @@ func (s *Service) configureTenantDatabase(ctx context.Context, tenantID int64, n
 	if mode != "create" && mode != "existing" { return errors.New("database mode must be create or existing") }
 	if mode == "create" {
 		if s.provisioner == nil || !s.provisioner.Enabled() { return errors.New("tenant database provisioning is not configured") }
-		if creds.Host == "" { creds.Host = s.provisionerHost() }
+		// The provisioner is authoritative for CREATE DATABASE. Keep the
+		// connection metadata aligned with the server where the database was
+		// actually created instead of allowing a different form host here.
+		creds.Host = s.provisioner.Host()
+		creds.Port = s.provisioner.Port()
 		if err := s.provisioner.CreateDatabase(ctx, creds.Database); err != nil { return err }
 	}
 	if err := tenantdb.Verify(ctx, creds); err != nil { return err }
