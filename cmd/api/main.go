@@ -135,9 +135,12 @@ func newServer(cfg *config.Config, db *sql.DB, tenantRepo *tenants.Repository, a
 	routes.RegisterWeb(rootMux, db, bootstrapHandler, platformAdminHandler, platformAdminRepo, tenantRepo, jwtSecret)
 	handler := routes.BuildHandler(cfg, tenantRepo, rootMux, tenantMux)
 
-	workerCtx, workerCancel := context.WithCancel(context.Background())
-	worker := gatepasses.NewWorker(db, cfg.GatepassWorkerInterval, cfg.ApprovedGatepassTTL, log.Default())
-	go worker.Run(workerCtx)
+	// Gatepass operational data lives in isolated tenant databases. A worker
+	// connected to the platform database would query tenant tables that do not
+	// exist there. Tenant workers are therefore not started from the platform
+	// connection.
+	workerCancel := func() {}
+	log.Printf("gatepass worker: tenant-scoped worker not started on platform database")
 
 	return &http.Server{
 		Addr:         cfg.HTTPAddr,
