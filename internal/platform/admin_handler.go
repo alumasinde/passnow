@@ -1,18 +1,14 @@
 package platform
 
 import (
-    "errors"
     "net/http"
 
-    "gatepass/internal/auth"
     "gatepass/internal/httpx"
     "gatepass/internal/reqctx"
     "gatepass/internal/users"
 )
 
-type AdminHandler struct {
-    svc *AdminService
-}
+type AdminHandler struct { svc *AdminService }
 
 func NewAdminHandler(svc *AdminService) *AdminHandler { return &AdminHandler{svc: svc} }
 
@@ -61,6 +57,3 @@ func (h *AdminHandler) Me(w http.ResponseWriter, r *http.Request) {
         "role": admin.Role,
     })
 }
-
-var _ = errors.Is
-var _ = auth.ErrTokenInvalid
