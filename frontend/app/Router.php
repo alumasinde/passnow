@@ -1,0 +1,33 @@
+<?php
+declare(strict_types=1);
+
+final class Router
+{
+    /** @var array<string,string> */
+    private array $routes = [
+        '/' => 'Auth/Login.php',
+        '/login' => 'Auth/Login.php',
+        '/login.php' => 'Auth/Login.php',
+        '/logout' => 'Auth/Logout.php',
+        '/logout.php' => 'Auth/Logout.php',
+        '/dashboard' => 'Dashboard/Index.php',
+        '/dashboard.php' => 'Dashboard/Index.php',
+        '/visitors' => 'Visitors/Index.php','/visitors.php'=>'Visitors/Index.php','/visitor.php'=>'Visitors/Show.php','/visitor-create.php'=>'Visitors/Create.php','/visitor-blacklist.php'=>'Visitors/Blacklist.php','/visitor-companies.php'=>'Visitors/Companies.php','/visitor-companies-edit.php'=>'Visitors/CompanyEdit.php','/visitor-settings.php'=>'Visitors/Settings.php',
+        '/visits'=>'Visits/Index.php','/visits.php'=>'Visits/Index.php','/visit.php'=>'Visits/Show.php','/visit-create.php'=>'Visits/Create.php','/visit-operation.php'=>'Visits/Operation.php','/visit-types.php'=>'Visits/Types.php','/visit-types-edit.php'=>'Visits/TypeEdit.php',
+        '/gatepasses'=>'Gatepasses/Index.php','/gatepasses.php'=>'Gatepasses/Index.php','/gatepass.php'=>'Gatepasses/Show.php','/gatepass-create.php'=>'Gatepasses/Create.php','/gatepass-operation.php'=>'Gatepasses/Operation.php','/gate-operations.php'=>'Gatepasses/Operations.php','/gatepass-qr.php'=>'Gatepasses/Qr.php','/gatepass-settings.php'=>'Gatepasses/Settings.php','/gatepass-types.php'=>'Gatepasses/Types.php','/gatepass-types-edit.php'=>'Gatepasses/TypeEdit.php',
+        '/employees'=>'Employees/Index.php','/employees.php'=>'Employees/Index.php','/employee.php'=>'Employees/Show.php','/employee-create.php'=>'Employees/Create.php',
+        '/departments'=>'Departments/Index.php','/departments.php'=>'Departments/Index.php','/departments-edit.php'=>'Departments/Edit.php',
+        '/approvals'=>'Approvals/Index.php','/approvals.php'=>'Approvals/Index.php','/approval.php'=>'Approvals/Show.php','/approval-decision.php'=>'Approvals/Decision.php','/approval-workflows.php'=>'Approvals/Workflows.php','/approval-workflow-edit.php'=>'Approvals/WorkflowEdit.php',
+        '/admin/users'=>'Admin/Users.php','/users.php'=>'Admin/Users.php','/user.php'=>'Admin/User.php','/admin/roles'=>'Admin/Roles.php','/roles.php'=>'Admin/Roles.php','/role-permissions.php'=>'Admin/RolePermissions.php','/id-types.php'=>'Admin/IdTypes.php','/id-types-edit.php'=>'Admin/IdTypeEdit.php','/invitations.php'=>'Admin/Invitations.php','/invite-user.php'=>'Admin/InviteUser.php',
+        '/settings'=>'Settings/Index.php','/settings.php'=>'Settings/Index.php',
+        '/platform/login'=>'Platform/Login.php','/platform-login.php'=>'Platform/Login.php','/platform/tenants'=>'Platform/Tenants.php','/platform.php'=>'Platform/Tenants.php',
+    ];
+
+    public function dispatch(string $path): void
+    {
+        $path = rtrim($path, '/') ?: '/';
+        $target = $this->routes[$path] ?? null;
+        if ($target === null) { http_response_code(404); require dirname(__DIR__) . '/modules/Errors/404.php'; return; }
+        require dirname(__DIR__) . '/modules/' . $target;
+    }
+}

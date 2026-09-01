@@ -1,53 +1,56 @@
-# PassNow Quick Setup
+# PassNow — Quick Local Setup
 
-## 1. Create `.env`
+## 1. Pull latest changes
 
-Copy `.env.example` to `.env` and update your MySQL credentials, JWT secret, and `TENANT_HOST`.
+```powershell
+git pull origin main
+```
 
-## 2. Backend
+## 2. Configure `.env`
 
-From the repository root:
+Ensure your database configuration is set and use your laptop IP addresses:
 
-    go run ./cmd/migrate -action up
-    go test ./...
-    go run ./cmd/api
+```env
+API_BASE_URL=http://192.168.100.11:8080
+APP_BASE_URL=http://192.168.100.11:8000
+```
 
-Health check:
+## 3. Run database migrations
 
-    http://localhost:8080/healthz
+```powershell
+go run ./cmd/migrate -action up
+```
 
-## 3. Frontend
+Migrations that have already been applied will be skipped.
 
-Open another terminal from the repository root:
+## 4. Test the backend
 
-    php -S 127.0.0.1:8000 -t frontend/public
+```powershell
+go test ./...
+```
 
-Open:
+## 5. Start the Go API
 
-    http://localhost:8000
+```powershell
+go run ./cmd/api
+```
 
-The frontend and backend both read the same root `.env`.
+API:
 
-## Daily workflow
+```text
+http://192.168.100.11:8080
+```
 
-    git pull origin main
-    go run ./cmd/migrate -action up
-    go test ./...
-    go run ./cmd/api
+## 6. Start the PHP frontend
 
-In another terminal:
+From the project root:
 
-    php -S 127.0.0.1:8000 -t frontend/public
+```powershell
+php -S 0.0.0.0:8000 -t frontend/public frontend/public/router.php
+```
 
+Frontend:
 
-## Platform Admin (Phase 1)
-
-After creating or bootstrapping a user, grant that existing user PassNow platform access:
-
-    go run ./cmd/platform-admin -email admin@example.com -role owner
-
-Platform login endpoint:
-
-    POST /api/v1/platform/auth/login
-
-The returned platform token is only valid for platform routes and cannot be used against tenant APIs.
+```text
+http://192.168.100.11:8000/login
+```
