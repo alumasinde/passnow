@@ -2,7 +2,7 @@
 -- Gatepass header timestamps remain as convenient summary fields, while the
 -- movement tables are the authoritative audit trail for physical movement.
 
-CREATE TABLE gatepass_movements (
+CREATE TABLE IF NOT EXISTS gatepass_movements (
     id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     tenant_id      BIGINT UNSIGNED NOT NULL,
     gatepass_id    BIGINT UNSIGNED NOT NULL,
@@ -21,14 +21,14 @@ CREATE TABLE gatepass_movements (
     CONSTRAINT fk_gpm_actor FOREIGN KEY (actor_user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE gatepass_movement_items (
+CREATE TABLE IF NOT EXISTS gatepass_movement_items (
     id               BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     tenant_id        BIGINT UNSIGNED NOT NULL,
     movement_id      BIGINT UNSIGNED NOT NULL,
     gatepass_item_id BIGINT UNSIGNED NOT NULL,
     quantity         DECIMAL(10,2) NOT NULL,
     outcome          ENUM('released','returned','damaged','lost') NOT NULL DEFAULT 'returned',
-    condition        VARCHAR(80) NULL,
+    `condition`      VARCHAR(80) NULL,
     notes            VARCHAR(500) NULL,
     created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
