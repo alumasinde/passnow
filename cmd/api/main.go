@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -22,6 +23,7 @@ import (
 	"gatepass/internal/platform"
 	"gatepass/internal/roles"
 	"gatepass/internal/routes"
+	"gatepass/internal/reqctx"
 	"gatepass/internal/settings"
 	"gatepass/internal/tenants"
 	"gatepass/internal/tenantdb"
@@ -36,7 +38,8 @@ func main() {
 	defer db.Close()
 
 	tenantRepo, api, bootstrapHandler, platformAdminHandler, platformAdminRepo := buildApplication(db, cfg)
-	srv, workerCancel := newServer(cfg, db, tenantRepo, api, bootstrapHandler, platformAdminHandler, platformAdminRepo, []byte(cfg.JWTSecret))
+	_ = api // tenant APIs are constructed against the resolved tenant database per request.
+	srv, workerCancel := newServer(cfg, db, tenantRepo, bootstrapHandler, platformAdminHandler, platformAdminRepo, []byte(cfg.JWTSecret))
 	defer workerCancel()
 
 	go serve(srv, cfg)
@@ -127,11 +130,10 @@ func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *rou
 	return tenantRepo, api, platform.NewHandler(bootstrapSvc, cfg.PlatformBootstrapToken), platformAdminHandler, platformAdminRepo
 }
 
-func newServer(cfg *config.Config, db *sql.DB, tenantRepo *tenants.Repository, api *routes.API, bootstrapHandler *platform.Handler, platformAdminHandler *platform.AdminHandler, platformAdminRepo *platform.AdminRepository, jwtSecret []byte) (*http.Server, context.CancelFunc) {
-	tenantMux := http.NewServeMux()
+func newServer(cfg *config.Config, db *sql.DB, tenantRepo *tenants.Repository, bootstrapHandler *platform.Handler, platformAdminHandler *platform.AdminHandler, platformAdminRepo *platform.AdminRepository, jwtSecret []byte) (*http.Server, context.CancelFunc) {
 	rootMux := http.NewServeMux()
 
-	routes.RegisterAPI(tenantMux, api)
+	tenantMux := &tenantAPIHandler{platformDB: db, cfg: cfg}
 	routes.RegisterWeb(rootMux, db, bootstrapHandler, platformAdminHandler, platformAdminRepo, tenantRepo, jwtSecret)
 	handler := routes.BuildHandler(cfg, tenantRepo, rootMux, tenantMux)
 
@@ -170,4 +172,52 @@ func waitForShutdown(srv *http.Server, cfg *config.Config) {
 		log.Fatalf("graceful shutdown failed: %v", err)
 	}
 	log.Println("shutdown complete")
+}
+
+
+type tenantAPIHandler struct {
+	platformDB *sql.DB
+	cfg *config.Config
+}
+
+func (h *tenantAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	tenant, ok := reqctx.TenantFromContext(r.Context())
+	if !ok {
+		http.Error(w, "tenant context missing", http.StatusInternalServerError)
+		return
+	}
+	if h.cfg.TenantDBEncryptionKey == "" {
+		http.Error(w, "tenant database configuration is missing", http.StatusServiceUnavailable)
+		return
+	}
+	cipher, err := tenantdb.NewCipher(h.cfg.TenantDBEncryptionKey)
+	if err != nil {
+		http.Error(w, "tenant database configuration is invalid", http.StatusInternalServerError)
+		return
+	}
+	conn, err := tenantdb.NewRepository(h.platformDB).Get(r.Context(), tenant.ID)
+	if err != nil {
+		http.Error(w, "tenant database is not available", http.StatusServiceUnavailable)
+		return
+	}
+	password, err := cipher.Decrypt(conn.EncryptedPassword)
+	if err != nil {
+		http.Error(w, "tenant database credentials could not be decrypted", http.StatusInternalServerError)
+		return
+	}
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=UTC", conn.Username, password, conn.Host, conn.Port, conn.DatabaseName)
+	tenantDB, err := sql.Open("mysql", dsn)
+	if err != nil {
+		http.Error(w, "tenant database connection could not be opened", http.StatusServiceUnavailable)
+		return
+	}
+	defer tenantDB.Close()
+	if err := tenantDB.PingContext(r.Context()); err != nil {
+		http.Error(w, "tenant database could not be reached", http.StatusServiceUnavailable)
+		return
+	}
+	api := buildTenantAPI(tenantDB, h.cfg)
+	mux := http.NewServeMux()
+	routes.RegisterAPI(mux, api)
+	mux.ServeHTTP(w, r)
 }
