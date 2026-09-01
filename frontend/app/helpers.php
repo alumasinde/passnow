@@ -7,8 +7,38 @@ function e(mixed $value):string{
     }
     return htmlspecialchars((string)$value, ENT_QUOTES|ENT_SUBSTITUTE, 'UTF-8');
 }
-function url(string $path=''):string{$base=(string)AppContext::config('app.base_url','');return $base.'/'.ltrim($path,'/');}
-function asset(string $path):string{return url('assets/'.ltrim($path,'/'));}
+function localTenantSlug(): string
+{
+    $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+    $parts = array_values(array_filter(explode('/', trim($path, '/')), static fn ($part) => $part !== ''));
+    if ($parts === []) return '';
+
+    $candidate = strtolower((string) $parts[0]);
+    $reserved = ['login', 'logout', 'dashboard', 'platform', 'assets', 'api', 'admin', 'settings'];
+    if (in_array($candidate, $reserved, true) || str_contains($candidate, '.php')) return '';
+
+    return $candidate;
+}
+
+function url(string $path=''):string
+{
+    $base = rtrim((string) AppContext::config('app.base_url', ''), '/');
+    $path = '/' . ltrim($path, '/');
+
+    // Keep the tenant prefix on internal navigation during local development.
+    $tenantSlug = localTenantSlug();
+    if ($tenantSlug !== '' && !str_starts_with($path, '/platform')) {
+        $path = '/' . $tenantSlug . $path;
+    }
+
+    return $base . $path;
+}
+
+function asset(string $path):string
+{
+    $base = rtrim((string) AppContext::config('app.base_url', ''), '/');
+    return $base . '/assets/' . ltrim($path, '/');
+}
 function redirect(string $path):never{header('Location: '.(preg_match('~^https?://~i',$path)?$path:url($path)));exit;}
 function requestMethod():string{return strtoupper($_SERVER['REQUEST_METHOD']??'GET');}
 function flash(string $type,string $message):void{$_SESSION['_flash'][]=['type'=>$type,'message'=>$message];}
