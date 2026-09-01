@@ -1,6 +1,6 @@
-// Package database owns the single *sql.DB connection pool shared by every
-// tenant. Tenant isolation happens in repository queries (WHERE tenant_id = ?),
-// never by giving tenants separate databases or connection pools.
+// Package database owns the platform database connection pool. Tenant
+// application databases are managed separately by internal/tenantdb, which
+// resolves and caches one pool per tenant database.
 package database
 
 import (
