@@ -64,6 +64,9 @@ func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *rou
 
 	// Repositories.
 	tenantRepo := tenants.NewRepository(db)
+	if err := tenantRepo.ReconcilePlatformDomains(context.Background(), cfg.BaseDomain); err != nil {
+		log.Fatalf("tenant domains: %v", err)
+	}
 	userRepo := users.NewRepository(db)
 	roleRepo := roles.NewRepository(db)
 	refreshRepo := auth.NewRefreshTokenRepository(db)
