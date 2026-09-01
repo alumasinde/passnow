@@ -4,21 +4,18 @@
 -- object as needed; callers agree on the shape per key.
 CREATE TABLE tenant_settings (
     id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tenant_id   BIGINT UNSIGNED NOT NULL,
     setting_key VARCHAR(120) NOT NULL,      -- e.g. "visitors.allow_pre_registration"
     value       JSON NOT NULL,
     updated_by  BIGINT UNSIGNED NULL,
     created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-    UNIQUE KEY uq_tenant_setting (tenant_id, setting_key),
-    CONSTRAINT fk_settings_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+    UNIQUE KEY uq_setting (setting_key),
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Configurable ID document types per tenant (National ID, Passport, ...).
 CREATE TABLE id_types (
     id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tenant_id       BIGINT UNSIGNED NOT NULL,
     name            VARCHAR(100) NOT NULL,
     code            VARCHAR(30)  NOT NULL,   -- short code, e.g. "NATID", "PASSPORT"
     requires_number TINYINT(1) NOT NULL DEFAULT 1,
@@ -27,8 +24,7 @@ CREATE TABLE id_types (
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at      DATETIME NULL,
 
-    UNIQUE KEY uq_id_types_tenant_code (tenant_id, code),
-    CONSTRAINT fk_id_types_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+    UNIQUE KEY uq_id_types_code (code),
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Configurable visit purposes/types per tenant (Business Meeting, Delivery,
@@ -36,7 +32,6 @@ CREATE TABLE id_types (
 -- Visits module; the lookup itself is built now since it's shared config.
 CREATE TABLE visit_types (
     id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tenant_id   BIGINT UNSIGNED NOT NULL,
     name        VARCHAR(100) NOT NULL,
     code        VARCHAR(30)  NOT NULL,
     active      TINYINT(1) NOT NULL DEFAULT 1,
@@ -44,14 +39,12 @@ CREATE TABLE visit_types (
     updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at  DATETIME NULL,
 
-    UNIQUE KEY uq_visit_types_tenant_code (tenant_id, code),
-    CONSTRAINT fk_visit_types_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+    UNIQUE KEY uq_visit_types_code (code),
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Organizations visitors belong to/represent.
 CREATE TABLE visitor_companies (
     id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tenant_id   BIGINT UNSIGNED NOT NULL,
     name        VARCHAR(160) NOT NULL,
     phone       VARCHAR(30)  NULL,
     email       VARCHAR(255) NULL,
@@ -61,13 +54,11 @@ CREATE TABLE visitor_companies (
     updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at  DATETIME NULL,
 
-    UNIQUE KEY uq_visitor_companies_tenant_name (tenant_id, name),
-    CONSTRAINT fk_visitor_companies_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+    UNIQUE KEY uq_visitor_companies_name (name),
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE visitors (
     id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tenant_id       BIGINT UNSIGNED NOT NULL,
 
     first_name      VARCHAR(100) NOT NULL,
     last_name       VARCHAR(100) NOT NULL,
@@ -96,12 +87,10 @@ CREATE TABLE visitors (
     -- tenant. NULL id_number rows are not constrained by this (MySQL
     -- treats NULLs as distinct), which is correct for id_types that don't
     -- require a number.
-    UNIQUE KEY uq_visitors_tenant_idtype_idnumber (tenant_id, id_type_id, id_number),
-    KEY idx_visitors_tenant_name (tenant_id, last_name, first_name),
-    KEY idx_visitors_tenant_company (tenant_id, company_id),
-    KEY idx_visitors_tenant_status (tenant_id, status),
-
-    CONSTRAINT fk_visitors_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+    UNIQUE KEY uq_visitors_idtype_idnumber (id_type_id, id_number),
+    KEY idx_visitors_name (last_name, first_name),
+    KEY idx_visitors_company (company_id),
+    KEY idx_visitors_status (status),
     CONSTRAINT fk_visitors_id_type FOREIGN KEY (id_type_id) REFERENCES id_types(id),
     CONSTRAINT fk_visitors_company FOREIGN KEY (company_id) REFERENCES visitor_companies(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
