@@ -38,3 +38,16 @@ The frontend and backend both read the same root `.env`.
 In another terminal:
 
     php -S 127.0.0.1:8000 -t frontend/public
+
+
+## Platform Admin (Phase 1)
+
+After creating or bootstrapping a user, grant that existing user PassNow platform access:
+
+    go run ./cmd/platform-admin -email admin@example.com -role owner
+
+Platform login endpoint:
+
+    POST /api/v1/platform/auth/login
+
+The returned platform token is only valid for platform routes and cannot be used against tenant APIs.
