@@ -3,7 +3,6 @@
 -- (not owned by visits) since Employees will reference it too.
 CREATE TABLE departments (
     id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tenant_id   BIGINT UNSIGNED NOT NULL,
     name        VARCHAR(120) NOT NULL,
     code        VARCHAR(30)  NOT NULL,
     active      TINYINT(1) NOT NULL DEFAULT 1,
@@ -11,28 +10,24 @@ CREATE TABLE departments (
     updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at  DATETIME NULL,
 
-    UNIQUE KEY uq_departments_tenant_code (tenant_id, code),
-    CONSTRAINT fk_departments_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+    UNIQUE KEY uq_departments_code (code),
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Generic concurrency-safe number sequence generator. One row per
--- (tenant_id, scope, period) — e.g. scope="visit_badge", period="2026".
+-- (scope, period) — e.g. scope="visit_badge", period="2026".
 -- Incremented under SELECT ... FOR UPDATE inside a transaction, so two
 -- simultaneous check-ins can never receive the same number. Reused later
 -- for gatepass numbering (scope="gatepass") — solved once, not per module.
 CREATE TABLE number_sequences (
-    tenant_id   BIGINT UNSIGNED NOT NULL,
     scope       VARCHAR(40) NOT NULL,
     period      VARCHAR(10) NOT NULL DEFAULT '', -- e.g. "2026", or "" if not period-scoped
     last_value  BIGINT UNSIGNED NOT NULL DEFAULT 0,
 
-    PRIMARY KEY (tenant_id, scope, period),
-    CONSTRAINT fk_number_sequences_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+    PRIMARY KEY (scope, period),
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE visits (
     id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    tenant_id       BIGINT UNSIGNED NOT NULL,
 
     visitor_id      BIGINT UNSIGNED NOT NULL,
     visit_type_id   BIGINT UNSIGNED NULL,
@@ -65,13 +60,11 @@ CREATE TABLE visits (
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at      DATETIME NULL,
 
-    UNIQUE KEY uq_visits_tenant_badge_number (tenant_id, badge_number),
+    UNIQUE KEY uq_visits_badge_number (badge_number),
     UNIQUE KEY uq_visits_badge_token (badge_token),
-    KEY idx_visits_tenant_status (tenant_id, status),
-    KEY idx_visits_tenant_visitor (tenant_id, visitor_id),
-    KEY idx_visits_tenant_expected (tenant_id, expected_time),
-
-    CONSTRAINT fk_visits_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+    KEY idx_visits_status (status),
+    KEY idx_visits_visitor (visitor_id),
+    KEY idx_visits_expected (expected_time),
     CONSTRAINT fk_visits_visitor FOREIGN KEY (visitor_id) REFERENCES visitors(id),
     CONSTRAINT fk_visits_visit_type FOREIGN KEY (visit_type_id) REFERENCES visit_types(id),
     CONSTRAINT fk_visits_department FOREIGN KEY (department_id) REFERENCES departments(id)
