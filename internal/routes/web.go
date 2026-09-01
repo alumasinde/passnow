@@ -49,7 +49,7 @@ func RegisterWeb(rootMux *http.ServeMux, db *sql.DB, bootstrapHandler *platform.
 
 // BuildHandler layers public routes over the tenant-scoped API. Health checks
 // and bootstrap remain available even when no tenant can be resolved.
-func BuildHandler(cfg *config.Config, tenantRepo *tenants.Repository, rootMux, tenantMux *http.ServeMux) http.Handler {
+func BuildHandler(cfg *config.Config, tenantRepo *tenants.Repository, rootMux *http.ServeMux, tenantMux http.Handler) http.Handler {
 	rootMux.Handle("/", middleware.ResolveTenant(tenantRepo, cfg.BaseDomain)(tenantMux))
 	return rootMux
 }
