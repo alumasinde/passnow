@@ -1,6 +1,6 @@
 # PassNow — Quick Local Setup
 
-## 1. Pull latest code
+## 1. Pull latest changes
 
 ```powershell
 git pull origin main
@@ -8,44 +8,49 @@ git pull origin main
 
 ## 2. Configure `.env`
 
-Set your database values and:
+Ensure your database configuration is set and use your laptop IP addresses:
 
 ```env
 API_BASE_URL=http://192.168.100.11:8080
 APP_BASE_URL=http://192.168.100.11:8000
 ```
 
-## 3. Run migrations
+## 3. Run database migrations
 
 ```powershell
 go run ./cmd/migrate -action up
 ```
 
-## 4. Test backend
+Migrations that have already been applied will be skipped.
+
+## 4. Test the backend
 
 ```powershell
 go test ./...
 ```
 
-## 5. Start Go API
+## 5. Start the Go API
 
 ```powershell
 go run ./cmd/api
 ```
 
-## 6. Start frontend
+API:
 
-From the repository root:
+```text
+http://192.168.100.11:8080
+```
+
+## 6. Start the PHP frontend
+
+From the project root:
 
 ```powershell
 php -S 0.0.0.0:8000 -t frontend/public frontend/public/router.php
 ```
 
-Then open:
+Frontend:
 
 ```text
 http://192.168.100.11:8000/login
 ```
-
-Do not use `php -S 0.0.0.0:8000 frontend/public/router.php` without `-t frontend/public`; PHP can resolve the relative router path incorrectly for incoming requests.
-
