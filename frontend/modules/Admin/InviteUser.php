@@ -1,5 +1,5 @@
 <?php
-declare(strict_types=1);require_once __DIR__.'/../app/App.php';Auth::requireLogin();
+declare(strict_types=1);require_once __DIR__.'/../../app/App.php';Auth::requireLogin();
 $errors=[];$roles=[];
 try{$p=Auth::api(App::api(),'GET','/api/v1/roles');$roles=apiRows($p);}catch(Throwable){}
 if(requestMethod()==='POST'){
