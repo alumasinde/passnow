@@ -63,9 +63,6 @@ func (r *MovementRepository) listItems(ctx context.Context, movementID int64) ([
 	return out, rows.Err()
 }
 
-// Checkout records the physical departure and atomically changes the
-// gatepass status. The gatepass row is locked first; item rows are then
-// locked before the movement ledger is written.
 func (r *MovementRepository) Checkout(ctx context.Context, gatepassID, actorUserID int64, direction string, in MovementInput) (*Gatepass, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -85,19 +82,10 @@ func (r *MovementRepository) Checkout(ctx context.Context, gatepassID, actorUser
 	if err != nil {
 		return nil, err
 	}
-	// A checkout does not accept arbitrary item quantities. The authorized
-	// gatepass items are the source of truth; the movement ledger records all
-	// leaving quantities in one atomic operation.
-	if len(in.Items) > 0 {
-		for _, line := range in.Items {
-			if _, ok := itemIDs[line.GatepassItemID]; !ok {
-				return nil, ErrReturnItemInvalid
-			}
+	for _, line := range in.Items {
+		if _, ok := itemIDs[line.GatepassItemID]; !ok {
+			return nil, ErrReturnItemInvalid
 		}
-	}
-	if len(itemIDs) == 0 {
-		// A physical checkout can still be valid for a visitor-only pass;
-		// there simply are no item movement lines to write.
 	}
 
 	movementID, err := r.insertMovement(ctx, tx, gatepassID, MovementCheckout, actorUserID, in)
@@ -109,7 +97,7 @@ func (r *MovementRepository) Checkout(ctx context.Context, gatepassID, actorUser
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO gatepass_movement_items
 				(movement_id, gatepass_item_id, quantity, outcome, created_at)
-			VALUES (?, ?, ?, ?, 'released', NOW())`,
+			VALUES (?, ?, ?, 'released', NOW())`,
 			movementID, itemID, qty); err != nil {
 			return nil, err
 		}
@@ -119,7 +107,7 @@ func (r *MovementRepository) Checkout(ctx context.Context, gatepassID, actorUser
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE gatepasses
 		SET status = ?, checked_out_at = NOW(), checked_out_by = ?, updated_at = NOW()
-		WHERE id = ?`, next, actorUserID, gatepassID); err != nil {
+		WHERE id = ? AND deleted_at IS NULL`, next, actorUserID, gatepassID); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -128,9 +116,6 @@ func (r *MovementRepository) Checkout(ctx context.Context, gatepassID, actorUser
 	return r.getGatepass(ctx, gatepassID)
 }
 
-// Checkin applies a full or partial physical return. Returned/damaged/lost
-// are treated as accounted-for quantities. This means a missing item can be
-// explicitly resolved without falsely recording it as physically returned.
 func (r *MovementRepository) Checkin(ctx context.Context, gatepassID, actorUserID int64, direction string, in MovementInput) (*Gatepass, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -158,9 +143,7 @@ func (r *MovementRepository) Checkin(ctx context.Context, gatepassID, actorUserI
 		in.Items = make([]MovementItemInput, 0, len(items))
 		for id, outstanding := range items {
 			if outstanding > 0 {
-				in.Items = append(in.Items, MovementItemInput{
-					GatepassItemID: id, Quantity: outstanding, Outcome: MovementReturned,
-				})
+				in.Items = append(in.Items, MovementItemInput{GatepassItemID: id, Quantity: outstanding, Outcome: MovementReturned})
 			}
 		}
 	} else if len(in.Items) == 0 && len(items) > 0 {
@@ -190,9 +173,8 @@ func (r *MovementRepository) Checkin(ctx context.Context, gatepassID, actorUserI
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO gatepass_movement_items
 				(movement_id, gatepass_item_id, quantity, outcome, condition, notes, created_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
-			movementID, line.GatepassItemID, line.Quantity,
-			line.Outcome, line.Condition, line.Notes); err != nil {
+			VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+			movementID, line.GatepassItemID, line.Quantity, line.Outcome, line.Condition, line.Notes); err != nil {
 			return nil, err
 		}
 	}
@@ -200,7 +182,6 @@ func (r *MovementRepository) Checkin(ctx context.Context, gatepassID, actorUserI
 	remaining := float64(0)
 	for id, outstanding := range items {
 		remaining += outstanding
-		// subtract this transaction's accounted quantity
 		for _, line := range in.Items {
 			if line.GatepassItemID == id {
 				remaining -= line.Quantity
@@ -216,10 +197,11 @@ func (r *MovementRepository) Checkin(ctx context.Context, gatepassID, actorUserI
 
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE gatepasses
-		SET status = ?, checked_in_at = CASE WHEN ? = 'checked_in' THEN NOW() ELSE checked_in_at END,
+		SET status = ?,
+		    checked_in_at = CASE WHEN ? = 'checked_in' THEN NOW() ELSE checked_in_at END,
 		    checked_in_by = CASE WHEN ? = 'checked_in' THEN ? ELSE checked_in_by END,
 		    updated_at = NOW()
-		WHERE id = ?`,
+		WHERE id = ? AND deleted_at IS NULL`,
 		next, next, next, actorUserID, gatepassID); err != nil {
 		return nil, err
 	}
@@ -267,9 +249,9 @@ func (r *MovementRepository) lockGatepassItemsWithQuantities(ctx context.Context
 			CASE WHEN gm.type = 'checkin' THEN gmi.quantity ELSE 0 END
 		), 0) AS outstanding
 		FROM gatepass_items gi
-		LEFT JOIN gatepass_movement_items gmi ON gmi.gatepass_item_id = gi.id AND gmi.tenant_id = ?
-		LEFT JOIN gatepass_movements gm ON gm.id = gmi.movement_id AND gm.tenant_id = ? AND gm.gatepass_id = ?
-		WHERE gi.tenant_id = ? AND gi.gatepass_id = ?
+		LEFT JOIN gatepass_movement_items gmi ON gmi.gatepass_item_id = gi.id
+		LEFT JOIN gatepass_movements gm ON gm.id = gmi.movement_id AND gm.gatepass_id = ?
+		WHERE gi.gatepass_id = ?
 		GROUP BY gi.id, gi.quantity
 		ORDER BY gi.id
 		FOR UPDATE`, gatepassID, gatepassID)
@@ -296,7 +278,7 @@ func (r *MovementRepository) insertMovement(ctx context.Context, tx *sql.Tx, gat
 	res, err := tx.ExecContext(ctx, `
 		INSERT INTO gatepass_movements
 			(gatepass_id, type, actor_user_id, gate_name, notes, occurred_at, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+		VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
 		gatepassID, typ, actorUserID, nullableString(in.GateName), in.Notes)
 	if err != nil {
 		return 0, err
@@ -321,7 +303,7 @@ func (r *MovementRepository) getGatepass(ctx context.Context, id int64) (*Gatepa
 func scanGatepass(row interface{ Scan(dest ...any) error }) (*Gatepass, error) {
 	var g Gatepass
 	if err := row.Scan(
-		&g.ID, &g.TenantID, &g.GatepassTypeID, &g.PassNumber, &g.DepartmentID,
+		&g.ID, &g.GatepassTypeID, &g.PassNumber, &g.DepartmentID,
 		&g.RequesterType, &g.RequesterUserID, &g.RequesterVisitorID, &g.VisitID,
 		&g.Purpose, &g.IsReturnable, &g.ExpectedReturnAt, &g.RequiresApproval, &g.WorkflowID,
 		&g.Status, &g.QRToken, &g.CheckedOutAt, &g.CheckedOutBy, &g.CheckedInAt, &g.CheckedInBy,
