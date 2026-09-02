@@ -11,7 +11,7 @@ $canCheckin = in_array($status, ['checked_out', 'out'], true);
         <h1><?= e($number) ?></h1>
         <p><?= e((string)($gatepass['purpose'] ?? 'Gatepass details')) ?></p>
     </div>
-    <a class="btn btn-secondary" href="<?= e(url('gatepasses.php')) ?>" data-back>
+    <a class="btn btn-secondary" data-back href="<?= e(url('gatepasses.php')) ?>" data-back>
         <i class="fa-solid fa-arrow-left"></i>
         Back
     </a>
