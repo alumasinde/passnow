@@ -86,7 +86,7 @@ func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, ac
 	}
 
 	if in.DepartmentID != nil {
-		d, err := s.deptRepo.ByID(ctx, tenantID, *in.DepartmentID)
+		d, err := s.deptRepo.ByID(ctx, *in.DepartmentID)
 		if err != nil || !d.Active {
 			return nil, ErrInvalidDepartment
 		}
@@ -103,7 +103,7 @@ func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, ac
 		if in.RequesterVisitorID == nil {
 			return nil, ErrVisitorIDRequired
 		}
-		visitor, err := s.visitorRepo.ByID(ctx, tenantID, *in.RequesterVisitorID)
+		visitor, err := s.visitorRepo.ByID(ctx, *in.RequesterVisitorID)
 		if err != nil {
 			return nil, ErrInvalidVisitor
 		}
@@ -190,8 +190,8 @@ func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, ac
 		RequiresApproval: requiresApproval, WorkflowID: gtype.WorkflowID, CreatedBy: &actorUserID,
 	}
 
-	prefix := s.settingsRepo.GetString(ctx, tenantID, settings.KeyGatepassNumberPrefix, "GP")
-	useYear := s.settingsRepo.GetBool(ctx, tenantID, settings.KeyGatepassNumberUseYear, true)
+	prefix := s.settingsRepo.GetString(ctx, settings.KeyGatepassNumberPrefix, "GP")
+	useYear := s.settingsRepo.GetBool(ctx, settings.KeyGatepassNumberUseYear, true)
 	period := ""
 	if useYear {
 		period = time.Now().UTC().Format("2006")
@@ -295,11 +295,11 @@ func (s *Service) Act(ctx context.Context, tenantID, gatepassID, stepID, actorUs
 	eligible := false
 	if target.ApproverType == string(approvals.ApproverSpecificUser) {
 		if target.UserID != nil && *target.UserID == actorUserID {
-			membership, err := s.roleRepo.MembershipFor(ctx, tenantID, actorUserID)
+			membership, err := s.roleRepo.MembershipFor(ctx, actorUserID)
 			eligible = err == nil && membership.IsActive()
 		}
 	} else if target.RoleID != nil {
-		membership, err := s.roleRepo.MembershipFor(ctx, tenantID, actorUserID)
+		membership, err := s.roleRepo.MembershipFor(ctx, actorUserID)
 		eligible = err == nil && membership.IsActive() && membership.RoleID == *target.RoleID
 	}
 	if !eligible {
@@ -385,7 +385,7 @@ func (s *Service) QRLookup(ctx context.Context, tenantID int64, token string) (*
 		}
 	}
 	if g.RequesterVisitorID != nil {
-		if v, err := s.visitorRepo.ByID(ctx, tenantID, *g.RequesterVisitorID); err == nil {
+		if v, err := s.visitorRepo.ByID(ctx, *g.RequesterVisitorID); err == nil {
 			requesterName = v.FullName()
 		}
 	}
@@ -407,7 +407,7 @@ func (s *Service) QRToken(ctx context.Context, tenantID, id int64) (string, erro
 // PendingForApprover resolves the caller's current role membership, then
 // returns their personal approval queue — see Repository.PendingForApprover.
 func (s *Service) PendingForApprover(ctx context.Context, tenantID, actorUserID int64) ([]PendingApprovalItem, error) {
-	membership, err := s.roleRepo.MembershipFor(ctx, tenantID, actorUserID)
+	membership, err := s.roleRepo.MembershipFor(ctx, actorUserID)
 	if err != nil || !membership.IsActive() {
 		return nil, nil // not an active member here -> empty queue, not an error
 	}
