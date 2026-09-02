@@ -26,7 +26,8 @@ final class Theme
         ];
 
         try {
-            $data = App::api()->request('GET', '/api/v1/theme');
+            $response = App::api()->request('GET', '/api/v1/theme');
+            $data = is_array($response['data'] ?? null) ? $response['data'] : $response;
             if (is_array($data)) {
                 foreach ($defaults as $key => $fallback) {
                     if (array_key_exists($key, $data) && is_scalar($data[$key])) {
