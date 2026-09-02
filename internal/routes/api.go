@@ -64,6 +64,9 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	protected := func(permission string, h http.HandlerFunc) http.Handler {
 		return middleware.Protected(api.JWTSecret, api.RoleRepo, permission, h)
 	}
+	protectedAny := func(permissions []string, h http.HandlerFunc) http.Handler {
+		return middleware.RequireAuth(api.JWTSecret)(middleware.RequireAnyPermission(api.RoleRepo, permissions...)(h))
+	}
 
 	// --- tenant theme (public read for branded login/application shell) ---
 	mux.Handle("GET /api/v1/theme", http.HandlerFunc(api.ThemeHandler.Get))
@@ -147,7 +150,10 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("PUT /api/v1/settings/gatepass", protected("settings.gatepass", api.GatepassSettingsHandler.Update))
 
 	// --- employees ---
-	mux.Handle("GET /api/v1/employees", protected("employees.view", api.EmployeeHandler.List))
+	// A visit creator needs the employee directory only to select a host. This does
+	// not grant employee-management access; either employees.view OR visits.create
+	// is sufficient for this read-only lookup.
+	mux.Handle("GET /api/v1/employees", protectedAny([]string{"employees.view", "visits.create"}, api.EmployeeHandler.List))
 	mux.Handle("GET /api/v1/employees/{id}", protected("employees.view", api.EmployeeHandler.Get))
 	mux.Handle("POST /api/v1/employees", protected("employees.create", api.EmployeeHandler.Create))
 	mux.Handle("PATCH /api/v1/employees/{id}", protected("employees.update", api.EmployeeHandler.Update))
