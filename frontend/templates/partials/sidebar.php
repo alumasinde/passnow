@@ -52,9 +52,16 @@ $bottomNavigation = array_values(array_filter(
 ));
 ?>
 <aside class="sidebar" data-sidebar>
+    <?php $theme = Theme::current(); ?>
     <div class="brand">
-        <span class="brand-mark"><i class="fa-solid fa-door-open"></i></span>
-        <span class="brand-name"><?= e(App::config('app.name')) ?></span>
+        <span class="brand-mark">
+            <?php if (($theme['logo_url'] ?? '') !== ''): ?>
+                <img src="<?= e((string)$theme['logo_url']) ?>" alt="<?= e(Theme::brandName()) ?> logo" class="brand-logo">
+            <?php else: ?>
+                <i class="fa-solid fa-door-open"></i>
+            <?php endif; ?>
+        </span>
+        <span class="brand-name"><?= e(Theme::brandName()) ?></span>
     </div>
 
     <nav class="sidebar-nav" aria-label="Main navigation">
