@@ -20,13 +20,9 @@ var (
 const badgeSequenceScope = "visit_badge"
 const badgePrefix = "VB"
 
-type Repository struct {
-	db *sql.DB
-}
+type Repository struct { db *sql.DB }
 
-func NewRepository(db *sql.DB) *Repository {
-	return &Repository{db: db}
-}
+func NewRepository(db *sql.DB) *Repository { return &Repository{db: db} }
 
 const selectCols = `
 	id, visitor_id, visit_type_id, department_id, host_name,
@@ -45,9 +41,7 @@ func (r *Repository) scan(row interface{ Scan(dest ...any) error }) (*Visit, err
 		&v.CancelledAt, &v.CancelledBy, &v.CancelReason,
 		&v.CreatedBy, &v.CreatedAt, &v.UpdatedAt, &v.DeletedAt,
 	); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
-		}
+		if errors.Is(err, sql.ErrNoRows) { return nil, ErrNotFound }
 		return nil, err
 	}
 	return &v, nil
@@ -55,8 +49,7 @@ func (r *Repository) scan(row interface{ Scan(dest ...any) error }) (*Visit, err
 
 func (r *Repository) ByID(ctx context.Context, id int64) (*Visit, error) {
 	row := r.db.QueryRowContext(ctx,
-		"SELECT "+selectCols+" FROM visits WHERE id = ? AND deleted_at IS NULL LIMIT 1",
-		id)
+		"SELECT "+selectCols+" FROM visits WHERE id = ? AND deleted_at IS NULL LIMIT 1", id)
 	return r.scan(row)
 }
 
@@ -66,42 +59,24 @@ func (r *Repository) ByBadgeToken(ctx context.Context, token string) (*Visit, er
 	return r.scan(row)
 }
 
-type ListFilter struct {
-	Status    *Status
-	VisitorID *int64
-}
+type ListFilter struct { Status *Status; VisitorID *int64 }
 
 func (r *Repository) List(ctx context.Context, f ListFilter, p httpx.Pagination) ([]Visit, int, error) {
 	where := "WHERE deleted_at IS NULL"
 	args := []any{}
-	if f.Status != nil {
-		where += " AND status = ?"
-		args = append(args, *f.Status)
-	}
-	if f.VisitorID != nil {
-		where += " AND visitor_id = ?"
-		args = append(args, *f.VisitorID)
-	}
+	if f.Status != nil { where += " AND status = ?"; args = append(args, *f.Status) }
+	if f.VisitorID != nil { where += " AND visitor_id = ?"; args = append(args, *f.VisitorID) }
 
 	var total int
-	if err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM visits "+where, args...).Scan(&total); err != nil {
-		return nil, 0, err
-	}
-
+	if err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM visits "+where, args...).Scan(&total); err != nil { return nil, 0, err }
 	rows, err := r.db.QueryContext(ctx,
 		"SELECT "+selectCols+" FROM visits "+where+" ORDER BY created_at DESC LIMIT ? OFFSET ?",
 		append(args, p.Limit, p.Offset)...)
-	if err != nil {
-		return nil, 0, err
-	}
+	if err != nil { return nil, 0, err }
 	defer rows.Close()
-
 	var out []Visit
 	for rows.Next() {
-		v, err := r.scan(rows)
-		if err != nil {
-			return nil, 0, err
-		}
+		v, err := r.scan(rows); if err != nil { return nil, 0, err }
 		out = append(out, *v)
 	}
 	return out, total, rows.Err()
@@ -114,138 +89,63 @@ func (r *Repository) Create(ctx context.Context, v *Visit) (int64, error) {
 			 purpose, expected_time, status, created_by, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
 		v.VisitorID, v.VisitTypeID, v.DepartmentID, v.HostName,
-		v.Purpose, v.ExpectedTime, v.Status, v.CreatedBy,
-	)
-	if err != nil {
-		return 0, err
-	}
+		v.Purpose, v.ExpectedTime, v.Status, v.CreatedBy)
+	if err != nil { return 0, err }
 	return res.LastInsertId()
 }
 
 func (r *Repository) CheckIn(ctx context.Context, id, actorUserID int64) (*Visit, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
+	tx, err := r.db.BeginTx(ctx, nil); if err != nil { return nil, err }
 	defer tx.Rollback()
-
 	var status Status
 	err = tx.QueryRowContext(ctx,
-		`SELECT status FROM visits WHERE id = ? AND deleted_at IS NULL FOR UPDATE`,
-		id,
-	).Scan(&status)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, err
-	}
-	if status != StatusScheduled && status != StatusExpected {
-		return nil, ErrInvalidTransition
-	}
-
+		`SELECT status FROM visits WHERE id = ? AND deleted_at IS NULL FOR UPDATE`, id).Scan(&status)
+	if err != nil { if errors.Is(err, sql.ErrNoRows) { return nil, ErrNotFound }; return nil, err }
+	if status != StatusScheduled && status != StatusExpected { return nil, ErrInvalidTransition }
 	period := time.Now().UTC().Format("2006")
-	seq, err := numbering.Next(ctx, tx, badgeSequenceScope, period)
-	if err != nil {
-		return nil, err
-	}
+	seq, err := numbering.Next(ctx, tx, badgeSequenceScope, period); if err != nil { return nil, err }
 	badgeNumber := numbering.Format(badgePrefix, period, seq)
-	badgeToken, err := randomToken()
-	if err != nil {
-		return nil, err
-	}
-
+	badgeToken, err := randomToken(); if err != nil { return nil, err }
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE visits SET status = 'checked_in', badge_number = ?, badge_token = ?,
 			checked_in_at = NOW(), checked_in_by = ?, updated_at = NOW()
-		WHERE id = ? AND deleted_at IS NULL`,
-		badgeNumber, badgeToken, actorUserID, id,
-	); err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
+		WHERE id = ? AND deleted_at IS NULL`, badgeNumber, badgeToken, actorUserID, id); err != nil { return nil, err }
+	if err := tx.Commit(); err != nil { return nil, err }
 	return r.ByID(ctx, id)
 }
 
 func (r *Repository) CheckOut(ctx context.Context, id, actorUserID int64) (*Visit, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
+	tx, err := r.db.BeginTx(ctx, nil); if err != nil { return nil, err }
 	defer tx.Rollback()
-
 	var status Status
 	err = tx.QueryRowContext(ctx,
-		`SELECT status FROM visits WHERE id = ? AND deleted_at IS NULL FOR UPDATE`,
-		id,
-	).Scan(&status)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, err
-	}
-	if status != StatusCheckedIn {
-		return nil, ErrInvalidTransition
-	}
-
+		`SELECT status FROM visits WHERE id = ? AND deleted_at IS NULL FOR UPDATE`, id).Scan(&status)
+	if err != nil { if errors.Is(err, sql.ErrNoRows) { return nil, ErrNotFound }; return nil, err }
+	if status != StatusCheckedIn { return nil, ErrInvalidTransition }
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE visits SET status = 'checked_out', checked_out_at = NOW(), checked_out_by = ?, updated_at = NOW()
-		WHERE id = ? AND deleted_at IS NULL`,
-		actorUserID, id,
-	); err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
+		WHERE id = ? AND deleted_at IS NULL`, actorUserID, id); err != nil { return nil, err }
+	if err := tx.Commit(); err != nil { return nil, err }
 	return r.ByID(ctx, id)
 }
 
 func (r *Repository) Cancel(ctx context.Context, id, actorUserID int64, reason string) (*Visit, error) {
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
+	tx, err := r.db.BeginTx(ctx, nil); if err != nil { return nil, err }
 	defer tx.Rollback()
-
 	var status Status
 	err = tx.QueryRowContext(ctx,
-		`SELECT status FROM visits WHERE id = ? AND deleted_at IS NULL FOR UPDATE`,
-		id,
-	).Scan(&status)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, err
-	}
-	if status != StatusScheduled && status != StatusExpected {
-		return nil, ErrInvalidTransition
-	}
-
+		`SELECT status FROM visits WHERE id = ? AND deleted_at IS NULL FOR UPDATE`, id).Scan(&status)
+	if err != nil { if errors.Is(err, sql.ErrNoRows) { return nil, ErrNotFound }; return nil, err }
+	if status != StatusScheduled && status != StatusExpected { return nil, ErrInvalidTransition }
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE visits SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = ?, cancel_reason = ?, updated_at = NOW()
-		WHERE id = ? AND deleted_at IS NULL`,
-		actorUserID, reason, id,
-	); err != nil {
-		return nil, err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
+		WHERE id = ? AND deleted_at IS NULL`, actorUserID, reason, id); err != nil { return nil, err }
+	if err := tx.Commit(); err != nil { return nil, err }
 	return r.ByID(ctx, id)
 }
 
 func randomToken() (string, error) {
 	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
+	if _, err := rand.Read(b); err != nil { return "", err }
 	return hex.EncodeToString(b), nil
 }
