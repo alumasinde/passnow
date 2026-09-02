@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -49,6 +50,7 @@ func NewService(userRepo *users.Repository,roleRepo *roles.Repository,refreshRep
 type TokenPair struct { AccessToken string; RefreshToken string; ExpiresIn int64 }
 
 func (s *Service) Login(ctx context.Context, tenantID int64,email,password string)(*TokenPair,*users.User,error){
+	email = strings.ToLower(strings.TrimSpace(email))
 	u,err:=s.users.ByEmail(ctx,email)
 	if err!=nil { VerifyPassword(getDummyHash(s.bcryptCost),password); return nil,nil,ErrInvalidCredentials }
 	now:=time.Now().UTC()
