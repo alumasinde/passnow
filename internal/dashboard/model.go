@@ -6,22 +6,22 @@ import "time"
 // dashboard widget engine. It is intentionally not the public dashboard
 // contract; the public response only contains widgets the caller may see.
 type Summary struct {
-	VisitorsToday        int
-	CurrentlyOnPremises  int
-	ExpectedToday        int
-	CompletedVisitsToday int
+	VisitorsToday        int `json:"visitors_today"`
+	CurrentlyOnPremises  int `json:"currently_on_premises"`
+	ExpectedToday        int `json:"expected_today"`
+	CompletedVisitsToday int `json:"completed_visits_today"`
 
-	ActiveGatepasses        int
-	PendingApprovals        int
-	RejectedGatepassesToday int
-	EmployeeGatepassesToday int
-	VisitorGatepassesToday  int
+	ActiveGatepasses        int `json:"active_gatepasses"`
+	PendingApprovals        int `json:"pending_approvals"`
+	RejectedGatepassesToday int `json:"rejected_gatepasses_today"`
+	EmployeeGatepassesToday int `json:"employee_gatepasses_today"`
+	VisitorGatepassesToday  int `json:"visitor_gatepasses_today"`
 
-	ItemsEnteringToday int
-	ItemsLeavingToday  int
-	OverdueGatepasses  int
+	ItemsEnteringToday int `json:"items_entering_today"`
+	ItemsLeavingToday  int `json:"items_leaving_today"`
+	OverdueGatepasses  int `json:"overdue_gatepasses"`
 
-	RecentActivity []ActivityEntry
+	RecentActivity []ActivityEntry `json:"recent_activity"`
 }
 
 type ActivityEntry struct {
