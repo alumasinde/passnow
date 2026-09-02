@@ -72,9 +72,23 @@ func DefaultRegistry() []WidgetDefinition {
 			Permissions: []string{"dashboard.view"},
 			Build: func(s *Summary) (any, any) { return nil, s.RecentActivity },
 		},
+
+		{
+			Code: "quick_actions", Type: "actions", Title: "Quick Actions",
+			Icon: "bolt", Accent: "primary", Size: "lg", Order: 130,
+			Permissions: []string{"dashboard.view"},
+			Build: func(s *Summary) (any, any) {
+				return nil, []map[string]any{
+					{"label": "Manage Gate Passes", "icon": "right-left", "route": "gatepasses.php"},
+					{"label": "Review Approvals", "icon": "user-check", "route": "approvals.php"},
+					{"label": "Manage Visitors", "icon": "user-plus", "route": "visitors.php"},
+				}
+			},
+		},
+
 		{
 			Code: "overdue_gatepasses", Type: "stat", Title: "Overdue Gatepasses",
-			Icon: "alert-triangle", Accent: "danger", Size: "sm", Order: 130,
+			Icon: "alert-triangle", Accent: "danger", Size: "sm", Order: 140,
 			Permissions: []string{"gatepasses.view"},
 			Build: func(s *Summary) (any, any) { return s.OverdueGatepasses, nil },
 		},
