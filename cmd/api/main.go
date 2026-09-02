@@ -38,7 +38,7 @@ func main() {
 	defer db.Close()
 
 	tenantRepo, api, bootstrapHandler, platformAdminHandler, platformAdminRepo := buildApplication(db, cfg)
-	_ = api // tenant APIs are constructed against the resolved tenant database.
+	_ = api
 	tenantManager := mustTenantDBManager(db, cfg)
 	defer tenantManager.Close()
 	srv, workerCancel := newServer(cfg, db, tenantRepo, tenantManager, bootstrapHandler, platformAdminHandler, platformAdminRepo, []byte(cfg.JWTSecret))
@@ -84,7 +84,6 @@ func mustTenantDBManager(db *sql.DB, cfg *config.Config) *tenantdb.Manager {
 func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *routes.API, *platform.Handler, *platform.AdminHandler, *platform.AdminRepository) {
 	jwtSecret := []byte(cfg.JWTSecret)
 
-	// Repositories.
 	tenantRepo := tenants.NewRepository(db)
 	if err := tenantRepo.ReconcilePlatformDomains(context.Background(), cfg.BaseDomain); err != nil {
 		log.Fatalf("tenant domains: %v", err)
@@ -106,7 +105,6 @@ func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *rou
 	gpRepo := gatepasses.NewRepository(db, gpItemRepo)
 	employeeRepo := employees.NewRepository(db)
 
-	// Services.
 	authSvc := auth.NewService(userRepo, roleRepo, refreshRepo, jwtSecret, cfg.BcryptCost, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
 	visitorSvc := visitors.NewService(visitorRepo, idTypeRepo, companyRepo, settingsRepo, auditRepo)
 	visitSvc := visits.NewService(visitRepo, visitorRepo, visitTypeRepo, deptRepo, auditRepo)
@@ -130,7 +128,6 @@ func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *rou
 	platformAdminSvc := platform.NewAdminService(platformAdminRepo, userRepo, jwtSecret, cfg.AccessTokenTTL)
 	platformAdminHandler := platform.NewAdminHandler(platformAdminSvc)
 
-	// Handlers and API route dependencies.
 	api := routes.NewAPI(jwtSecret, roleRepo)
 	api.AuthHandler = auth.NewHandler(authSvc)
 	api.VisitorHandler = visitors.NewHandler(visitorSvc, idTypeRepo, companyRepo)
@@ -148,7 +145,6 @@ func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *rou
 
 	return tenantRepo, api, platform.NewHandler(bootstrapSvc, cfg.PlatformBootstrapToken), platformAdminHandler, platformAdminRepo
 }
-
 
 func buildTenantAPI(db *sql.DB, cfg *config.Config) *routes.API {
 	jwtSecret := []byte(cfg.JWTSecret)
@@ -195,21 +191,13 @@ func buildTenantAPI(db *sql.DB, cfg *config.Config) *routes.API {
 
 func newServer(cfg *config.Config, db *sql.DB, tenantRepo *tenants.Repository, tenantManager *tenantdb.Manager, bootstrapHandler *platform.Handler, platformAdminHandler *platform.AdminHandler, platformAdminRepo *platform.AdminRepository, jwtSecret []byte) (*http.Server, context.CancelFunc) {
 	rootMux := http.NewServeMux()
-
 	tenantMux := newTenantAPIHandler(tenantManager, cfg)
 	routes.RegisterWeb(rootMux, db, bootstrapHandler, platformAdminHandler, platformAdminRepo, tenantRepo, jwtSecret)
 	handler := routes.BuildHandler(cfg, tenantRepo, rootMux, tenantMux)
 
 	workerCtx, cancelWorkers := context.WithCancel(context.Background())
-	tenantWorker := gatepasses.NewTenantWorker(
-		tenantRepo,
-		tenantManager,
-		cfg.GatepassWorkerInterval,
-		cfg.ApprovedGatepassTTL,
-		log.Default(),
-	)
+	tenantWorker := gatepasses.NewTenantWorker(tenantRepo, tenantManager, cfg.GatepassWorkerInterval, cfg.ApprovedGatepassTTL, 100, log.Default())
 	go tenantWorker.Run(workerCtx)
-	workerCancel := cancelWorkers
 	log.Printf("gatepass worker: tenant-scoped worker started")
 
 	return &http.Server{
@@ -218,7 +206,7 @@ func newServer(cfg *config.Config, db *sql.DB, tenantRepo *tenants.Repository, t
 		ReadTimeout:  cfg.ReadTimeout,
 		WriteTimeout: cfg.WriteTimeout,
 		IdleTimeout:  cfg.IdleTimeout,
-	}, workerCancel
+	}, cancelWorkers
 }
 
 func serve(srv *http.Server, cfg *config.Config) {
@@ -232,7 +220,6 @@ func waitForShutdown(srv *http.Server, cfg *config.Config) {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
-
 	log.Println("shutting down...")
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
@@ -241,7 +228,6 @@ func waitForShutdown(srv *http.Server, cfg *config.Config) {
 	}
 	log.Println("shutdown complete")
 }
-
 
 type tenantAPIHandler struct {
 	manager  *tenantdb.Manager
