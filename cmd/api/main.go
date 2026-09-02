@@ -43,7 +43,7 @@ func main() {
 	_ = api
 	tenantManager := mustTenantDBManager(db, cfg)
 	defer tenantManager.Close()
-	srv, workerCancel := newServer(cfg, db, tenantRepo, tenantManager, bootstrapHandler, platformAdminHandler, platformAdminRepo, tenantManager, []byte(cfg.JWTSecret))
+	srv, workerCancel := newServer(cfg, db, tenantRepo, tenantManager, bootstrapHandler, platformAdminHandler, platformAdminRepo, []byte(cfg.JWTSecret))
 	defer workerCancel()
 
 	go serve(srv, cfg)
@@ -199,7 +199,7 @@ func buildTenantAPI(db *sql.DB, cfg *config.Config) *routes.API {
 	return api
 }
 
-func newServer(cfg *config.Config, db *sql.DB, tenantRepo *tenants.Repository, tenantManager *tenantdb.Manager, bootstrapHandler *platform.Handler, platformAdminHandler *platform.AdminHandler, platformAdminRepo *platform.AdminRepository, tenantManager *tenantdb.Manager, jwtSecret []byte) (*http.Server, context.CancelFunc) {
+func newServer(cfg *config.Config, db *sql.DB, tenantRepo *tenants.Repository, tenantManager *tenantdb.Manager, bootstrapHandler *platform.Handler, platformAdminHandler *platform.AdminHandler, platformAdminRepo *platform.AdminRepository, jwtSecret []byte) (*http.Server, context.CancelFunc) {
 	rootMux := http.NewServeMux()
 	tenantMux := newTenantAPIHandler(tenantManager, cfg)
 	routes.RegisterWeb(rootMux, db, bootstrapHandler, platformAdminHandler, platformAdminRepo, tenantRepo, tenantManager, jwtSecret)
