@@ -9,6 +9,7 @@ if(requestMethod()==='POST'){
  $payload['name']=trim((string)($_POST['name']??''));
  $payload['code']=strtoupper(trim((string)($_POST['code']??'')));
  $payload['requires_number']=isset($_POST['requires_number']);
+ $payload['active']=isset($_POST['active']);
  if($payload['name']===''||$payload['code']==='')$errors[]='Name and code are required.';
  if(!$errors)try{
   if($id){ConfigCrud::update('/api/v1/id-types/'.$id,$payload);flash('success','Updated successfully.');}
@@ -16,5 +17,5 @@ if(requestMethod()==='POST'){
   redirect('id-types.php');
  }catch(ApiException $e){$errors[]=$e->getMessage();}catch(Throwable){$errors[]='Unable to save this record.';}
 }
-if (requestMethod()==='POST') $item=array_merge($item,['name'=>$payload['name']??'','code'=>$payload['code']??'','requires_number'=>$payload['requires_number']??false]);
+if (requestMethod()==='POST') $item=array_merge($item,['name'=>$payload['name']??'','code'=>$payload['code']??'','requires_number'=>$payload['requires_number']??false,'active'=>$payload['active']??false]);
 App::render('admin/id-types-edit',compact('id','item','errors'));
