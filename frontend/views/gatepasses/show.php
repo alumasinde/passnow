@@ -1,6 +1,6 @@
 <?php
 $status = strtolower((string)($gatepass['status'] ?? ''));
-$number = (string)($gatepass['gatepass_number'] ?? $gatepass['number'] ?? ('#' . ($gatepass['id'] ?? '')));
+$number = (string)($gatepass['pass_number'] ?? $gatepass['gatepass_number'] ?? $gatepass['number'] ?? ('#' . ($gatepass['id'] ?? '')));
 $canApprove = in_array($status, ['pending', 'awaiting_approval', 'pending_approval'], true);
 $canCheckout = in_array($status, ['approved', 'ready', 'issued'], true);
 $canCheckin = in_array($status, ['checked_out', 'out'], true);
@@ -39,9 +39,10 @@ $canCheckin = in_array($status, ['checked_out', 'out'], true);
             $details = [
                 'Gatepass number' => $number,
                 'Type' => $gatepass['gatepass_type_name'] ?? $gatepass['type_name'] ?? $gatepass['type'] ?? '—',
-                'Person' => $gatepass['subject_name'] ?? $gatepass['person_name'] ?? '—',
+                'Person' => $gatepass['requester_name'] ?? $gatepass['subject_name'] ?? $gatepass['person_name'] ?? '—',
                 'Direction' => $gatepass['direction'] ?? '—',
-                'Returnable' => !empty($gatepass['returnable']) ? 'Yes' : 'No',
+                'Department' => $gatepass['department_name'] ?? '—',
+                'Returnable' => !empty($gatepass['is_returnable']) ? 'Yes' : 'No',
                 'Expected return' => $gatepass['expected_return_at'] ?? '—',
                 'Created' => $gatepass['created_at'] ?? '—',
             ];
@@ -85,6 +86,17 @@ $canCheckin = in_array($status, ['checked_out', 'out'], true);
             </a>
         </div>
     </article>
+
+    <article class="content-card">
+        <div class="card-header"><h2>Items / assets</h2><p>Items covered by this gatepass.</p></div>
+        <?php component('data-table', ['columns'=>[
+            ['key'=>'name','label'=>'Item'],['key'=>'quantity','label'=>'Qty'],['key'=>'asset_number','label'=>'Asset'],['key'=>'serial_number','label'=>'Serial'],['key'=>'direction','label'=>'Direction'],['key'=>'condition','label'=>'Condition'],
+        ],'rows'=>$gatepass['items']??[],'emptyTitle'=>'No items','emptyMessage'=>'This gatepass does not include item lines.']); ?>
+    </article>
+    <?php if(!empty($gatepass['approvals'])): ?><article class="content-card">
+        <div class="card-header"><h2>Approval trail</h2><p>Workflow steps for this gatepass.</p></div>
+        <?php component('data-table', ['columns'=>[['key'=>'step_order','label'=>'Step'],['key'=>'label','label'=>'Approver'],['key'=>'status','label'=>'Status'],['key'=>'comments','label'=>'Comments']], 'rows'=>$gatepass['approvals']]); ?>
+    </article><?php endif; ?>
 
     <article class="content-card">
         <div class="card-header">
