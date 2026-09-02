@@ -15,7 +15,10 @@ $columns=[
  ['key'=>'company_name','label'=>'Company'],
  ['key'=>'status','label'=>'Status'],
 ];
-$actions=[['label'=>'View','icon'=>'fa-eye','class'=>'btn-secondary','href'=>fn($row)=>url('visitor.php?id='.rawurlencode((string)($row['id']??''))) ]];
+$actions=[
+ ['label'=>'View','icon'=>'fa-eye','class'=>'btn-secondary','href'=>fn($row)=>url('visitor.php?id='.rawurlencode((string)($row['id']??'')))],
+ ['label'=>'Edit','icon'=>'fa-pen','class'=>'btn-secondary','href'=>fn($row)=>url('visitor-edit.php?id='.rawurlencode((string)($row['id']??'')))],
+];
 $statusOptions=is_array($meta['statuses']??null)?$meta['statuses']:[];
 $blacklistOptions=[['value'=>'0','label'=>'Not blacklisted'],['value'=>'1','label'=>'Blacklisted']];
 App::render('visitors/index',compact('q','r','meta','columns','actions','statusOptions','blacklistOptions')+[
