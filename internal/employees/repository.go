@@ -47,25 +47,25 @@ func (r *Repository) List(ctx context.Context, p httpx.Pagination) ([]Employee, 
 }
 
 func (r *Repository) ListScoped(ctx context.Context, p httpx.Pagination, departmentID *int64) ([]Employee, int, error) {
+	where := "WHERE deleted_at IS NULL"
+	args := []any{}
+	if departmentID != nil {
+		where += " AND department_id = ?"
+		args = append(args, *departmentID)
+	}
 	var total int
-	if err := r.db.QueryRowContext(ctx,
-		"SELECT COUNT(*) FROM employees WHERE deleted_at IS NULL" + func() string { if departmentID != nil { return " AND department_id = ?" }; return "" }(), func() []any { if departmentID != nil { return []any{*departmentID} }; return nil }()...).Scan(&total); err != nil {
+	if err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM employees "+where, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-
-	rows, err := r.db.QueryContext(ctx,
-		"SELECT "+cols+" FROM employees WHERE deleted_at IS NULL" + func() string { if departmentID != nil { return " AND department_id = ?" }; return "" }() + " ORDER BY employee_number LIMIT ? OFFSET ?", func() []any { if departmentID != nil { return []any{*departmentID,p.Limit,p.Offset} }; return []any{p.Limit,p.Offset} }()...)
-	if err != nil {
-		return nil, 0, err
-	}
+	queryArgs := append([]any{}, args...)
+	queryArgs = append(queryArgs, p.Limit, p.Offset)
+	rows, err := r.db.QueryContext(ctx, "SELECT "+cols+" FROM employees "+where+" ORDER BY employee_number LIMIT ? OFFSET ?", queryArgs...)
+	if err != nil { return nil, 0, err }
 	defer rows.Close()
-
 	var out []Employee
 	for rows.Next() {
 		e, err := r.scan(rows)
-		if err != nil {
-			return nil, 0, err
-		}
+		if err != nil { return nil, 0, err }
 		out = append(out, *e)
 	}
 	return out, total, rows.Err()
