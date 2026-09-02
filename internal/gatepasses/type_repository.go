@@ -34,7 +34,7 @@ func (r *TypeRepository) Create(ctx context.Context,in TypeInput)(int64,error){
     if approval && in.WorkflowID==nil{return 0,errors.New("workflow_id is required when requires_approval is true")}
     var workflowID any
     if in.WorkflowID!=nil{workflowID=*in.WorkflowID}else{workflowID=nil}
-    res,err:=r.db.ExecContext(ctx,`INSERT INTO gatepass_types (name, code, description, direction, is_returnable_default, returnability_policy, requires_items, requires_approval, workflow_id, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())`,in.Name,in.Code,in.Description,in.Direction,returnable,string(policy),items,approval,workflowID);if err!=nil{return 0,err};return res.LastInsertId()
+    res,err:=r.db.ExecContext(ctx,`INSERT INTO gatepass_types (name, code, description, direction, is_returnable_default, returnability_policy, requires_items, requires_approval, workflow_id, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,in.Name,in.Code,in.Description,in.Direction,returnable,string(policy),items,approval,workflowID,func() bool { if in.Active != nil { return *in.Active }; return true }());if err!=nil{return 0,err};return res.LastInsertId()
 }
 func (r *TypeRepository) Update(ctx context.Context,id int64,in TypeInput) error {
     t,err:=r.ByID(ctx,id);if err!=nil{return err}
