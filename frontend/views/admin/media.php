@@ -4,7 +4,7 @@
         <h1>Media library</h1>
         <p>Upload and manage tenant-owned images for branding and future modules.</p>
     </div>
-    <a class="btn btn-secondary" href="<?= e(url('settings')) ?>"><i class="fa-solid fa-arrow-left"></i> Settings</a>
+    <a class="btn btn-secondary" href="<?= e(url('settings')) ?>" data-back><i class="fa-solid fa-arrow-left"></i> Settings</a>
 </section>
 
 <?php if ($errors): ?>
