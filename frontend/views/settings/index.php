@@ -15,6 +15,7 @@
   ['gatepass-settings.php','fa-sliders','Gatepass settings','Configure numbering, return and operational rules.'],
   ['visitor-settings.php','fa-user-gear','Visitor settings','Configure visitor registration behaviour.'],
   ['theme-settings.php','fa-palette','Theme & branding','Configure tenant identity, logo, colors and appearance.'],
+  ['media.php','fa-photo-film','Media library','Upload and manage tenant images and branding files.'],
  ] as [$href,$icon,$title,$description]): ?>
  <a class="settings-card" href="<?=e(url($href))?>">
   <span class="settings-icon"><i class="fa-solid <?=e($icon)?>"></i></span>
