@@ -1,12 +1,14 @@
 package visits
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
 
 	"gatepass/internal/httpx"
 	"gatepass/internal/reqctx"
+	"gatepass/internal/rbac"
 	"gatepass/internal/visitors"
 )
 
@@ -86,6 +88,10 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	if q.Get("q") != "" { f.Search = q.Get("q") }
 	if q.Get("date") != "" { f.Date = q.Get("date") }
 
+	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w, httpx.ErrAuthRequired); return }
+	if d, ok := rbac.DecisionFromContext(r.Context()); ok {
+		switch d.Scope { case rbac.ScopeOwn: f.CreatedBy = &claims.UserID; case rbac.ScopeDepartment: if dpt, err := rbacSubjectDepartment(r.Context(), h.svc, claims.UserID); err == nil { f.DepartmentID = dpt } else { httpx.WriteError(w, httpx.ErrForbidden); return } }
+	}
 	p := httpx.ParsePagination(r)
 	items, total, err := h.svc.List(r.Context(), tenant.ID, f, p)
 	if err != nil {
@@ -242,4 +248,9 @@ func writeServiceError(w http.ResponseWriter, err error) {
 	default:
 		httpx.WriteError(w, httpx.ErrInternal)
 	}
+}
+
+
+func rbacSubjectDepartment(ctx context.Context, svc *Service, userID int64) (*int64, error) {
+	return svc.UserDepartment(ctx, userID)
 }
