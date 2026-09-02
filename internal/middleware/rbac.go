@@ -13,7 +13,7 @@ func RequireRBAC(engine *rbac.Engine, code string) func(http.Handler) http.Handl
             d,err:=engine.Authorize(r.Context(),c.UserID,c.RoleID,code)
             if err!=nil { httpx.WriteError(w,httpx.ErrForbidden); return }
             if !d.Allowed { httpx.WriteError(w,httpx.ErrForbidden); return }
-            next.ServeHTTP(w,r)
+            next.ServeHTTP(w,r.WithContext(rbac.WithDecision(r.Context(), d)))
         })
     }
 }
@@ -23,7 +23,7 @@ func RequireRBACAny(engine *rbac.Engine,codes ...string) func(http.Handler) http
             c,ok:=ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w,httpx.ErrAuthRequired); return }
             d,err:=engine.AuthorizeAny(r.Context(),c.UserID,c.RoleID,codes...)
             if err!=nil || !d.Allowed { httpx.WriteError(w,httpx.ErrForbidden); return }
-            next.ServeHTTP(w,r)
+            next.ServeHTTP(w,r.WithContext(rbac.WithDecision(r.Context(), d)))
         })
     }
 }
