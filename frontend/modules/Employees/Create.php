@@ -1,5 +1,5 @@
 <?php
-declare(strict_types=1);require_once __DIR__.'/../app/App.php';Auth::requireLogin();
+declare(strict_types=1);require_once __DIR__.'/../../app/App.php';Auth::requireLogin();
 $errors=[];$departments=[];try{$p=Auth::api(App::api(),'GET','/api/v1/departments');$departments=apiRows($p);}catch(Throwable){}
 if(requestMethod()==='POST'){
  Csrf::requireValid($_POST['_csrf']??null);
