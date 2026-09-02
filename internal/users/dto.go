@@ -7,6 +7,7 @@ type DTO struct {
 	Email     string `json:"email"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
+	DepartmentID *int64 `json:"department_id,omitempty"`
 	Status    string `json:"status"`
 }
 
@@ -16,6 +17,7 @@ func ToDTO(u *User) DTO {
 		Email:     u.Email,
 		FirstName: u.FirstName,
 		LastName:  u.LastName,
+		DepartmentID: u.DepartmentID,
 		Status:    string(u.Status),
 	}
 }
