@@ -100,7 +100,8 @@ func (h *Handler) CreateIDType(w http.ResponseWriter,r *http.Request){
 	if _,ok:=tenantRequest(w,r);!ok{return};var in IDTypeInput;if !httpx.DecodeJSON(w,r,&in){return}
 	if in.Name==""||in.Code==""{httpx.WriteError(w,httpx.ErrValidation.WithMessage("name and code are required"));return}
 	requires:=true;if in.RequiresNumber!=nil{requires=*in.RequiresNumber}
-	id,err:=h.idTypes.Create(r.Context(),in.Name,in.Code,requires);if err!=nil{log.Printf("ID TYPE CREATE FAILED: name=%q code=%q error=%v",in.Name,in.Code,err);writeServiceError(w,err);return}
+	active:=true;if in.Active!=nil{active=*in.Active}
+	id,err:=h.idTypes.Create(r.Context(),in.Name,in.Code,requires,active);if err!=nil{log.Printf("ID TYPE CREATE FAILED: name=%q code=%q error=%v",in.Name,in.Code,err);writeServiceError(w,err);return}
 	t,err:=h.idTypes.ByID(r.Context(),id);if err!=nil{httpx.WriteError(w,httpx.ErrInternal);return};httpx.WriteJSON(w,http.StatusCreated,IDTypeToDTO(t))
 }
 func (h *Handler) UpdateIDType(w http.ResponseWriter,r *http.Request){
@@ -114,12 +115,6 @@ func (h *Handler) ListCompanies(w http.ResponseWriter,r *http.Request){
 	items,total,err:=h.companies.List(r.Context(),activeOnly,p);if err!=nil{httpx.WriteError(w,httpx.ErrInternal);return}
 	dtos:=make([]CompanyDTO,0,len(items));for i:=range items{dtos=append(dtos,CompanyToDTO(&items[i]))}
 	httpx.WriteJSON(w,http.StatusOK,httpx.ListEnvelope[CompanyDTO]{Items:dtos,Limit:p.Limit,Offset:p.Offset,Total:total})
-}
-func (h *Handler) GetCompany(w http.ResponseWriter,r *http.Request){
-	if _,ok:=tenantRequest(w,r);!ok{return}
-	id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return}
-	c,err:=h.companies.ByID(r.Context(),id);if err!=nil{writeServiceError(w,err);return}
-	httpx.WriteJSON(w,http.StatusOK,CompanyToDTO(c))
 }
 func (h *Handler) GetCompany(w http.ResponseWriter,r *http.Request){
 	if _,ok:=tenantRequest(w,r);!ok{return}
