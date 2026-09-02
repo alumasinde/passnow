@@ -320,7 +320,7 @@ func (h *Handler) QRLookup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	token := r.PathValue("token")
-	dto, err := h.svc.QRLookup(r.Context(), tenant.ID, token)
+	dto, err := h.svc.QRLookupDetails(r.Context(), tenant.ID, token)
 	if err != nil {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
