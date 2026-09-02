@@ -93,6 +93,7 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("POST /api/v1/id-types", protected("settings.visitors", api.VisitorHandler.CreateIDType))
 	mux.Handle("PATCH /api/v1/id-types/{id}", protected("settings.visitors", api.VisitorHandler.UpdateIDType))
 	mux.Handle("GET /api/v1/visitor-companies", protected("visitors.view", api.VisitorHandler.ListCompanies))
+	mux.Handle("GET /api/v1/visitor-companies/{id}", protected("visitors.view", api.VisitorHandler.GetCompany))
 	mux.Handle("POST /api/v1/visitor-companies", protected("settings.visitors", api.VisitorHandler.CreateCompany))
 	mux.Handle("PATCH /api/v1/visitor-companies/{id}", protected("settings.visitors", api.VisitorHandler.UpdateCompany))
 	mux.Handle("GET /api/v1/visit-types", protected("visitors.view", api.VisitTypeHandler.List))
