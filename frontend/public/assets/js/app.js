@@ -41,19 +41,19 @@
       document.body.classList.remove('theme-light','theme-dark','theme-system');
       document.body.classList.add('theme-' + theme.appearance);
     }
-    if (theme.brand_name) $('[data-tenant-brand-name]').forEach(node => node.textContent = theme.brand_name);
-    if (theme.logo_url) $('[data-tenant-logo]').forEach(img => { img.src = theme.logo_url; });
+    if (theme.brand_name) $$('[data-tenant-brand-name]').forEach(node => node.textContent = theme.brand_name);
+    if (theme.logo_url) $$('[data-tenant-logo]').forEach(img => { img.src = theme.logo_url; });
   }
 
   function initForms() {
-    $('form[data-loading-form]').forEach(form => {
+    $$('form[data-loading-form]').forEach(form => {
       form.addEventListener('submit', () => {
         const button = $('button[type="submit"]', form);
         if (!button) return;
         setLoading(button, true, button.dataset.loadingLabel || 'Working...');
       });
     });
-    $('form[data-ajax-form]').forEach(form => {
+    $$('form[data-ajax-form]').forEach(form => {
       form.addEventListener('submit', async event => {
         event.preventDefault();
         const button = $('button[type="submit"]', form);
@@ -101,7 +101,7 @@
   }
 
   function initBackButtons() {
-    $('[data-back]').forEach(link => link.addEventListener('click', event => {
+    $$('[data-back]').forEach(link => link.addEventListener('click', event => {
       const fallback = link.href, referrer = document.referrer;
       let sameOrigin = false; try { sameOrigin = !!referrer && new URL(referrer).origin === window.location.origin; } catch (_) {}
       if (sameOrigin && window.history.length > 1) { event.preventDefault(); window.history.back(); }
