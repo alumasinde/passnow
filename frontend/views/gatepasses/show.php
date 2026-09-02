@@ -81,6 +81,15 @@ $canCheckin = in_array($status, ['checked_out', 'out'], true);
                 </button>
             <?php endif; ?>
 
+            <?php if(in_array($status,['pending_approval','approved'],true)): ?>
+            <form method="post" action="<?=e(url('gatepass-cancel.php'))?>" class="inline-form">
+                <input type="hidden" name="_csrf" value="<?=e(Csrf::token())?>">
+                <input type="hidden" name="id" value="<?=e((string)$id)?>">
+                <input name="reason" required maxlength="255" placeholder="Cancellation reason">
+                <button class="btn btn-danger" type="submit"><i class="fa-solid fa-ban"></i> Cancel pass</button>
+            </form>
+            <?php endif; ?>
+
             <a class="btn btn-secondary" data-back href="<?= e(url('gatepass-qr.php?id=' . $id)) ?>" data-back>
                 <i class="fa-solid fa-qrcode"></i> QR
             </a>
