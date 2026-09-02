@@ -20,14 +20,89 @@
     }
   }
 
+  function showToast(message, type='success') {
+    const old = $('[data-runtime-toast]'); old?.remove();
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-' + type; toast.dataset.runtimeToast = '1';
+    toast.innerHTML = '<span></span><button type="button" class="toast-close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>';
+    toast.querySelector('span').textContent = message || '';
+    toast.querySelector('button')?.addEventListener('click', () => toast.remove());
+    document.body.appendChild(toast); window.setTimeout(() => toast.remove(), 5000);
+  }
+
+  function applyTheme(theme={}) {
+    const root = document.documentElement;
+    const map = {primary_color:'--color-primary',primary_color_dark:'--color-primary-dark',accent_color:'--color-accent',sidebar_background:'--sidebar-background',sidebar_text:'--sidebar-text',sidebar_active_background:'--sidebar-active-background',sidebar_active_text:'--sidebar-active-text'};
+    Object.entries(map).forEach(([key, variable]) => {
+      const value = theme[key];
+      if (typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) root.style.setProperty(variable, value);
+    });
+    if (theme.appearance) {
+      document.body.classList.remove('theme-light','theme-dark','theme-system');
+      document.body.classList.add('theme-' + theme.appearance);
+    }
+    if (theme.brand_name) $('[data-tenant-brand-name]').forEach(node => node.textContent = theme.brand_name);
+    if (theme.logo_url) $('[data-tenant-logo]').forEach(img => { img.src = theme.logo_url; });
+  }
+
   function initForms() {
-    $$('form[data-loading-form]').forEach(form => {
+    $('form[data-loading-form]').forEach(form => {
       form.addEventListener('submit', () => {
         const button = $('button[type="submit"]', form);
         if (!button) return;
         setLoading(button, true, button.dataset.loadingLabel || 'Working...');
       });
     });
+    $('form[data-ajax-form]').forEach(form => {
+      form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const button = $('button[type="submit"]', form);
+        setLoading(button, true, button?.dataset.loadingLabel || 'Saving...');
+        try {
+          const response = await fetch(form.action || window.location.href, {
+            method:(form.method || 'POST').toUpperCase(),
+            body:new FormData(form),
+            credentials:'same-origin',
+            headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok || payload.ok === false) throw new Error(payload.message || 'Unable to save changes.');
+          const theme = payload.theme || payload.data;
+          if (theme && typeof theme === 'object') {
+            applyTheme(theme);
+            Object.entries(theme).forEach(([key, value]) => {
+              const input = form.elements.namedItem(key);
+              if (input && typeof value !== 'object') input.value = value;
+              const picker = $('[data-theme-color-picker="' + key + '"]', form);
+              if (picker && typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) picker.value = value;
+            });
+          }
+          showToast(payload.message || 'Saved successfully.', 'success');
+        } catch (error) {
+          showToast(error?.message || 'Unable to save changes.', 'danger');
+        } finally { setLoading(button, false); }
+      });
+    });
+  }
+
+  function initUserMenu() {
+    const trigger = $('[data-user-menu]'), dropdown = $('[data-user-dropdown]'), wrap = $('[data-user-menu-wrap]');
+    if (!trigger || !dropdown || !wrap) return;
+    const close = () => { dropdown.hidden = true; trigger.setAttribute('aria-expanded','false'); wrap.classList.remove('is-open'); };
+    const open = () => { dropdown.hidden = false; trigger.setAttribute('aria-expanded','true'); wrap.classList.add('is-open'); };
+    trigger.addEventListener('click', event => { event.stopPropagation(); dropdown.hidden ? open() : close(); });
+    dropdown.addEventListener('click', event => event.stopPropagation());
+    document.addEventListener('click', close);
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
+  }
+
+  function initBackButtons() {
+    $('[data-back]').forEach(link => link.addEventListener('click', event => {
+      const fallback = link.href, referrer = document.referrer;
+      let sameOrigin = false; try { sameOrigin = !!referrer && new URL(referrer).origin === window.location.origin; } catch (_) {}
+      if (sameOrigin && window.history.length > 1) { event.preventDefault(); window.history.back(); }
+      else if (!fallback) event.preventDefault();
+    }));
   }
 
   function initToasts() {
@@ -173,6 +248,8 @@
 
   function init() {
     initForms();
+    initUserMenu();
+    initBackButtons();
     initToasts();
     initModals();
     initSidebar();
@@ -183,5 +260,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 
-  window.PassNowUI = {openModal, closeModal, setLoading};
+  window.PassNowUI = {openModal, closeModal, setLoading, showToast, applyTheme};
 })();
