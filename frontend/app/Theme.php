@@ -113,6 +113,23 @@ final class Theme
         foreach (['brand_name','logo_url','favicon_url'] as $key) {
             $theme[$key] = trim((string)$theme[$key]);
         }
+        foreach (['logo_url','favicon_url'] as $key) {
+            $theme[$key] = self::tenantAwareMediaURL((string)$theme[$key]);
+        }
         return $theme;
+    }
+
+    private static function tenantAwareMediaURL(string $url): string
+    {
+        if ($url === '' || !str_contains($url, '/api/v1/media/public/')) return $url;
+        $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+        $segments = array_values(array_filter(explode('/', trim($path, '/'))));
+        $reserved = ['login','logout','dashboard','platform','assets','api'];
+        $slug = '';
+        if ($segments !== [] && !in_array(strtolower($segments[0]), $reserved, true) && !str_ends_with(strtolower($segments[0]), '.php')) {
+            $slug = strtolower($segments[0]);
+        }
+        if ($slug === '' || str_contains($url, '/'.$slug.'/api/v1/media/public/')) return $url;
+        return str_replace('/api/v1/media/public/', '/'.$slug.'/api/v1/media/public/', $url);
     }
 }
