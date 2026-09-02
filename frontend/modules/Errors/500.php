@@ -1,1 +1,1 @@
-<?php declare(strict_types=1); require_once __DIR__.'/../app/App.php'; http_response_code(500); App::render('errors/500');
+<?php declare(strict_types=1); require_once __DIR__.'/../../app/App.php'; http_response_code(500); App::render('errors/500');
