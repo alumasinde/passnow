@@ -174,15 +174,6 @@ func (s *Service) ChangePassword(ctx context.Context, userID int64, currentPassw
 }
 
 
-func (s *Service) ChangePassword(ctx context.Context, userID int64, currentPassword, newPassword string) error {
-	if len(newPassword) < 8 { return errors.New("auth: password must be at least 8 characters") }
-	u, err := s.users.ByID(ctx, userID); if err != nil { return ErrInvalidCredentials }
-	if !VerifyPassword(u.PasswordHash, currentPassword) { return ErrInvalidCredentials }
-	hash, err := HashPassword(newPassword, s.bcryptCost); if err != nil { return err }
-	if err := s.users.ChangePassword(ctx, userID, hash); err != nil { return err }
-	return s.refresh.RevokeAllForUser(ctx, userID)
-}
-
 
 func (s *Service) UpdateProfile(ctx context.Context, userID int64, firstName, lastName string) (*users.User, error) {
 	if strings.TrimSpace(firstName)=="" || strings.TrimSpace(lastName)=="" { return nil, errors.New("auth: first and last name are required") }
