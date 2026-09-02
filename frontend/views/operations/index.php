@@ -12,14 +12,14 @@
 <?php if($record): ?>
 <?php $status=strtolower((string)($record['status']??'')); $id=(int)($record['id']??0); ?>
 <section class="content-card operation-result">
- <div class="card-header detail-header"><div><h2><?=e((string)($record['gatepass_number']??$record['number']??'Gatepass'))?></h2><p>Verify the physical person and items before proceeding.</p></div>
+ <div class="card-header detail-header"><div><h2><?=e((string)($record['pass_number']??$record['gatepass_number']??$record['number']??'Gatepass'))?></h2><p>Verify the physical person and items before proceeding.</p></div>
  <span class="status-badge status-<?=e(preg_replace('/[^a-z0-9_-]/i','-',$status))?>"><?=e($record['status']??'Unknown')?></span></div>
  <dl class="detail-list">
   <?php foreach([
-   'Person'=>$record['subject_name']??$record['person_name']??'—',
+   'Person'=>$record['requester_name']??$record['subject_name']??$record['person_name']??'—',
    'Type'=>$record['gatepass_type_name']??$record['type_name']??'—',
    'Direction'=>$record['direction']??'—',
-   'Returnable'=>!empty($record['returnable'])?'Yes':'No',
+   'Returnable'=>!empty($record['is_returnable'])?'Yes':'No',
    'Expected return'=>$record['expected_return_at']??'—',
   ] as $label=>$value): ?><div><dt><?=e($label)?></dt><dd><?=e((string)$value)?></dd></div><?php endforeach; ?>
  </dl>
