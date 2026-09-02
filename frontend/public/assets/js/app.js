@@ -72,7 +72,10 @@
             applyTheme(theme);
             Object.entries(theme).forEach(([key, value]) => {
               const input = form.elements.namedItem(key);
-              if (input && typeof value !== 'object') input.value = value;
+              if (input && typeof value !== 'object') {
+                if (input.type === 'checkbox') input.checked = value === true || value === 1 || value === '1' || value === 'true';
+                else input.value = value;
+              }
               const picker = $('[data-theme-color-picker="' + key + '"]', form);
               if (picker && typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) picker.value = value;
             });
