@@ -71,13 +71,13 @@ func RequirePermission(roleRepo *roles.Repository, code string) func(http.Handle
 				return
 			}
 
-			membership, err := roleRepo.MembershipFor(r.Context(), claims.TenantID, claims.UserID)
+			membership, err := roleRepo.MembershipFor(r.Context(), claims.UserID)
 			if err != nil || !membership.IsActive() || membership.RoleID != claims.RoleID {
 				httpx.WriteError(w, httpx.ErrForbidden)
 				return
 			}
 
-			perms, err := roleRepo.PermissionCodesForRole(r.Context(), claims.TenantID, membership.RoleID)
+			perms, err := roleRepo.PermissionCodesForRole(r.Context(), membership.RoleID)
 			if err != nil {
 				httpx.WriteError(w, httpx.ErrInternal)
 				return
