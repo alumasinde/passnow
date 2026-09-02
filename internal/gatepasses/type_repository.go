@@ -16,13 +16,12 @@ func NewTypeRepository(db *sql.DB) *TypeRepository {
 	return &TypeRepository{db: db}
 }
 
-const typeCols = `id, tenant_id, name, code, direction, is_returnable_default, returnability_policy, requires_items, requires_approval, workflow_id, active`
+const typeCols = `id, name, code, direction, is_returnable_default, returnability_policy, requires_items, requires_approval, workflow_id, active`
 
 func (r *TypeRepository) scan(row interface{ Scan(dest ...any) error }) (*GatepassType, error) {
 	var t GatepassType
 	if err := row.Scan(
 		&t.ID,
-		&t.TenantID,
 		&t.Name,
 		&t.Code,
 		&t.Direction,
@@ -41,14 +40,14 @@ func (r *TypeRepository) scan(row interface{ Scan(dest ...any) error }) (*Gatepa
 	return &t, nil
 }
 
-func (r *TypeRepository) List(ctx context.Context, tenantID int64, activeOnly bool) ([]GatepassType, error) {
-	q := "SELECT " + typeCols + " FROM gatepass_types WHERE tenant_id = ? AND deleted_at IS NULL"
+func (r *TypeRepository) List(ctx context.Context, activeOnly bool) ([]GatepassType, error) {
+	q := "SELECT " + typeCols + " FROM gatepass_types WHERE deleted_at IS NULL"
 	if activeOnly {
 		q += " AND active = 1"
 	}
 	q += " ORDER BY name"
 
-	rows, err := r.db.QueryContext(ctx, q, tenantID)
+	rows, err := r.db.QueryContext(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -65,15 +64,15 @@ func (r *TypeRepository) List(ctx context.Context, tenantID int64, activeOnly bo
 	return out, rows.Err()
 }
 
-func (r *TypeRepository) ByID(ctx context.Context, tenantID, id int64) (*GatepassType, error) {
+func (r *TypeRepository) ByID(ctx context.Context, id int64) (*GatepassType, error) {
 	row := r.db.QueryRowContext(ctx,
-		"SELECT "+typeCols+" FROM gatepass_types WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL LIMIT 1",
-		id, tenantID,
+		"SELECT "+typeCols+" FROM gatepass_types WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+		id,
 	)
 	return r.scan(row)
 }
 
-func (r *TypeRepository) Create(ctx context.Context, tenantID int64, in TypeInput) (int64, error) {
+func (r *TypeRepository) Create(ctx context.Context, in TypeInput) (int64, error) {
 	returnable := false
 	items := false
 	approval := false
@@ -108,11 +107,10 @@ func (r *TypeRepository) Create(ctx context.Context, tenantID int64, in TypeInpu
 
 	res, err := r.db.ExecContext(ctx, `
 		INSERT INTO gatepass_types
-			(tenant_id, name, code, direction, is_returnable_default,
+			(name, code, direction, is_returnable_default,
 			 returnability_policy, requires_items, requires_approval,
 			 workflow_id, active, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())`,
-		tenantID,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())`,
 		in.Name,
 		in.Code,
 		in.Direction,
@@ -128,8 +126,8 @@ func (r *TypeRepository) Create(ctx context.Context, tenantID int64, in TypeInpu
 	return res.LastInsertId()
 }
 
-func (r *TypeRepository) Update(ctx context.Context, tenantID, id int64, in TypeInput) error {
-	t, err := r.ByID(ctx, tenantID, id)
+func (r *TypeRepository) Update(ctx context.Context, id int64, in TypeInput) error {
+	t, err := r.ByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -178,7 +176,7 @@ func (r *TypeRepository) Update(ctx context.Context, tenantID, id int64, in Type
 			name = ?, code = ?, direction = ?, is_returnable_default = ?,
 			returnability_policy = ?, requires_items = ?, requires_approval = ?,
 			workflow_id = ?, active = ?, updated_at = NOW()
-		WHERE id = ? AND tenant_id = ?`,
+		WHERE id = ?`,
 		t.Name,
 		t.Code,
 		t.Direction,
@@ -189,7 +187,6 @@ func (r *TypeRepository) Update(ctx context.Context, tenantID, id int64, in Type
 		t.WorkflowID,
 		t.Active,
 		id,
-		tenantID,
 	)
 	return err
 }
