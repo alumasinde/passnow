@@ -25,74 +25,71 @@ func (r *Repository) count(ctx context.Context, query string, args ...any) (int,
 	return n, err
 }
 
-// Summary runs the full set of dashboard metric queries for one tenant.
-// Every query is a simple, indexed COUNT filtered by tenant_id — this
-// endpoint isn't meant to be hit on every page load of every screen, but
-// it's cheap enough for a dashboard refreshed every so often.
-func (r *Repository) Summary(ctx context.Context, tenantID int64) (*Summary, error) {
+// Summary runs the full set of dashboard metric queries against the current tenant database.
+func (r *Repository) Summary(ctx context.Context) (*Summary, error) {
 	s := &Summary{}
 	var err error
 
 	if s.VisitorsToday, err = r.count(ctx, `
 		SELECT COUNT(DISTINCT visitor_id) FROM visits
-		WHERE tenant_id = ? AND status != 'cancelled'
-		  AND (DATE(expected_time) = CURDATE() OR DATE(created_at) = CURDATE())`, tenantID); err != nil {
+		WHERE status != 'cancelled'
+		  AND (DATE(expected_time) = CURDATE() OR DATE(created_at) = CURDATE())`); err != nil {
 		return nil, err
 	}
 	if s.CurrentlyOnPremises, err = r.count(ctx,
-		`SELECT COUNT(*) FROM visits WHERE tenant_id = ? AND status = 'checked_in'`, tenantID); err != nil {
+		`SELECT COUNT(*) FROM visits WHERE status = 'checked_in'`); err != nil {
 		return nil, err
 	}
 	if s.ExpectedToday, err = r.count(ctx, `
 		SELECT COUNT(*) FROM visits
-		WHERE tenant_id = ? AND status IN ('scheduled','expected') AND DATE(expected_time) = CURDATE()`, tenantID); err != nil {
+		WHERE status IN ('scheduled','expected') AND DATE(expected_time) = CURDATE()`); err != nil {
 		return nil, err
 	}
 	if s.CompletedVisitsToday, err = r.count(ctx, `
 		SELECT COUNT(*) FROM visits
-		WHERE tenant_id = ? AND status = 'checked_out' AND DATE(checked_out_at) = CURDATE()`, tenantID); err != nil {
+		WHERE status = 'checked_out' AND DATE(checked_out_at) = CURDATE()`); err != nil {
 		return nil, err
 	}
 
 	if s.ActiveGatepasses, err = r.count(ctx, `
-		SELECT COUNT(*) FROM gatepasses WHERE tenant_id = ? AND status IN ('approved','checked_out')`, tenantID); err != nil {
+		SELECT COUNT(*) FROM gatepasses WHERE status IN ('approved','checked_out')`); err != nil {
 		return nil, err
 	}
 	if s.PendingApprovals, err = r.count(ctx,
-		`SELECT COUNT(*) FROM gatepasses WHERE tenant_id = ? AND status = 'pending_approval'`, tenantID); err != nil {
+		`SELECT COUNT(*) FROM gatepasses WHERE status = 'pending_approval'`); err != nil {
 		return nil, err
 	}
 	if s.RejectedGatepassesToday, err = r.count(ctx, `
 		SELECT COUNT(*) FROM gatepasses
-		WHERE tenant_id = ? AND status = 'rejected' AND DATE(updated_at) = CURDATE()`, tenantID); err != nil {
+		WHERE status = 'rejected' AND DATE(updated_at) = CURDATE()`); err != nil {
 		return nil, err
 	}
 	if s.EmployeeGatepassesToday, err = r.count(ctx, `
 		SELECT COUNT(*) FROM gatepasses
-		WHERE tenant_id = ? AND requester_type = 'employee' AND DATE(created_at) = CURDATE()`, tenantID); err != nil {
+		WHERE requester_type = 'employee' AND DATE(created_at) = CURDATE()`); err != nil {
 		return nil, err
 	}
 	if s.VisitorGatepassesToday, err = r.count(ctx, `
 		SELECT COUNT(*) FROM gatepasses
-		WHERE tenant_id = ? AND requester_type = 'visitor' AND DATE(created_at) = CURDATE()`, tenantID); err != nil {
+		WHERE requester_type = 'visitor' AND DATE(created_at) = CURDATE()`); err != nil {
 		return nil, err
 	}
 
 	if s.ItemsEnteringToday, err = r.count(ctx, `
 		SELECT COUNT(*) FROM gatepass_items gi JOIN gatepasses g ON g.id = gi.gatepass_id
-		WHERE gi.tenant_id = ? AND gi.direction = 'entering' AND DATE(g.created_at) = CURDATE()`, tenantID); err != nil {
+		WHERE gi.direction = 'entering' AND DATE(g.created_at) = CURDATE()`); err != nil {
 		return nil, err
 	}
 	if s.ItemsLeavingToday, err = r.count(ctx, `
 		SELECT COUNT(*) FROM gatepass_items gi JOIN gatepasses g ON g.id = gi.gatepass_id
-		WHERE gi.tenant_id = ? AND gi.direction = 'leaving' AND DATE(g.created_at) = CURDATE()`, tenantID); err != nil {
+		WHERE gi.direction = 'leaving' AND DATE(g.created_at) = CURDATE()`); err != nil {
 		return nil, err
 	}
 
 	if s.OverdueGatepasses, err = r.count(ctx, `
 		SELECT COUNT(*) FROM gatepasses
-		WHERE tenant_id = ? AND is_returnable = 1 AND status = 'checked_out'
-		  AND expected_return_at IS NOT NULL AND expected_return_at < NOW()`, tenantID); err != nil {
+		WHERE is_returnable = 1 AND status = 'checked_out'
+		  AND expected_return_at IS NOT NULL AND expected_return_at < NOW()`); err != nil {
 		return nil, err
 	}
 
@@ -108,7 +105,7 @@ func (r *Repository) Summary(ctx context.Context, tenantID int64) (*Summary, err
 func (r *Repository) recentActivity(ctx context.Context, tenantID int64, limit int) ([]ActivityEntry, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT action, entity_type, entity_id, created_at FROM audit_logs
-		WHERE tenant_id = ? ORDER BY created_at DESC LIMIT ?`, tenantID, limit)
+		WHERE ORDER BY created_at DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
 	}
