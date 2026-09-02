@@ -91,3 +91,25 @@ func RequirePermission(roleRepo *roles.Repository, code string) func(http.Handle
 		})
 	}
 }
+
+
+// RequireAnyPermission grants access when the caller has at least one of the
+// supplied permissions. It is useful when an operation needs a narrow
+// cross-module lookup (for example selecting a host while creating a visit)
+// without granting full access to the other module.
+func RequireAnyPermission(roleRepo *roles.Repository, codes ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims, ok := ClaimsFromContext(r.Context())
+			if !ok { httpx.WriteError(w, httpx.ErrAuthRequired); return }
+			membership, err := roleRepo.MembershipFor(r.Context(), claims.UserID)
+			if err != nil || !membership.IsActive() || membership.RoleID != claims.RoleID {
+				httpx.WriteError(w, httpx.ErrForbidden); return
+			}
+			perms, err := roleRepo.PermissionCodesForRole(r.Context(), membership.RoleID)
+			if err != nil { httpx.WriteError(w, httpx.ErrInternal); return }
+			for _, code := range codes { if perms[code] { next.ServeHTTP(w, r); return } }
+			httpx.WriteError(w, httpx.ErrForbidden)
+		})
+	}
+}
