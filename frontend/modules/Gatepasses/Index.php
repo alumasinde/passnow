@@ -10,8 +10,8 @@ $page = $query->page();
 $perPage = $query->perPage((int) App::config('ui.page_size', 20));
 
 $params = [
-    'page' => $page,
-    'per_page' => $perPage,
+    'limit' => $perPage,
+    'offset' => ($page - 1) * $perPage,
 ];
 if ($query->search() !== '') $params['q'] = $query->search();
 if (!empty($_GET['status'])) $params['status'] = trim((string) $_GET['status']);
@@ -46,9 +46,9 @@ $statusOptions = is_array($meta['statuses'] ?? null) ? $meta['statuses'] : [];
 $typeOptions = is_array($meta['types'] ?? null) ? $meta['types'] : [];
 
 $columns = [
-    ['key' => 'gatepass_number', 'label' => 'Number'],
+    ['key' => 'pass_number', 'label' => 'Number'],
     ['key' => 'gatepass_type_name', 'label' => 'Type'],
-    ['key' => 'subject_name', 'label' => 'Person'],
+    ['key' => 'requester_name', 'label' => 'Person'],
     ['key' => 'status', 'label' => 'Status'],
     ['key' => 'created_at', 'label' => 'Created'],
 ];
