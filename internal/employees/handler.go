@@ -17,14 +17,20 @@ func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
 }
 
-func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
-	tenant, ok := reqctx.TenantFromContext(r.Context())
-	if !ok {
+func requireTenant(w http.ResponseWriter, r *http.Request) bool {
+	if _, ok := reqctx.TenantFromContext(r.Context()); !ok {
 		httpx.WriteError(w, httpx.ErrAuthRequired)
+		return false
+	}
+	return true
+}
+
+func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
+	if !requireTenant(w, r) {
 		return
 	}
 	p := httpx.ParsePagination(r)
-	items, total, err := h.svc.List(r.Context(), tenant.ID, p)
+	items, total, err := h.svc.List(r.Context(), p)
 	if err != nil {
 		httpx.WriteError(w, httpx.ErrInternal)
 		return
@@ -37,9 +43,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
-	tenant, ok := reqctx.TenantFromContext(r.Context())
-	if !ok {
-		httpx.WriteError(w, httpx.ErrAuthRequired)
+	if !requireTenant(w, r) {
 		return
 	}
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
@@ -47,7 +51,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
-	e, err := h.svc.Get(r.Context(), tenant.ID, id)
+	e, err := h.svc.Get(r.Context(), id)
 	if err != nil {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
@@ -56,9 +60,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
-	tenant, ok := reqctx.TenantFromContext(r.Context())
-	if !ok {
-		httpx.WriteError(w, httpx.ErrAuthRequired)
+	if !requireTenant(w, r) {
 		return
 	}
 	var in CreateInput
@@ -69,7 +71,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrValidation.WithMessage("employee_number is required"))
 		return
 	}
-	e, err := h.svc.Create(r.Context(), tenant.ID, in)
+	e, err := h.svc.Create(r.Context(), in)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -84,9 +86,7 @@ type updateRequest struct {
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
-	tenant, ok := reqctx.TenantFromContext(r.Context())
-	if !ok {
-		httpx.WriteError(w, httpx.ErrAuthRequired)
+	if !requireTenant(w, r) {
 		return
 	}
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
@@ -103,7 +103,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		st := Status(*body.Status)
 		in.Status = &st
 	}
-	e, err := h.svc.Update(r.Context(), tenant.ID, id, in)
+	e, err := h.svc.Update(r.Context(), id, in)
 	if err != nil {
 		writeServiceError(w, err)
 		return
