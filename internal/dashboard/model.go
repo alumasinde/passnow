@@ -8,6 +8,7 @@ import "time"
 type Summary struct {
 	VisitorsToday        int `json:"visitors_today"`
 	CurrentlyOnPremises  int `json:"currently_on_premises"`
+	CheckedInToday       int `json:"checked_in_today"`
 	ExpectedToday        int `json:"expected_today"`
 	CompletedVisitsToday int `json:"completed_visits_today"`
 
@@ -22,6 +23,13 @@ type Summary struct {
 	OverdueGatepasses  int `json:"overdue_gatepasses"`
 
 	RecentActivity []ActivityEntry `json:"recent_activity"`
+	GatepassTypeBreakdown []BreakdownEntry `json:"gatepass_type_breakdown"`
+}
+
+type BreakdownEntry struct {
+	Key string `json:"key"`
+	Label string `json:"label"`
+	Value int `json:"value"`
 }
 
 type ActivityEntry struct {
