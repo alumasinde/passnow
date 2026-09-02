@@ -174,3 +174,8 @@ func (s *Service) QRLookupDetails(ctx context.Context, tenantID int64, token str
 func (s *Service) QRToken(ctx context.Context, tenantID, id int64) (string, error) { g, err := s.repo.ByID(ctx, id); if err != nil { return "", err }; return g.QRToken, nil }
 func (s *Service) PendingForApprover(ctx context.Context, tenantID, actorUserID int64) ([]PendingApprovalItem, error) { membership, err := s.roleRepo.MembershipFor(ctx, actorUserID); if err != nil || !membership.IsActive() { return nil, nil }; return s.repo.PendingForApprover(ctx, actorUserID, membership.RoleID) }
 func (s *Service) audit(ctx context.Context, tenantID, actorUserID int64, action string, entityID int64, metadata map[string]any) { _ = s.auditRepo.Record(ctx, s.auditRepo.DB(), audit.Entry{ ActorUserID:&actorUserID, Action:action, EntityType:"gatepass", EntityID:&entityID, Metadata:metadata}) }
+
+
+func (s *Service) UserDepartment(ctx context.Context, userID int64) (*int64, error) {
+	return s.repo.UserDepartment(ctx, userID)
+}
