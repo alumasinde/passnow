@@ -71,6 +71,8 @@ func (r *Repository) ByQRToken(ctx context.Context, token string) (*Gatepass, er
 
 type ListFilter struct {
 	Status *Status
+	CreatedBy *int64
+	DepartmentID *int64
 }
 
 func (r *Repository) List(ctx context.Context, f ListFilter, p httpx.Pagination) ([]Gatepass, int, error) {
@@ -80,6 +82,8 @@ func (r *Repository) List(ctx context.Context, f ListFilter, p httpx.Pagination)
 		where += " AND status = ?"
 		args = append(args, *f.Status)
 	}
+	if f.CreatedBy != nil { where += " AND created_by = ?"; args = append(args, *f.CreatedBy) }
+	if f.DepartmentID != nil { where += " AND department_id = ?"; args = append(args, *f.DepartmentID) }
 
 	var total int
 	if err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM gatepasses "+where, args...).Scan(&total); err != nil {
