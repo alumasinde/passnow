@@ -9,6 +9,7 @@ if(requestMethod()==='POST'){
  $payload['name']=trim((string)($_POST['name']??''));
  $payload['code']=strtoupper(trim((string)($_POST['code']??'')));
  $payload['active']=isset($_POST['active']);
+ $payload['active']=isset($_POST['active']);
  if($payload['name']===''||$payload['code']==='')$errors[]='Name and code are required.';
  if(!$errors)try{
   if($id){ConfigCrud::update('/api/v1/departments/'.$id,$payload);flash('success','Updated successfully.');}
