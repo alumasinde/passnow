@@ -11,7 +11,7 @@ $initial = strtoupper(substr($name ?: 'A', 0, 1));
     </button>
     <div class="topbar-title"><span class="muted">Platform Administration</span></div>
     <div class="topbar-actions">
-        <div class="user-menu">
+        <div class="user-menu" data-user-menu-wrap>
             <button class="user-trigger" type="button" data-user-menu aria-expanded="false">
                 <span class="avatar"><?= e($initial) ?></span>
                 <span class="user-name"><?= e($name ?: 'Platform Admin') ?></span>
