@@ -186,7 +186,8 @@ func buildTenantAPI(db *sql.DB, cfg *config.Config) *routes.API {
 	api.EmployeeHandler = employees.NewHandler(employeeSvc)
 	api.RoleHandler = roles.NewHandler(roleRepo)
 	api.InviteHandler = invite.NewHandler(inviteSvc)
-	api.DashboardHandler = dashboard.NewHandler(dashboard.NewRepository(db))
+	dashboardRepo := dashboard.NewRepository(db)
+	api.DashboardHandler = dashboard.NewHandler(dashboardRepo, dashboard.NewService(dashboardRepo, roleRepo))
 	return api
 }
 
