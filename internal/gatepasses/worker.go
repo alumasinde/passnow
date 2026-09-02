@@ -28,13 +28,22 @@ func NewWorker(db *sql.DB, approvedTTL time.Duration, logger *log.Logger) *Worke
 	return &Worker{db: db, approvedTTL: approvedTTL, batch: 100, logger: logger}
 }
 
-func (w *Worker) RunOnce(ctx context.Context) {
+func (w *Worker) SetBatchSize(batch int) {
+	if batch > 0 {
+		w.batch = batch
+	}
+}
+
+func (w *Worker) RunOnce(ctx context.Context) error {
 	if err := w.expireApproved(ctx); err != nil {
 		w.logger.Printf("gatepass worker: expire approved passes: %v", err)
+		return err
 	}
 	if err := w.markOverdueReturns(ctx); err != nil {
 		w.logger.Printf("gatepass worker: mark overdue returns: %v", err)
+		return err
 	}
+	return nil
 }
 
 func (w *Worker) expireApproved(ctx context.Context) error {
@@ -65,7 +74,6 @@ func (w *Worker) expireApproved(ctx context.Context) error {
 		return err
 	}
 	rows.Close()
-
 	if len(ids) == 0 {
 		return nil
 	}
@@ -127,7 +135,6 @@ func (w *Worker) markOverdueReturns(ctx context.Context) error {
 		return err
 	}
 	rows.Close()
-
 	if len(ids) == 0 {
 		return nil
 	}
