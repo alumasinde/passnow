@@ -29,6 +29,7 @@ if(requestMethod()==='POST'){
  if($payload['first_name']==='')$errors[]='First name is required.';
  if($payload['last_name']==='')$errors[]='Last name is required.';
  if($payload['id_type_id']<1)$errors[]='ID type is required.';
+ if($payload['email']!==null&&!filter_var($payload['email'],FILTER_VALIDATE_EMAIL))$errors[]='A valid email is required.';
  if(!$errors)try{
   if ($payload['company_id'] === null && $payload['company_name'] !== '') {
    $company=Auth::api(App::api(),'POST','/api/v1/visitor-companies',['name'=>$payload['company_name']]);
