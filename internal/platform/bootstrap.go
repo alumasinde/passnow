@@ -174,6 +174,12 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapR
 	}
 	if err := tenantTx.Commit(); err != nil { return nil, fmt.Errorf("create tenant administrator: %w", err) }
 
+	// READY has one strict meaning: migrations, default roles and the first
+	// tenant administrator have all completed successfully.
+	if err := s.dbRepo.MarkStatus(ctx, tenantID, tenantdb.StatusReady, true, nil); err != nil {
+		return nil, fmt.Errorf("mark tenant database ready: %w", err)
+	}
+
 	databaseHost := creds.Host
 	primaryDomain := ""
 	if s.baseDomain != "" && s.baseDomain != "localhost" { primaryDomain = in.TenantSlug+"."+s.baseDomain }
@@ -206,7 +212,9 @@ func (s *Service) configureTenantDatabase(ctx context.Context, tenantID int64, n
 	if err := s.installer.Install(ctx, creds, tenantID, name, slug, token); err != nil {
 		msg := err.Error(); _ = s.dbRepo.MarkStatus(ctx, tenantID, tenantdb.StatusError, false, &msg); return err
 	}
-	return s.dbRepo.MarkStatus(ctx, tenantID, tenantdb.StatusReady, true, nil)
+	// Keep the database verified until tenant-owned bootstrap data (roles and
+	// administrator) has been committed. Bootstrap promotes it to READY.
+	return nil
 }
 
 func (s *Service) provisionerHost() string { if s.provisioner == nil { return "" }; return s.provisioner.Host() }
