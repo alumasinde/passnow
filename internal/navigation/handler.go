@@ -28,7 +28,9 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.service.Build(r.Context(), claims.UserID, claims.RoleID)
 	if err != nil {
-		httpx.WriteError(w, httpx.ErrInternal)
+		// A role changed after the current token was issued is an authorization
+		// state change, not a server failure. Return 403 instead of a misleading 500.
+		httpx.WriteError(w, httpx.ErrForbidden)
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, result)
