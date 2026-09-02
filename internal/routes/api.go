@@ -89,6 +89,7 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 
 	// --- visitor configuration ---
 	mux.Handle("GET /api/v1/id-types", protected("visitors.view", api.VisitorHandler.ListIDTypes))
+	mux.Handle("GET /api/v1/id-types/{id}", protected("visitors.view", api.VisitorHandler.GetIDType))
 	mux.Handle("POST /api/v1/id-types", protected("settings.visitors", api.VisitorHandler.CreateIDType))
 	mux.Handle("PATCH /api/v1/id-types/{id}", protected("settings.visitors", api.VisitorHandler.UpdateIDType))
 	mux.Handle("GET /api/v1/visitor-companies", protected("visitors.view", api.VisitorHandler.ListCompanies))
@@ -102,6 +103,7 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 
 	// --- departments and visits ---
 	mux.Handle("GET /api/v1/departments", protected("visits.view", api.DepartmentHandler.List))
+	mux.Handle("GET /api/v1/departments/{id}", protected("visits.view", api.DepartmentHandler.Get))
 	mux.Handle("POST /api/v1/departments", protected("settings.visits", api.DepartmentHandler.Create))
 	mux.Handle("PATCH /api/v1/departments/{id}", protected("settings.visits", api.DepartmentHandler.Update))
 	mux.Handle("POST /api/v1/visits", protected("visits.create", api.VisitHandler.Create))
