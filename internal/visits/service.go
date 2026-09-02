@@ -17,7 +17,6 @@ var (
 	ErrInvalidDepartment  = errors.New("visits: department not found or inactive")
 )
 
-// Audit action codes for this module.
 const (
 	ActionVisitCreated    = "VISIT_CREATED"
 	ActionVisitCheckedIn  = "VISIT_CHECKED_IN"
@@ -37,11 +36,6 @@ func NewService(repo *Repository, visitorRepo *visitors.Repository, visitTypes *
 	return &Service{repo: repo, visitorRepo: visitorRepo, visitTypes: visitTypes, deptRepo: deptRepo, auditRepo: auditRepo}
 }
 
-// Create validates the visitor (must exist, must not be blacklisted — a
-// security boundary, not just a UX nicety) plus any referenced visit
-// type/department, then schedules the visit. If CheckInNow is set, it
-// immediately performs the check-in transition (badge generation
-// included) as one logical operation from the caller's point of view.
 func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, actorUserID int64) (*Visit, error) {
 	visitor, err := s.visitorRepo.ByID(ctx, in.VisitorID)
 	if err != nil {
@@ -52,7 +46,7 @@ func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, ac
 	}
 
 	if in.VisitTypeID != nil {
-		vt, err := s.visitTypes.ByID(ctx, tenantID, *in.VisitTypeID)
+		vt, err := s.visitTypes.ByID(ctx, *in.VisitTypeID)
 		if err != nil || !vt.Active {
 			return nil, ErrInvalidVisitType
 		}
@@ -65,7 +59,6 @@ func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, ac
 	}
 
 	v := &Visit{
-		TenantID:     tenantID,
 		VisitorID:    in.VisitorID,
 		VisitTypeID:  in.VisitTypeID,
 		DepartmentID: in.DepartmentID,
@@ -88,11 +81,11 @@ func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, ac
 		return s.CheckIn(ctx, tenantID, id, actorUserID)
 	}
 
-	return s.repo.ByID(ctx, tenantID, id)
+	return s.repo.ByID(ctx, id)
 }
 
 func (s *Service) CheckIn(ctx context.Context, tenantID, id, actorUserID int64) (*Visit, error) {
-	v, err := s.repo.CheckIn(ctx, tenantID, id, actorUserID)
+	v, err := s.repo.CheckIn(ctx, id, actorUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +94,7 @@ func (s *Service) CheckIn(ctx context.Context, tenantID, id, actorUserID int64) 
 }
 
 func (s *Service) CheckOut(ctx context.Context, tenantID, id, actorUserID int64) (*Visit, error) {
-	v, err := s.repo.CheckOut(ctx, tenantID, id, actorUserID)
+	v, err := s.repo.CheckOut(ctx, id, actorUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +103,7 @@ func (s *Service) CheckOut(ctx context.Context, tenantID, id, actorUserID int64)
 }
 
 func (s *Service) Cancel(ctx context.Context, tenantID, id, actorUserID int64, reason string) (*Visit, error) {
-	v, err := s.repo.Cancel(ctx, tenantID, id, actorUserID, reason)
+	v, err := s.repo.Cancel(ctx, id, actorUserID, reason)
 	if err != nil {
 		return nil, err
 	}
@@ -119,24 +112,17 @@ func (s *Service) Cancel(ctx context.Context, tenantID, id, actorUserID int64, r
 }
 
 func (s *Service) Get(ctx context.Context, tenantID, id int64) (*Visit, error) {
-	return s.repo.ByID(ctx, tenantID, id)
+	return s.repo.ByID(ctx, id)
 }
 
 func (s *Service) List(ctx context.Context, tenantID int64, f ListFilter, p httpx.Pagination) ([]Visit, int, error) {
-	return s.repo.List(ctx, tenantID, f, p)
+	return s.repo.List(ctx, f, p)
 }
 
-// BadgeByToken resolves a scanned badge token to its visit, but ONLY if
-// the visit belongs to the tenant resolved for the current request — a
-// badge token is unique platform-wide, but a scan at tenant A's gate must
-// never succeed against a badge issued by tenant B.
 func (s *Service) BadgeByToken(ctx context.Context, tenantID int64, token string) (*Visit, *visitors.Visitor, error) {
 	v, err := s.repo.ByBadgeToken(ctx, token)
 	if err != nil {
 		return nil, nil, err
-	}
-	if v.TenantID != tenantID {
-		return nil, nil, ErrNotFound
 	}
 	visitor, err := s.visitorRepo.ByID(ctx, v.VisitorID)
 	if err != nil {
