@@ -133,7 +133,7 @@ func (s *Service) BadgeByToken(ctx context.Context, tenantID int64, token string
 
 func (s *Service) audit(ctx context.Context, tenantID, actorUserID int64, action string, entityID int64, metadata map[string]any) {
 	_ = s.auditRepo.Record(ctx, s.auditRepo.DB(), audit.Entry{
-		TenantID: &tenantID, ActorUserID: &actorUserID, Action: action,
+		ActorUserID: &actorUserID, Action: action,
 		EntityType: "visit", EntityID: &entityID, Metadata: metadata,
 	})
 }
