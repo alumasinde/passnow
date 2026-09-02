@@ -111,6 +111,27 @@ func (s *Service) Cancel(ctx context.Context, tenantID, id, actorUserID int64, r
 	return v, nil
 }
 
+
+// ToDTO enriches a visit with tenant-local display names. Missing optional
+// lookup records do not make an otherwise valid visit unreadable.
+func (s *Service) ToDTO(ctx context.Context, v *Visit) DTO {
+	d := ToDTO(v)
+	if visitor, err := s.visitorRepo.ByID(ctx, v.VisitorID); err == nil {
+		d.VisitorName = visitor.FullName()
+	}
+	if v.VisitTypeID != nil {
+		if visitType, err := s.visitTypes.ByID(ctx, *v.VisitTypeID); err == nil {
+			d.VisitTypeName = visitType.Name
+		}
+	}
+	if v.DepartmentID != nil {
+		if department, err := s.deptRepo.ByID(ctx, *v.DepartmentID); err == nil {
+			d.DepartmentName = department.Name
+		}
+	}
+	return d
+}
+
 func (s *Service) Get(ctx context.Context, tenantID, id int64) (*Visit, error) {
 	return s.repo.ByID(ctx, id)
 }
