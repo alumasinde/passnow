@@ -99,20 +99,47 @@
     const toggle = $('[data-sidebar-toggle]');
     const backdrop = $('[data-sidebar-backdrop]');
     if (!sidebar || !toggle) return;
-    const close = () => {
-      sidebar.classList.remove('is-open');
-      backdrop?.setAttribute('hidden','');
-      document.body.classList.remove('sidebar-open');
+
+    const desktop = () => window.innerWidth > 760;
+    const sync = () => {
+      const collapsed = document.body.classList.contains('sidebar-collapsed');
+      const open = sidebar.classList.contains('is-open');
+      toggle.setAttribute('aria-expanded', desktop() ? String(!collapsed) : String(open));
+      document.body.classList.toggle('sidebar-open', !desktop() && open);
     };
+
+    const closeMobile = () => {
+      sidebar.classList.remove('is-open');
+      backdrop?.setAttribute('hidden', '');
+      document.body.classList.remove('sidebar-open');
+      sync();
+    };
+
+    try {
+      if (localStorage.getItem('passnow.sidebar.collapsed') === '1' && desktop()) {
+        document.body.classList.add('sidebar-collapsed');
+      }
+    } catch (_) {}
+
     toggle.addEventListener('click', () => {
+      if (desktop()) {
+        const collapsed = document.body.classList.toggle('sidebar-collapsed');
+        try { localStorage.setItem('passnow.sidebar.collapsed', collapsed ? '1' : '0'); } catch (_) {}
+        sync();
+        return;
+      }
+
       const open = sidebar.classList.toggle('is-open');
-      if (open) {
-        backdrop?.removeAttribute('hidden');
-        document.body.classList.add('sidebar-open');
-      } else close();
+      if (open) backdrop?.removeAttribute('hidden'); else backdrop?.setAttribute('hidden', '');
+      sync();
     });
-    backdrop?.addEventListener('click', close);
-    window.addEventListener('resize', () => { if (window.innerWidth > 900) close(); });
+
+    backdrop?.addEventListener('click', closeMobile);
+    window.addEventListener('resize', () => {
+      if (desktop()) closeMobile();
+      sync();
+    });
+    sync();
   }
 
   function initTableFilters() {
