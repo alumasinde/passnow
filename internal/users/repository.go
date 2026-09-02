@@ -130,12 +130,6 @@ func (r *Repository) ChangePassword(ctx context.Context, id int64, passwordHash 
 	n, err := res.RowsAffected(); if err != nil { return err }; if n == 0 { return ErrNotFound }; return nil
 }
 
-func (r *Repository) ChangePassword(ctx context.Context, id int64, passwordHash string) error {
-	res, err := r.db.ExecContext(ctx, `UPDATE users SET password_hash = ?, must_change_password = 0, failed_login_count = 0, locked_until = NULL, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`, passwordHash, id)
-	if err != nil { return err }
-	n, err := res.RowsAffected(); if err != nil { return err }; if n == 0 { return ErrNotFound }; return nil
-}
-
 func (r *Repository) SetPasswordHash(ctx context.Context, id int64, passwordHash string) error {
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE users
