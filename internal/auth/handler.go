@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"gatepass/internal/httpx"
 	"gatepass/internal/reqctx"
@@ -42,6 +43,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrBadRequestBody)
 		return
 	}
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 	if req.Email == "" || req.Password == "" {
 		httpx.WriteError(w, httpx.ErrValidation.WithMessage("email and password are required"))
 		return
