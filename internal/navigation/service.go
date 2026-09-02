@@ -2,7 +2,6 @@ package navigation
 
 import (
 	"context"
-	"sort"
 	"time"
 
 	"gatepass/internal/roles"
@@ -41,13 +40,6 @@ func (s *Service) Build(ctx context.Context, userID, roleID int64) (*Response, e
 		}
 		items = append(items, def.Item)
 	}
-
-	sort.SliceStable(items, func(i, j int) bool {
-		if items[i].Placement != items[j].Placement {
-			return items[i].Placement < items[j].Placement
-		}
-		return items[i].Order < items[j].Order
-	})
 
 	return &Response{Items: items, GeneratedAt: time.Now().UTC()}, nil
 }
