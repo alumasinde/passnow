@@ -52,27 +52,7 @@ final class ApiClient
             throw new ApiException('The API returned an invalid response (HTTP ' . $status . ').', $status);
         }
         if ($status < 200 || $status >= 300) {
-            $messageValue = $decoded['message'] ?? $decoded['error'] ?? 'The request could not be completed.';
-
-            if (is_array($messageValue)) {
-                $parts = [];
-                foreach ($messageValue as $key => $value) {
-                    if (is_array($value)) {
-                        $value = implode(', ', array_map(
-                            static fn ($item): string => is_scalar($item) || $item === null ? (string) $item : json_encode($item),
-                            $value
-                        ));
-                    }
-                    $parts[] = is_string($key) ? $key . ': ' . (string) $value : (string) $value;
-                }
-                $message = $parts !== [] ? implode(' | ', $parts) : 'The request could not be completed.';
-            } elseif (is_scalar($messageValue) || $messageValue === null) {
-                $message = (string) $messageValue;
-            } else {
-                $message = 'The request could not be completed.';
-            }
-
-            throw new ApiException($message, $status, $decoded + ['request_url' => $url]);
+            throw new ApiException(self::errorMessage($decoded), $status, $decoded + ['request_url' => $url]);
         }
         return $decoded;
     }
@@ -125,10 +105,32 @@ final class ApiClient
         $decoded = json_decode($raw, true);
         if (!is_array($decoded)) throw new ApiException('The API returned an invalid response (HTTP ' . $status . ').', $status);
         if ($status < 200 || $status >= 300) {
-            $message = $decoded['message'] ?? $decoded['error'] ?? 'The request could not be completed.';
-            if (is_array($message)) $message = json_encode($message);
-            throw new ApiException((string)$message, $status, $decoded + ['request_url'=>$url]);
+            throw new ApiException(self::errorMessage($decoded), $status, $decoded + ['request_url'=>$url]);
         }
         return $decoded;
+    }
+
+    private static function errorMessage(array $payload): string
+    {
+        $candidate = $payload['message'] ?? $payload['error'] ?? null;
+
+        if (is_array($candidate)) {
+            foreach (['message', 'detail', 'error', 'code'] as $key) {
+                if (isset($candidate[$key]) && is_scalar($candidate[$key])) {
+                    return trim((string)$candidate[$key]) ?: 'The request could not be completed.';
+                }
+            }
+            foreach ($candidate as $value) {
+                if (is_scalar($value) && trim((string)$value) !== '') {
+                    return trim((string)$value);
+                }
+            }
+        }
+
+        if (is_scalar($candidate) && trim((string)$candidate) !== '') {
+            return trim((string)$candidate);
+        }
+
+        return 'The request could not be completed.';
     }
 }
