@@ -158,3 +158,8 @@ func (s *Service) audit(ctx context.Context, tenantID, actorUserID int64, action
 		EntityType: "visit", EntityID: &entityID, Metadata: metadata,
 	})
 }
+
+
+func (s *Service) UserDepartment(ctx context.Context, userID int64) (*int64, error) {
+	return s.repo.UserDepartment(ctx, userID)
+}
