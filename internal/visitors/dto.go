@@ -47,6 +47,7 @@ type CreateInput struct {
 	Phone *string `json:"phone"`
 	Email *string `json:"email"`
 	Notes *string `json:"notes"`
+	PhotoRef *string `json:"photo_ref"`
 	WantsPreRegistration bool `json:"pre_register"`
 }
 
