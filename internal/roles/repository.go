@@ -208,12 +208,13 @@ type MembershipView struct {
 	LastName     string
 	RoleID       int64
 	RoleName     string
+	DepartmentID *int64
 	Status       MembershipStatus
 }
 
 func (r *Repository) ListMemberships(ctx context.Context) ([]MembershipView, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT tm.id, u.id, u.email, u.first_name, u.last_name, r.id, r.name, tm.status
+		SELECT tm.id, u.id, u.email, u.first_name, u.last_name, u.department_id, r.id, r.name, tm.status
 		FROM tenant_memberships tm
 		JOIN users u ON u.id = tm.user_id
 		JOIN roles r ON r.id = tm.role_id
@@ -226,7 +227,7 @@ func (r *Repository) ListMemberships(ctx context.Context) ([]MembershipView, err
 	var out []MembershipView
 	for rows.Next() {
 		var m MembershipView
-		if err := rows.Scan(&m.MembershipID, &m.UserID, &m.Email, &m.FirstName, &m.LastName, &m.RoleID, &m.RoleName, &m.Status); err != nil {
+		if err := rows.Scan(&m.MembershipID, &m.UserID, &m.Email, &m.FirstName, &m.LastName, &m.DepartmentID, &m.RoleID, &m.RoleName, &m.Status); err != nil {
 			return nil, err
 		}
 		out = append(out, m)
@@ -234,7 +235,20 @@ func (r *Repository) ListMemberships(ctx context.Context) ([]MembershipView, err
 	return out, rows.Err()
 }
 
-func (r *Repository) UpdateMembership(ctx context.Context, membershipID int64, roleID *int64, status *MembershipStatus) error {
+func (r *Repository) MembershipViewByUserID(ctx context.Context, userID int64) (*MembershipView, error) {
+	var m MembershipView
+	err := r.db.QueryRowContext(ctx, `
+		SELECT tm.id, u.id, u.email, u.first_name, u.last_name, u.department_id, r.id, r.name, tm.status
+		FROM tenant_memberships tm
+		JOIN users u ON u.id = tm.user_id
+		JOIN roles r ON r.id = tm.role_id
+		WHERE u.id = ? LIMIT 1`, userID,
+	).Scan(&m.MembershipID, &m.UserID, &m.Email, &m.FirstName, &m.LastName, &m.DepartmentID, &m.RoleID, &m.RoleName, &m.Status)
+	if err != nil { if errors.Is(err, sql.ErrNoRows) { return nil, ErrNotFound }; return nil, err }
+	return &m, nil
+}
+
+func (r *Repository) UpdateMembership(ctx context.Context, membershipID int64, roleID *int64, status *MembershipStatus, departmentID *int64, clearDepartment bool) error {
 	m, err := r.membershipByID(ctx, membershipID)
 	if err != nil {
 		return err
@@ -245,10 +259,16 @@ func (r *Repository) UpdateMembership(ctx context.Context, membershipID int64, r
 	if status != nil {
 		m.Status = *status
 	}
-	_, err = r.db.ExecContext(ctx, `
-		UPDATE tenant_memberships SET role_id = ?, status = ?, updated_at = NOW()
-		WHERE id = ?`, m.RoleID, m.Status, membershipID)
-	return err
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil { return err }
+	defer tx.Rollback()
+	if _, err = tx.ExecContext(ctx, `UPDATE tenant_memberships SET role_id = ?, status = ?, updated_at = NOW() WHERE id = ?`, m.RoleID, m.Status, membershipID); err != nil { return err }
+	if departmentID != nil || clearDepartment {
+		var value any = nil
+		if departmentID != nil { value = *departmentID }
+		if _, err = tx.ExecContext(ctx, `UPDATE users SET department_id = ?, updated_at = NOW() WHERE id = ?`, value, m.UserID); err != nil { return err }
+	}
+	return tx.Commit()
 }
 
 func (r *Repository) membershipByID(ctx context.Context, membershipID int64) (*Membership, error) {
