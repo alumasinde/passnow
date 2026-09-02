@@ -4,6 +4,7 @@ $id=filter_input(INPUT_GET,'id',FILTER_VALIDATE_INT);$item=[];$errors=[];
 if($id){try{$p=Auth::api(App::api(),'GET','/api/v1/departments/'.$id);$item=apiValue($p,'item',$p['data']??$p);if(!is_array($item))$item=[];}catch(Throwable $e){$errors[]=$e instanceof ApiException?$e->getMessage():'Unable to load record.';}}
 if(requestMethod()==='POST'){
  Csrf::requireValid($_POST['_csrf']??null);
+ error_log('PASSNOW DEPARTMENT FORM: method='.requestMethod().' post_keys='.implode(',', array_keys($_POST)));
  $payload=[];
  $payload['name']=trim((string)($_POST['name']??''));
  $payload['code']=strtoupper(trim((string)($_POST['code']??'')));
@@ -14,4 +15,5 @@ if(requestMethod()==='POST'){
   redirect('departments.php');
  }catch(ApiException $e){$errors[]=$e->getMessage();}catch(Throwable){$errors[]='Unable to save this record.';}
 }
+if (requestMethod()==='POST') $item=array_merge($item,['name'=>$payload['name']??'','code'=>$payload['code']??'']);
 App::render('admin/departments-edit',compact('id','item','errors'));
