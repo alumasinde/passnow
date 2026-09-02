@@ -17,25 +17,25 @@ import (
 	"fmt"
 )
 
-// Next increments and returns the next value in (tenantID, scope, period).
+// Next increments and returns the next value in (scope, period).
 // period lets a sequence reset per year (e.g. "2026") — pass "" for a
 // sequence that never resets.
-func Next(ctx context.Context, tx *sql.Tx, tenantID int64, scope, period string) (int64, error) {
+func Next(ctx context.Context, tx *sql.Tx, scope, period string) (int64, error) {
 	// Ensure the row exists, then lock and read it. INSERT IGNORE +
 	// SELECT...FOR UPDATE (rather than a single UPSERT) so the row is
 	// definitely present and definitely locked before we compute the next
 	// value, regardless of driver-specific upsert-and-return support.
 	if _, err := tx.ExecContext(ctx, `
-		INSERT IGNORE INTO number_sequences (tenant_id, scope, period, last_value)
-		VALUES (?, ?, ?, 0)`, tenantID, scope, period); err != nil {
+		INSERT IGNORE INTO number_sequences (scope, period, last_value)
+		VALUES (?, ?, 0)`, scope, period); err != nil {
 		return 0, err
 	}
 
 	var current int64
 	if err := tx.QueryRowContext(ctx, `
 		SELECT last_value FROM number_sequences
-		WHERE tenant_id = ? AND scope = ? AND period = ? FOR UPDATE`,
-		tenantID, scope, period,
+		WHERE scope = ? AND period = ? FOR UPDATE`,
+		scope, period,
 	).Scan(&current); err != nil {
 		return 0, err
 	}
@@ -43,8 +43,8 @@ func Next(ctx context.Context, tx *sql.Tx, tenantID int64, scope, period string)
 	next := current + 1
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE number_sequences SET last_value = ?
-		WHERE tenant_id = ? AND scope = ? AND period = ?`,
-		next, tenantID, scope, period); err != nil {
+		WHERE scope = ? AND period = ?`,
+		next, scope, period); err != nil {
 		return 0, err
 	}
 
