@@ -44,7 +44,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusCreated, ToDTO(v))
+	httpx.WriteJSON(w, http.StatusCreated, h.svc.ToDTO(r.Context(), v))
 }
 
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
@@ -63,7 +63,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, ToDTO(v))
+	httpx.WriteJSON(w, http.StatusOK, h.svc.ToDTO(r.Context(), v))
 }
 
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
@@ -83,6 +83,8 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 			f.VisitorID = &n
 		}
 	}
+	if q.Get("q") != "" { f.Search = q.Get("q") }
+	if q.Get("date") != "" { f.Date = q.Get("date") }
 
 	p := httpx.ParsePagination(r)
 	items, total, err := h.svc.List(r.Context(), tenant.ID, f, p)
@@ -92,9 +94,12 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	dtos := make([]DTO, 0, len(items))
 	for i := range items {
-		dtos = append(dtos, ToDTO(&items[i]))
+		dtos = append(dtos, h.svc.ToDTO(r.Context(), &items[i]))
 	}
-	httpx.WriteJSON(w, http.StatusOK, httpx.ListEnvelope[DTO]{Items: dtos, Limit: p.Limit, Offset: p.Offset, Total: total})
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"items": dtos, "limit": p.Limit, "offset": p.Offset,
+		"meta": map[string]any{"total": total, "statuses": visitStatusOptions()},
+	})
 }
 
 func (h *Handler) CheckIn(w http.ResponseWriter, r *http.Request) {
@@ -200,6 +205,18 @@ func (h *Handler) BadgeLookup(w http.ResponseWriter, r *http.Request) {
 		VisitID: v.ID, VisitorName: visitor.FullName(), DepartmentID: v.DepartmentID,
 		HostName: v.HostName, Status: string(v.Status), CheckedInAt: v.CheckedInAt, BadgeNumber: v.BadgeNumber,
 	})
+}
+
+func visitStatusOptions() []map[string]string {
+	return []map[string]string{
+		{"value":string(StatusScheduled),"label":"Scheduled"},
+		{"value":string(StatusExpected),"label":"Expected"},
+		{"value":string(StatusCheckedIn),"label":"Checked in"},
+		{"value":string(StatusCheckedOut),"label":"Checked out"},
+		{"value":string(StatusCancelled),"label":"Cancelled"},
+		{"value":string(StatusNoShow),"label":"No show"},
+		{"value":string(StatusExpired),"label":"Expired"},
+	}
 }
 
 func parseIDParam(r *http.Request) (int64, error) {
