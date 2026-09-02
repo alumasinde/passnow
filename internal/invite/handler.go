@@ -20,6 +20,8 @@ import (
 )
 
 var ErrRoleNotFound = errors.New("invite: role not found")
+
+const DefaultInitialPassword = "PassNow@123"
 var ErrUserAlreadyMember = errors.New("invite: user already belongs to this tenant")
 
 const DefaultInitialPassword = "PassNow@123"
@@ -135,4 +137,8 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 // Invite is retained as a compatibility alias for older clients. New UI uses CreateUser.
+func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) { h.CreateUser(w,r) }
+
+
+// Invite remains as a compatibility alias for older clients.
 func (h *Handler) Invite(w http.ResponseWriter, r *http.Request) { h.CreateUser(w,r) }
