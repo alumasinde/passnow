@@ -10,7 +10,7 @@ CREATE TABLE approval_workflows (
     updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at  DATETIME NULL,
 
-    UNIQUE KEY uq_workflows_name (name),
+    UNIQUE KEY uq_workflows_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE approval_workflow_steps (
@@ -172,7 +172,7 @@ CREATE TABLE gatepass_items (
     updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
     KEY idx_gp_items_gatepass (gatepass_id),
-    CONSTRAINT fk_gpitems_gatepass FOREIGN KEY (gatepass_id) REFERENCES gatepasses(id) ON DELETE CASCADE,
+    CONSTRAINT fk_gpitems_gatepass FOREIGN KEY (gatepass_id) REFERENCES gatepasses(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT IGNORE INTO permissions (code, label) VALUES
