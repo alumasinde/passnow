@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"sync"
 
 	"gatepass/internal/approvals"
 	"gatepass/internal/audit"
@@ -38,8 +38,10 @@ func main() {
 	defer db.Close()
 
 	tenantRepo, api, bootstrapHandler, platformAdminHandler, platformAdminRepo := buildApplication(db, cfg)
-	_ = api // tenant APIs are constructed against the resolved tenant database per request.
-	srv, workerCancel := newServer(cfg, db, tenantRepo, bootstrapHandler, platformAdminHandler, platformAdminRepo, []byte(cfg.JWTSecret))
+	_ = api // tenant APIs are constructed against the resolved tenant database.
+	tenantManager := mustTenantDBManager(db, cfg)
+	defer tenantManager.Close()
+	srv, workerCancel := newServer(cfg, db, tenantRepo, tenantManager, bootstrapHandler, platformAdminHandler, platformAdminRepo, []byte(cfg.JWTSecret))
 	defer workerCancel()
 
 	go serve(srv, cfg)
@@ -60,6 +62,23 @@ func mustConnectDatabase(cfg *config.Config) *sql.DB {
 		log.Fatalf("database: %v", err)
 	}
 	return db
+}
+
+func mustTenantDBManager(db *sql.DB, cfg *config.Config) *tenantdb.Manager {
+	if cfg.TenantDBEncryptionKey == "" {
+		log.Fatal("tenant database encryption key is required")
+	}
+	cipher, err := tenantdb.NewCipher(cfg.TenantDBEncryptionKey)
+	if err != nil {
+		log.Fatalf("tenant database encryption: %v", err)
+	}
+	return tenantdb.NewManager(
+		tenantdb.NewRepository(db),
+		cipher,
+		cfg.TenantDBMaxOpenConns,
+		cfg.TenantDBMaxIdleConns,
+		cfg.TenantDBConnMaxLifetime,
+	)
 }
 
 func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *routes.API, *platform.Handler, *platform.AdminHandler, *platform.AdminRepository) {
@@ -174,19 +193,24 @@ func buildTenantAPI(db *sql.DB, cfg *config.Config) *routes.API {
 	return api
 }
 
-func newServer(cfg *config.Config, db *sql.DB, tenantRepo *tenants.Repository, bootstrapHandler *platform.Handler, platformAdminHandler *platform.AdminHandler, platformAdminRepo *platform.AdminRepository, jwtSecret []byte) (*http.Server, context.CancelFunc) {
+func newServer(cfg *config.Config, db *sql.DB, tenantRepo *tenants.Repository, tenantManager *tenantdb.Manager, bootstrapHandler *platform.Handler, platformAdminHandler *platform.AdminHandler, platformAdminRepo *platform.AdminRepository, jwtSecret []byte) (*http.Server, context.CancelFunc) {
 	rootMux := http.NewServeMux()
 
-	tenantMux := &tenantAPIHandler{platformDB: db, cfg: cfg}
+	tenantMux := newTenantAPIHandler(tenantManager, cfg)
 	routes.RegisterWeb(rootMux, db, bootstrapHandler, platformAdminHandler, platformAdminRepo, tenantRepo, jwtSecret)
 	handler := routes.BuildHandler(cfg, tenantRepo, rootMux, tenantMux)
 
-	// Gatepass operational data lives in isolated tenant databases. A worker
-	// connected to the platform database would query tenant tables that do not
-	// exist there. Tenant workers are therefore not started from the platform
-	// connection.
-	workerCancel := func() {}
-	log.Printf("gatepass worker: tenant-scoped worker not started on platform database")
+	workerCtx, cancelWorkers := context.WithCancel(context.Background())
+	tenantWorker := gatepasses.NewTenantWorker(
+		tenantRepo,
+		tenantManager,
+		cfg.GatepassWorkerInterval,
+		cfg.ApprovedGatepassTTL,
+		log.Default(),
+	)
+	go tenantWorker.Run(workerCtx)
+	workerCancel := cancelWorkers
+	log.Printf("gatepass worker: tenant-scoped worker started")
 
 	return &http.Server{
 		Addr:         cfg.HTTPAddr,
@@ -220,8 +244,40 @@ func waitForShutdown(srv *http.Server, cfg *config.Config) {
 
 
 type tenantAPIHandler struct {
-	platformDB *sql.DB
-	cfg *config.Config
+	manager  *tenantdb.Manager
+	cfg      *config.Config
+	mu       sync.Mutex
+	handlers map[int64]http.Handler
+}
+
+func newTenantAPIHandler(manager *tenantdb.Manager, cfg *config.Config) *tenantAPIHandler {
+	return &tenantAPIHandler{manager: manager, cfg: cfg, handlers: make(map[int64]http.Handler)}
+}
+
+func (h *tenantAPIHandler) handler(ctx context.Context, tenantID int64) (http.Handler, error) {
+	h.mu.Lock()
+	if handler := h.handlers[tenantID]; handler != nil {
+		h.mu.Unlock()
+		return handler, nil
+	}
+	h.mu.Unlock()
+
+	db, err := h.manager.DB(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	api := buildTenantAPI(db, h.cfg)
+	mux := http.NewServeMux()
+	routes.RegisterAPI(mux, api)
+
+	h.mu.Lock()
+	if existing := h.handlers[tenantID]; existing != nil {
+		h.mu.Unlock()
+		return existing, nil
+	}
+	h.handlers[tenantID] = mux
+	h.mu.Unlock()
+	return mux, nil
 }
 
 func (h *tenantAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -230,38 +286,10 @@ func (h *tenantAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "tenant context missing", http.StatusInternalServerError)
 		return
 	}
-	if h.cfg.TenantDBEncryptionKey == "" {
-		http.Error(w, "tenant database configuration is missing", http.StatusServiceUnavailable)
-		return
-	}
-	cipher, err := tenantdb.NewCipher(h.cfg.TenantDBEncryptionKey)
-	if err != nil {
-		http.Error(w, "tenant database configuration is invalid", http.StatusInternalServerError)
-		return
-	}
-	conn, err := tenantdb.NewRepository(h.platformDB).Get(r.Context(), tenant.ID)
+	handler, err := h.handler(r.Context(), tenant.ID)
 	if err != nil {
 		http.Error(w, "tenant database is not available", http.StatusServiceUnavailable)
 		return
 	}
-	password, err := cipher.Decrypt(conn.EncryptedPassword)
-	if err != nil {
-		http.Error(w, "tenant database credentials could not be decrypted", http.StatusInternalServerError)
-		return
-	}
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=UTC", conn.Username, password, conn.Host, conn.Port, conn.DatabaseName)
-	tenantDB, err := sql.Open("mysql", dsn)
-	if err != nil {
-		http.Error(w, "tenant database connection could not be opened", http.StatusServiceUnavailable)
-		return
-	}
-	defer tenantDB.Close()
-	if err := tenantDB.PingContext(r.Context()); err != nil {
-		http.Error(w, "tenant database could not be reached", http.StatusServiceUnavailable)
-		return
-	}
-	api := buildTenantAPI(tenantDB, h.cfg)
-	mux := http.NewServeMux()
-	routes.RegisterAPI(mux, api)
-	mux.ServeHTTP(w, r)
+	handler.ServeHTTP(w, r)
 }
