@@ -60,18 +60,20 @@ func ResolveTenant(repo *tenants.Repository, baseDomain string) func(http.Handle
 				}
 			}
 
-			// Path-prefix fallback if no host/header-based match was found.
-			if t == nil {
-				slug, rest, ok := firstPathSegment(r.URL.Path)
-				if ok {
+			// Path-prefix fallback supports direct browser access on one local/IP
+			// host. It also strips a matching slug even when the tenant was already
+			// resolved from the Host header, allowing the same public-media URL to
+			// work in development and production.
+			if slug, rest, ok := firstPathSegment(r.URL.Path); ok {
+				if t == nil {
 					if pt, perr := repo.BySlug(ctx, slug); perr == nil {
 						t = pt
-						// Strip the tenant segment so downstream routers see
-						// a normal "/api/v1/..." path.
 						r.URL.Path = rest
 					} else {
 						err = perr
 					}
+				} else if strings.EqualFold(slug, t.Slug) {
+					r.URL.Path = rest
 				}
 			}
 
