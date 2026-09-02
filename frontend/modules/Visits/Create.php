@@ -7,7 +7,7 @@ try{$p=Auth::api(App::api(),'GET','/api/v1/visit-types');$types=apiRows($p);}cat
 try{$p=Auth::api(App::api(),'GET','/api/v1/departments');$departments=apiRows($p);}catch(Throwable){}
 try{$me=Auth::api(App::api(),'GET','/api/v1/auth/me');$me=apiValue($me,'user',$me['data']??$me);$currentDepartmentID=is_array($me)&&isset($me['department_id'])?(int)$me['department_id']:null;}catch(Throwable){}
 try{$p=Auth::api(App::api(),'GET','/api/v1/visitors?limit=100');$visitors=apiRows($p);}catch(Throwable){}
-try{$p=Auth::api(App::api(),'GET','/api/v1/employees?limit=100');$employees=apiRows($p);}catch(Throwable){}
+try{$p=Auth::api(App::api(),'GET','/api/v1/employees?limit=100');$employees=apiRows($p);}catch(ApiException $e){$errors[]='Unable to load hosts: '.$e->getMessage();}catch(Throwable){$errors[]='Unable to load hosts.';}
 
 $nullableInt=static fn($value): ?int => ((int)$value)>0?(int)$value:null;
 $nullableString=static fn($value): ?string => (($v=trim((string)$value))==='')?null:$v;
