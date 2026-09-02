@@ -49,21 +49,18 @@ func (w *TenantWorker) Run(ctx context.Context) {
 }
 
 func (w *TenantWorker) runOnce(ctx context.Context) {
-	items, err := w.tenants.List(ctx)
+	ids, err := w.tenants.ReadyIDs(ctx)
 	if err != nil {
 		w.logger.Printf("tenant worker: list tenants: %v", err)
 		return
 	}
 
-	for _, tenant := range items {
-		if !tenant.IsActive() {
-			continue
-		}
-		db, err := w.manager.DB(ctx, tenant.ID)
+	for _, tenantID := range ids {
+		db, err := w.manager.DB(ctx, tenantID)
 		if err != nil {
 			// A tenant can legitimately be active while provisioning/repair is
 			// still incomplete. Skip that tenant without stopping the others.
-			w.logger.Printf("tenant worker: tenant %d database unavailable: %v", tenant.ID, err)
+			w.logger.Printf("tenant worker: tenant %d database unavailable: %v", tenantID, err)
 			continue
 		}
 		worker := NewWorker(db, w.interval, w.approvedTTL, w.logger)
