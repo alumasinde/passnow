@@ -13,6 +13,7 @@ final class Auth
         $_SESSION['access_token'] = $r['access_token'];
         $_SESSION['refresh_token'] = $r['refresh_token'];
         $_SESSION['user'] = $r['user'] ?? [];
+        $_SESSION['tenant_slug'] = strtolower(trim((string)($r['tenant_slug'] ?? localTenantSlug())));
         $_SESSION['authenticated_at'] = time();
     }
 
@@ -78,6 +79,6 @@ final class Auth
 
     private static function clearTenantSession(): void
     {
-        unset($_SESSION['access_token'], $_SESSION['refresh_token'], $_SESSION['user'], $_SESSION['authenticated_at']);
+        unset($_SESSION['access_token'], $_SESSION['refresh_token'], $_SESSION['user'], $_SESSION['tenant_slug'], $_SESSION['authenticated_at']);
     }
 }
