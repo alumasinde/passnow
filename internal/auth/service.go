@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"errors"
-	"log"
 	"strings"
 	"sync"
 	"time"
@@ -52,7 +51,6 @@ type TokenPair struct { AccessToken string; RefreshToken string; ExpiresIn int64
 
 func (s *Service) Login(ctx context.Context, tenantID int64,email,password string)(*TokenPair,*users.User,error){
 	email = strings.ToLower(strings.TrimSpace(email))
-	log.Printf("AUTH LOGIN START: tenant_id=%d email=%q", tenantID, email)
 
 	u,err:=s.users.ByEmail(ctx,email)
 	if err!=nil {
@@ -61,7 +59,6 @@ func (s *Service) Login(ctx context.Context, tenantID int64,email,password strin
 		return nil,nil,ErrInvalidCredentials
 	}
 
-	log.Printf("AUTH LOGIN USER FOUND: tenant_id=%d user_id=%d email=%q status=%q failed_login_count=%d locked_until=%v password_hash_length=%d", tenantID, u.ID, u.Email, u.Status, u.FailedLoginCount, u.LockedUntil, len(u.PasswordHash))
 
 	now:=time.Now().UTC()
 	if u.IsLocked(now){
@@ -91,7 +88,6 @@ func (s *Service) Login(ctx context.Context, tenantID int64,email,password strin
 		return nil,nil,ErrInvalidCredentials
 	}
 
-	log.Printf("AUTH LOGIN PASSWORD PASSED: tenant_id=%d user_id=%d email=%q", tenantID, u.ID, u.Email)
 
 	if err:=s.users.ResetFailedLogins(ctx,tx,u.ID);err!=nil{
 		log.Printf("AUTH LOGIN FAILED: ResetFailedLogins tenant_id=%d user_id=%d error=%v", tenantID, u.ID, err)
@@ -112,7 +108,6 @@ func (s *Service) Login(ctx context.Context, tenantID int64,email,password strin
 		return nil,nil,ErrInvalidCredentials
 	}
 
-	log.Printf("AUTH LOGIN MEMBERSHIP PASSED: tenant_id=%d user_id=%d membership_id=%d role_id=%d", tenantID, u.ID, membership.ID, membership.RoleID)
 
 	pair,err:=s.issueTokenPair(ctx,u.ID,tenantID,membership.RoleID)
 	if err!=nil{
@@ -120,7 +115,6 @@ func (s *Service) Login(ctx context.Context, tenantID int64,email,password strin
 		return nil,nil,err
 	}
 
-	log.Printf("AUTH LOGIN SUCCESS: tenant_id=%d user_id=%d role_id=%d", tenantID, u.ID, membership.RoleID)
 	return pair,u,nil
 }
 
