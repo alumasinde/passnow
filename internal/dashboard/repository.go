@@ -55,6 +55,11 @@ func (r *Repository) Summary(ctx context.Context) (*Summary, error) {
 		WHERE status = 'checked_out' AND DATE(checked_out_at) = CURDATE()`); err != nil {
 		return nil, err
 	}
+	if s.OverstayedVisits, err = r.count(ctx, `
+		SELECT COUNT(*) FROM visits
+		WHERE status = 'checked_in' AND expected_time IS NOT NULL AND expected_time < NOW()`); err != nil {
+		return nil, err
+	}
 
 	if s.ActiveGatepasses, err = r.count(ctx, `
 		SELECT COUNT(*) FROM gatepasses WHERE status IN ('approved','checked_out')`); err != nil {
