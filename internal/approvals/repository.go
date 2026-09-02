@@ -26,6 +26,8 @@ func NewRepository(db *sql.DB) *Repository {
 // steps are validated (exactly one of role_id/user_id, matching
 // approver_type) before anything is written.
 func (r *Repository) CreateWithSteps(ctx context.Context, tenantID int64, in CreateWorkflowInput) (int64, error) {
+	// tenantID is carried by the request context at the application boundary;
+	// this repository is tenant-local because each tenant has its own database.
 	if len(in.Steps) == 0 {
 		return 0, ErrInvalidStepConfig
 	}
@@ -44,15 +46,15 @@ func (r *Repository) CreateWithSteps(ctx context.Context, tenantID int64, in Cre
 		}
 		switch ApproverType(s.ApproverType) {
 		case ApproverRole:
-			if s.RoleID == nil || s.UserID != nil || *s.RoleID <= 0 {
-				return 0, ErrInvalidStepConfig
+			var count int
+			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM roles WHERE id = ?`, *s.RoleID).Scan(&count); err != nil || count != 1 {
+				return 0, ErrApproverNotInTenant
 			}
 		case ApproverSpecificUser:
-			if s.UserID == nil || s.RoleID != nil || *s.UserID <= 0 {
-				return 0, ErrInvalidStepConfig
+			var status string
+			if err := tx.QueryRowContext(ctx, `SELECT status FROM tenant_memberships WHERE user_id = ? LIMIT 1`, *s.UserID).Scan(&status); err != nil || status != "active" {
+				return 0, ErrApproverNotInTenant
 			}
-		default:
-			return 0, ErrInvalidStepConfig
 		}
 	}
 	if !hasRequired {
@@ -102,8 +104,8 @@ func (r *Repository) CreateWithSteps(ctx context.Context, tenantID int64, in Cre
 	}
 
 	res, err := tx.ExecContext(ctx, `
-		INSERT INTO approval_workflows (tenant_id, name, active, created_at, updated_at)
-		VALUES (?, ?, 1, NOW(), NOW())`, tenantID, in.Name)
+		INSERT INTO approval_workflows (name, active, created_at, updated_at)
+		VALUES (?, 1, NOW(), NOW())`, in.Name)
 	if err != nil {
 		return 0, err
 	}
@@ -119,9 +121,9 @@ func (r *Repository) CreateWithSteps(ctx context.Context, tenantID int64, in Cre
 		}
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO approval_workflow_steps
-				(workflow_id, tenant_id, step_order, label, approver_type, role_id, user_id, required)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			workflowID, tenantID, i+1, s.Label, s.ApproverType, s.RoleID, s.UserID, required,
+				(workflow_id, step_order, label, approver_type, role_id, user_id, required)
+			VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			workflowID, i+1, s.Label, s.ApproverType, s.RoleID, s.UserID, required,
 		); err != nil {
 			return 0, err
 		}
@@ -136,9 +138,9 @@ func (r *Repository) CreateWithSteps(ctx context.Context, tenantID int64, in Cre
 func (r *Repository) ByID(ctx context.Context, tenantID, id int64) (*Workflow, []Step, error) {
 	var w Workflow
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, tenant_id, name, active FROM approval_workflows
-		WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL LIMIT 1`, id, tenantID,
-	).Scan(&w.ID, &w.TenantID, &w.Name, &w.Active)
+		SELECT id, name, active FROM approval_workflows
+		WHERE id = ? AND deleted_at IS NULL LIMIT 1`, id,
+	).Scan(&w.ID, &w.Name, &w.Active)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil, ErrNotFound
@@ -147,8 +149,8 @@ func (r *Repository) ByID(ctx context.Context, tenantID, id int64) (*Workflow, [
 	}
 
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, workflow_id, tenant_id, step_order, label, approver_type, role_id, user_id, required
-		FROM approval_workflow_steps WHERE workflow_id = ? AND tenant_id = ? ORDER BY step_order`, id, tenantID)
+		SELECT id, workflow_id, step_order, label, approver_type, role_id, user_id, required
+		FROM approval_workflow_steps WHERE workflow_id = ? ORDER BY step_order`, id)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -157,7 +159,7 @@ func (r *Repository) ByID(ctx context.Context, tenantID, id int64) (*Workflow, [
 	var steps []Step
 	for rows.Next() {
 		var s Step
-		if err := rows.Scan(&s.ID, &s.WorkflowID, &s.TenantID, &s.StepOrder, &s.Label, &s.ApproverType, &s.RoleID, &s.UserID, &s.Required); err != nil {
+		if err := rows.Scan(&s.ID, &s.WorkflowID, &s.StepOrder, &s.Label, &s.ApproverType, &s.RoleID, &s.UserID, &s.Required); err != nil {
 			return nil, nil, err
 		}
 		steps = append(steps, s)
@@ -166,13 +168,13 @@ func (r *Repository) ByID(ctx context.Context, tenantID, id int64) (*Workflow, [
 }
 
 func (r *Repository) List(ctx context.Context, tenantID int64, activeOnly bool) ([]Workflow, error) {
-	q := `SELECT id, tenant_id, name, active FROM approval_workflows WHERE tenant_id = ? AND deleted_at IS NULL`
+	q := `SELECT id, name, active FROM approval_workflows WHERE deleted_at IS NULL`
 	if activeOnly {
 		q += " AND active = 1"
 	}
 	q += " ORDER BY name"
 
-	rows, err := r.db.QueryContext(ctx, q, tenantID)
+	rows, err := r.db.QueryContext(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +183,7 @@ func (r *Repository) List(ctx context.Context, tenantID int64, activeOnly bool) 
 	var out []Workflow
 	for rows.Next() {
 		var w Workflow
-		if err := rows.Scan(&w.ID, &w.TenantID, &w.Name, &w.Active); err != nil {
+		if err := rows.Scan(&w.ID, &w.Name, &w.Active); err != nil {
 			return nil, err
 		}
 		out = append(out, w)
