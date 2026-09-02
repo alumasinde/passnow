@@ -55,6 +55,13 @@ final class Auth
         }
     }
 
+
+    public static function apiBinary(ApiClient $api, string $method, string $path): array
+    {
+        try { return $api->requestBinary($method, $path, self::accessToken()); }
+        catch (ApiException $e) { if ($e->status() === 401) self::handleExpiredSession(); throw $e; }
+    }
+
     public static function apiMultipart(ApiClient $api, string $method, string $path, array $fields, array $files): array
     {
         try {
