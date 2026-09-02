@@ -53,9 +53,14 @@ func (e *Engine) Authorize(ctx context.Context, userID, claimedRoleID int64, req
     r,a,s:=Parse(requested)
     if r == "" || a == "" { return Decision{}, nil }
     if s!=ScopeNone {
-        // all is intentionally NOT treated as a wildcard for department/own.
-        // Scope must be explicitly enforced by Phase 3.
         if perms[r+"."+a+".all"] { return Decision{Allowed:true,Granted:r+"."+a+".all",Resource:r,Action:a,Scope:ScopeAll},nil }
+        return Decision{Allowed:false,Resource:r,Action:a,Scope:s},nil
+    }
+    // Non-scoped operations (create, check_in, approve, etc.) accept any granted
+    // scope variant for the same resource/action and preserve the strongest scope.
+    for _, candidate := range []Scope{ScopeAll, ScopeDepartment, ScopeOwn, ScopeAssigned} {
+        code := r+"."+a+"."+string(candidate)
+        if perms[code] { return Decision{Allowed:true,Granted:code,Resource:r,Action:a,Scope:candidate},nil }
     }
     return Decision{Allowed:false,Resource:r,Action:a,Scope:s},nil
 }
