@@ -165,7 +165,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	dtos := make([]DTO, 0, len(items))
 	for i := range items {
-		dtos = append(dtos, ToDTO(&items[i]))
+		dtos = append(dtos, h.svc.Details(r.Context(), tenant.ID, &items[i]))
 	}
 	httpx.WriteJSON(w, http.StatusOK, httpx.ListEnvelope[DTO]{Items: dtos, Limit: p.Limit, Offset: p.Offset, Total: total})
 }
@@ -426,5 +426,5 @@ func writeMovementError(w http.ResponseWriter, err error) {
 }
 
 func withDetails(r *http.Request, svc *Service, tenantID int64, g *Gatepass) DTO {
-	return ToDTO(g)
+	return svc.Details(r.Context(), tenantID, g)
 }
