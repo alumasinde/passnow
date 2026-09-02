@@ -65,6 +65,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
+	if !h.canAccess(r.Context(), claimsUserID(r), v) { httpx.WriteError(w, httpx.ErrForbidden); return }
 	httpx.WriteJSON(w, http.StatusOK, h.svc.ToDTO(r.Context(), v))
 }
 
@@ -131,6 +132,7 @@ func (h *Handler) CheckIn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
+	if !h.canAccess(r.Context(), claims.UserID, mustVisit(h.svc, r.Context(), tenant.ID, id)) { httpx.WriteError(w, httpx.ErrForbidden); return }
 	v, err := h.svc.CheckIn(r.Context(), tenant.ID, id, claims.UserID)
 	if err != nil {
 		writeServiceError(w, err)
@@ -155,6 +157,7 @@ func (h *Handler) CheckOut(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
+	if !h.canAccess(r.Context(), claims.UserID, mustVisit(h.svc, r.Context(), tenant.ID, id)) { httpx.WriteError(w, httpx.ErrForbidden); return }
 	v, err := h.svc.CheckOut(r.Context(), tenant.ID, id, claims.UserID)
 	if err != nil {
 		writeServiceError(w, err)
@@ -187,6 +190,7 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrValidation.WithMessage("reason is required"))
 		return
 	}
+	if !h.canAccess(r.Context(), claims.UserID, mustVisit(h.svc, r.Context(), tenant.ID, id)) { httpx.WriteError(w, httpx.ErrForbidden); return }
 	v, err := h.svc.Cancel(r.Context(), tenant.ID, id, claims.UserID, in.Reason)
 	if err != nil {
 		writeServiceError(w, err)
@@ -257,6 +261,19 @@ func writeServiceError(w http.ResponseWriter, err error) {
 	}
 }
 
+
+func claimsUserID(r *http.Request) int64 { c, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { return 0 }; return c.UserID }
+
+func mustVisit(s *Service, ctx context.Context, tenantID, id int64) *Visit { v, err := s.Get(ctx, tenantID, id); if err != nil { return nil }; return v }
+
+func (h *Handler) canAccess(ctx context.Context, actorID int64, v *Visit) bool {
+	if v == nil { return false }
+	d, ok := rbac.DecisionFromContext(ctx); if !ok || d.Scope == rbac.ScopeNone || d.Scope == rbac.ScopeAll { return true }
+	dept, err := rbacSubjectDepartment(ctx, h.svc, actorID); if err != nil { return false }
+	return rbac.AllowsDepartment(d.Scope, actorID, dept, v.DepartmentID, valueID(v.CreatedBy))
+}
+
+func valueID(v *int64) int64 { if v == nil { return 0 }; return *v }
 
 func rbacSubjectDepartment(ctx context.Context, svc *Service, userID int64) (*int64, error) {
 	return svc.UserDepartment(ctx, userID)
