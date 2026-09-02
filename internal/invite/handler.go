@@ -20,6 +20,9 @@ import (
 )
 
 var ErrRoleNotFound = errors.New("invite: role not found")
+var ErrUserAlreadyMember = errors.New("invite: user already belongs to this tenant")
+
+const DefaultInitialPassword = "PassNow@123"
 
 type Service struct {
 	users      *users.Repository
@@ -68,15 +71,12 @@ func (s *Service) Invite(ctx context.Context, tenantID int64, in Input) (*Result
 	if err == nil {
 		userID = existing.ID
 	} else {
-		tempPassword, err = randomPassword()
-		if err != nil {
-			return nil, err
-		}
+		tempPassword = DefaultInitialPassword
 		hash, err := auth.HashPassword(tempPassword, s.bcryptCost)
 		if err != nil {
 			return nil, err
 		}
-		newUser := &users.User{Email: in.Email, PasswordHash: hash, FirstName: in.FirstName, LastName: in.LastName}
+		newUser := &users.User{Email: in.Email, PasswordHash: hash, FirstName: in.FirstName, LastName: in.LastName, MustChangePassword: true}
 		userID, err = s.users.Create(ctx, newUser)
 		if err != nil {
 			return nil, err
@@ -84,9 +84,7 @@ func (s *Service) Invite(ctx context.Context, tenantID int64, in Input) (*Result
 	}
 
 	membershipID, err := s.roles.CreateMembership(ctx, userID, in.RoleID, roles.MembershipActive)
-	if err != nil {
-		return nil, err
-	}
+	if err != nil { return nil, err }
 
 	return &Result{UserID: userID, MembershipID: membershipID, Email: in.Email, TemporaryPassword: tempPassword}, nil
 }
@@ -109,7 +107,7 @@ func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
 }
 
-func (h *Handler) Invite(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	tenant, ok := reqctx.TenantFromContext(r.Context())
 	if !ok {
 		httpx.WriteError(w, httpx.ErrAuthRequired)
@@ -135,3 +133,6 @@ func (h *Handler) Invite(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.WriteJSON(w, http.StatusCreated, result)
 }
+
+// Invite is retained as a compatibility alias for older clients. New UI uses CreateUser.
+func (h *Handler) Invite(w http.ResponseWriter, r *http.Request) { h.CreateUser(w,r) }
