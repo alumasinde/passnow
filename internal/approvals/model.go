@@ -9,7 +9,6 @@ const (
 
 type Workflow struct {
 	ID       int64
-	TenantID int64
 	Name     string
 	Active   bool
 }
@@ -20,7 +19,6 @@ type Workflow struct {
 type Step struct {
 	ID           int64
 	WorkflowID   int64
-	TenantID     int64
 	StepOrder    int
 	Label        string
 	ApproverType ApproverType
