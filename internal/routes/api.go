@@ -80,6 +80,8 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("POST /api/v1/auth/refresh", api.RefreshLimiter.Middleware("refresh")(http.HandlerFunc(api.AuthHandler.Refresh)))
 	mux.Handle("POST /api/v1/auth/logout", middleware.Authenticated(api.JWTSecret, api.AuthHandler.Logout))
 	mux.Handle("POST /api/v1/auth/change-password", middleware.Authenticated(api.JWTSecret, api.AuthHandler.ChangePassword))
+	mux.Handle("GET /api/v1/auth/me", middleware.Authenticated(api.JWTSecret, api.AuthHandler.Me))
+	mux.Handle("PATCH /api/v1/auth/me", middleware.Authenticated(api.JWTSecret, api.AuthHandler.UpdateProfile))
 	mux.Handle("POST /api/v1/auth/change-password", middleware.Authenticated(api.JWTSecret, api.AuthHandler.ChangePassword))
 
 	// --- visitors ---
