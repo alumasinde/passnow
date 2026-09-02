@@ -13,7 +13,6 @@ type Status string
 
 type Gatepass struct {
 	ID             int64
-	TenantID       int64
 	GatepassTypeID int64
 	PassNumber     string
 
