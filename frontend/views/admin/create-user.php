@@ -6,5 +6,5 @@
 <?php component('field',['name'=>'last_name','label'=>'Last name','required'=>true]);?>
 <?php component('field',['name'=>'email','label'=>'Email','type'=>'email','required'=>true]);?>
 <div class="field"><label for="role_id">Role <span class="required">*</span></label><select id="role_id" name="role_id" required><option value="">Select a role</option><?php foreach($roles as $role):$rid=(int)($role['id']??0);?><option value="<?=e((string)$rid)?>" <?=((int)($_POST['role_id']??0)===$rid)?'selected':''?>><?=e((string)($role['name']??'Role'))?></option><?php endforeach;?></select><?php if(!$roles):?><small class="muted">No roles available. Create a role first.</small><?php endif;?></div>
-</div><div class="form-actions"><a class="btn btn-secondary" href="<?=e(url('users.php'))?>">Cancel</a><button class="btn btn-primary" type="submit" data-loading-label="Creating..."><span data-button-label>Create user</span></button></div>
+</div><div class="alert alert-info"><strong>Initial password:</strong> <code>PassNow@123</code>. The user will be required to change it immediately after their first successful login.</div><div class="form-actions"><a class="btn btn-secondary" href="<?=e(url('users.php'))?>">Cancel</a><button class="btn btn-primary" type="submit" data-loading-label="Creating..."><span data-button-label>Create user</span></button></div>
 </form>
