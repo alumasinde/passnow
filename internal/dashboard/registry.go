@@ -51,7 +51,7 @@ func DefaultRegistry() []WidgetDefinition {
 					"series": []map[string]any{
 						{"key": "issued", "label": "Issued", "value": s.EmployeeGatepassesToday + s.VisitorGatepassesToday},
 						{"key": "active", "label": "Active", "value": s.ActiveGatepasses},
-						{"key": "returned", "label": "Returned", "value": s.CompletedVisitsToday},
+						{"key": "pending", "label": "Pending", "value": s.PendingApprovals},
 					},
 				}
 			},
