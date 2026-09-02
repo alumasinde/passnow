@@ -47,7 +47,9 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrValidation.WithMessage("name and code are required"))
 		return
 	}
-	id, err := h.repo.Create(r.Context(), in.Name, in.Code)
+	active := true
+	if in.Active != nil { active = *in.Active }
+	id, err := h.repo.Create(r.Context(), in.Name, in.Code, active)
 	if err != nil {
 		log.Printf("DEPARTMENT CREATE FAILED: name=%q code=%q error=%v", in.Name, in.Code, err)
 		httpx.WriteError(w, httpx.ErrInternal)
