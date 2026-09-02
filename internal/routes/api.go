@@ -12,6 +12,7 @@ import (
 	"gatepass/internal/gatepasses"
 	"gatepass/internal/invite"
 	"gatepass/internal/middleware"
+	"gatepass/internal/navigation"
 	"gatepass/internal/platform"
 	"gatepass/internal/roles"
 	"gatepass/internal/settings"
@@ -40,6 +41,7 @@ type API struct {
 	InviteHandler           *invite.Handler
 	BootstrapHandler        *platform.Handler
 	DashboardHandler        *dashboard.Handler
+	NavigationHandler       *navigation.Handler
 
 	LoginLimiter   *middleware.RateLimiter
 	RefreshLimiter *middleware.RateLimiter
@@ -134,6 +136,9 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("GET /api/v1/users", protected("settings.users", api.RoleHandler.ListUsers))
 	mux.Handle("POST /api/v1/users/invite", protected("settings.users", api.InviteHandler.Invite))
 	mux.Handle("PATCH /api/v1/users/memberships/{id}", protected("settings.users", api.RoleHandler.UpdateUserMembership))
+
+	// --- dynamic navigation ---
+	mux.Handle("GET /api/v1/navigation", middleware.Authenticated(api.JWTSecret, api.NavigationHandler.List))
 
 	// --- dashboard and personal approval queue ---
 	mux.Handle("GET /api/v1/dashboard", protected("dashboard.view", api.DashboardHandler.Dashboard))
