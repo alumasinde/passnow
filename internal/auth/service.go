@@ -182,3 +182,10 @@ func (s *Service) ChangePassword(ctx context.Context, userID int64, currentPassw
 	if err := s.users.ChangePassword(ctx, userID, hash); err != nil { return err }
 	return s.refresh.RevokeAllForUser(ctx, userID)
 }
+
+
+func (s *Service) UpdateProfile(ctx context.Context, userID int64, firstName, lastName string) (*users.User, error) {
+	if strings.TrimSpace(firstName)=="" || strings.TrimSpace(lastName)=="" { return nil, errors.New("auth: first and last name are required") }
+	if err := s.users.UpdateName(ctx,userID,strings.TrimSpace(firstName),strings.TrimSpace(lastName)); err != nil { return nil, err }
+	return s.users.ByID(ctx,userID)
+}
