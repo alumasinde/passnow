@@ -50,6 +50,9 @@ function apiRows(array $payload): array
     foreach (['data', 'items', 'results', 'records'] as $key) {
         if (isset($payload[$key]) && is_array($payload[$key])) return $payload[$key];
     }
+    // Several Go handlers intentionally return a plain JSON array. Do not
+    // mistake that successful response for an empty result set.
+    if (array_is_list($payload)) return $payload;
     return [];
 }
 
