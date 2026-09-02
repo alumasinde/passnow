@@ -151,3 +151,16 @@ body.sidebar-collapsed .nav-item i{width:auto}
 .error-card{width:min(100%,620px);padding:42px;border:1px solid var(--color-border);border-radius:20px;background:var(--color-surface);box-shadow:0 24px 70px rgba(16,24,40,.12);text-align:center}
 .error-icon{width:58px;height:58px;margin:0 auto 16px;display:grid;place-items:center;border-radius:16px;background:#fff4e5;color:#b54708;font-size:24px}.error-status{font-size:13px;font-weight:800;letter-spacing:.12em;color:var(--color-primary);margin-bottom:8px}.error-card h1{margin:0 0 10px;font-size:30px}.error-card>p{margin:0 auto;color:var(--color-muted);line-height:1.65;max-width:520px}.error-reference{margin:24px auto 0;padding:12px 14px;border:1px solid var(--color-border);border-radius:10px;display:flex;justify-content:space-between;gap:16px;max-width:360px;background:color-mix(in srgb,var(--color-background) 70%,transparent);font-size:13px}.error-reference span{color:var(--color-muted)}.error-reference code{font-weight:800;color:var(--color-text)}.error-actions{margin-top:26px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap}.error-debug{margin-top:24px;text-align:left;border-top:1px solid var(--color-border);padding-top:16px;color:var(--color-muted)}.error-debug summary{cursor:pointer;color:var(--color-text);font-weight:700}.error-debug strong{display:block;margin-top:14px;color:#b42318}.error-debug pre{margin:12px 0 0;padding:14px;overflow:auto;border-radius:10px;background:#101828;color:#f8fafc;font-size:12px;line-height:1.55;white-space:pre-wrap}
 @media(max-width:560px){.error-card{padding:30px 20px;border-radius:16px}.error-card h1{font-size:25px}.error-actions{flex-direction:column}.error-actions .btn{width:100%}}
+
+
+/* Tenant interaction polish: account dropdown + live theme updates */
+.user-menu{position:relative}
+.user-trigger{display:inline-flex;align-items:center;gap:9px;border:0;background:transparent;color:var(--color-text);font:inherit;font-weight:700;cursor:pointer;padding:7px 9px;border-radius:10px}
+.user-trigger:hover,.user-menu.is-open .user-trigger{background:color-mix(in srgb,var(--color-primary) 8%,transparent)}
+.user-trigger .fa-chevron-down{font-size:12px;transition:transform .18s ease}
+.user-menu.is-open .user-trigger .fa-chevron-down{transform:rotate(180deg)}
+.user-menu .dropdown{position:absolute;right:0;top:calc(100% + 8px);z-index:1300;min-width:190px;padding:7px;border:1px solid var(--color-border);border-radius:12px;background:var(--color-surface);box-shadow:0 18px 45px rgba(16,24,40,.16)}
+.user-menu .dropdown[hidden]{display:none}
+.user-menu .dropdown a,.user-menu .dropdown button{width:100%;display:flex;align-items:center;gap:9px;padding:10px 11px;border:0;border-radius:8px;background:transparent;color:var(--color-text);font:inherit;font-size:13px;text-align:left;text-decoration:none;cursor:pointer}
+.user-menu .dropdown a:hover,.user-menu .dropdown button:hover{background:color-mix(in srgb,var(--color-primary) 8%,transparent)}
+@media(max-width:560px){.user-name{display:none}.user-menu .dropdown{right:0;min-width:170px}}
