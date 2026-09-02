@@ -76,7 +76,7 @@ func (w *Worker) expireApproved(ctx context.Context) error {
 	}
 
 	rows, err := w.db.QueryContext(ctx, `
-		SELECT id, tenant_id
+		SELECT id
 		FROM gatepasses
 		WHERE status = 'expired'
 		  AND updated_at >= UTC_TIMESTAMP() - INTERVAL 1 MINUTE
@@ -88,11 +88,11 @@ func (w *Worker) expireApproved(ctx context.Context) error {
 	defer rows.Close()
 
 	for rows.Next() {
-		var id, tenantID int64
-		if err := rows.Scan(&id, &tenantID); err != nil {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
 			return err
 		}
-		if err := w.enqueue(ctx, tenantID, "gatepass.expired", "gatepass", id,
+		if err := w.enqueue(ctx, "gatepass.expired", "gatepass", id,
 			"Gatepass expired before checkout", map[string]any{"gatepass_id": id}); err != nil {
 			return err
 		}
@@ -117,7 +117,7 @@ func (w *Worker) markOverdueReturns(ctx context.Context) error {
 	}
 
 	rows, err := w.db.QueryContext(ctx, `
-		SELECT id, tenant_id
+		SELECT id
 		FROM gatepasses
 		WHERE status = 'return_overdue'
 		  AND updated_at >= UTC_TIMESTAMP() - INTERVAL 1 MINUTE
@@ -129,11 +129,11 @@ func (w *Worker) markOverdueReturns(ctx context.Context) error {
 	defer rows.Close()
 
 	for rows.Next() {
-		var id, tenantID int64
-		if err := rows.Scan(&id, &tenantID); err != nil {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
 			return err
 		}
-		if err := w.enqueue(ctx, tenantID, "gatepass.return_overdue", "gatepass", id,
+		if err := w.enqueue(ctx, "gatepass.return_overdue", "gatepass", id,
 			"Gatepass return is overdue", map[string]any{"gatepass_id": id}); err != nil {
 			return err
 		}
@@ -143,7 +143,7 @@ func (w *Worker) markOverdueReturns(ctx context.Context) error {
 
 // enqueue is idempotent. Multiple application instances can run the same
 // worker safely because the unique event key prevents duplicate notifications.
-func (w *Worker) enqueue(ctx context.Context, tenantID int64, eventType, entityType string, entityID int64, title string, payload map[string]any) error {
+func (w *Worker) enqueue(ctx context.Context, eventType, entityType string, entityID int64, title string, payload map[string]any) error {
 	eventKey := eventType + ":" + entityType + ":" + formatInt(entityID)
 	data, err := jsonMarshal(payload)
 	if err != nil {
@@ -152,10 +152,10 @@ func (w *Worker) enqueue(ctx context.Context, tenantID int64, eventType, entityT
 
 	_, err = w.db.ExecContext(ctx, `
 		INSERT INTO notification_outbox
-			(tenant_id, event_key, event_type, entity_type, entity_id, title, payload, status, attempts, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 0, NOW())
+			(event_key, event_type, entity_type, entity_id, title, payload, status, attempts, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, NOW())
 		ON DUPLICATE KEY UPDATE event_key = event_key`,
-		tenantID, eventKey, eventType, entityType, entityID, title, data)
+		eventKey, eventType, entityType, entityID, title, data)
 	return err
 }
 
