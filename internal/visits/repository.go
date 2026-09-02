@@ -157,7 +157,7 @@ func randomToken() (string, error) {
 
 func (r *Repository) UserDepartment(ctx context.Context, userID int64) (*int64, error) {
 	var departmentID *int64
-	err := r.db.QueryRowContext(ctx, "SELECT department_id FROM users WHERE id = ? LIMIT 1", userID).Scan(&departmentID)
+	err := r.db.QueryRowContext(ctx, "SELECT department_id FROM tenant_memberships WHERE user_id = ? AND status = 'active' LIMIT 1", userID).Scan(&departmentID)
 	if err != nil { return nil, err }
 	return departmentID, nil
 }
