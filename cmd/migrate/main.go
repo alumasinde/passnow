@@ -22,8 +22,9 @@ func main() {
 	dir := flag.String("dir", "", "migration directory override")
 	host := flag.String("host", "", "tenant database host")
 	port := flag.String("port", "3306", "tenant database port")
-	name := flag.String("database", "", "tenant database name")
-	user := flag.String("user", "", "tenant database user")
+	name := flag.String("database", "", "tenant database name (manual credentials mode)")
+	user := flag.String("user", "", "tenant database user (manual credentials mode)")
+	tenantID := flag.Int64("tenant-id", 0, "platform tenant ID (loads encrypted tenant credentials)")
 	password := flag.String("password", "", "tenant database password")
 	flag.Parse()
 
@@ -40,11 +41,48 @@ func main() {
 		migrationDir = "migrations/platform"
 		lockName = migrations.LockPrefix + "_platform"
 	case "tenant":
-		if *name == "" || *user == "" {
-			log.Fatal("tenant scope requires -database and -user")
+		if *tenantID > 0 {
+			platformDB, connectErr := database.Connect(cfg)
+			if connectErr != nil {
+				log.Fatalf("platform database: %v", connectErr)
+			}
+			cipher, cipherErr := tenantdb.NewCipher(cfg.TenantDBEncryptionKey)
+			if cipherErr != nil {
+				_ = platformDB.Close()
+				log.Fatalf("tenant credentials: %v", cipherErr)
+			}
+			manager := tenantdb.NewManager(
+				tenantdb.NewRepository(platformDB),
+				cipher,
+				cfg.TenantDBMaxOpenConns,
+				cfg.TenantDBMaxIdleConns,
+				cfg.TenantDBConnMaxLifetime,
+			)
+			db, err = manager.DB(context.Background(), *tenantID)
+			if err != nil {
+				_ = manager.Close()
+				_ = platformDB.Close()
+				log.Fatalf("tenant database: %v", err)
+			}
+			defer manager.Close()
+			defer platformDB.Close()
+			if *name == "" {
+				creds, credErr := manager.Credentials(context.Background(), *tenantID)
+				if credErr != nil {
+					log.Fatalf("tenant credentials: %v", credErr)
+				}
+				*name = creds.Database
+			}
+		} else {
+			if *name == "" || *user == "" {
+				log.Fatal("tenant scope requires -tenant-id or both -database and -user")
+			}
+			db, err = sql.Open("mysql", tenantDSN(tenantdb.Credentials{Host:*host,Port:*port,Database:*name,Username:*user,Password:*password}, cfg))
 		}
-		db, err = sql.Open("mysql", tenantDSN(tenantdb.Credentials{Host:*host,Port:*port,Database:*name,Username:*user,Password:*password}, cfg))
 		if *dir == "" { migrationDir = "migrations/tenant" } else { migrationDir = *dir }
+		if *name == "" {
+			log.Fatal("tenant migration lock requires a database name")
+		}
 		lockName = migrations.LockPrefix + "_tenant_" + *name
 	default:
 		log.Fatalf("unknown scope %q (use platform or tenant)", *scope)
