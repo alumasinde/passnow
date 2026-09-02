@@ -20,8 +20,9 @@ if(requestMethod()==='GET'){
 }
 
 $routes=['check-out'=>'/api/v1/gatepasses/%d/check-out','check-in'=>'/api/v1/gatepasses/%d/check-in'];
+$payload=['gate_name'=>trim((string)($_POST['gate_name']??'')), 'notes'=>trim((string)($_POST['notes']??'')) ?: null, 'full_return'=>isset($_POST['full_return']), 'items'=>[]];
 try{
- Auth::api(App::api(),'POST',sprintf($routes[$operation],$id));
+ Auth::api(App::api(),'POST',sprintf($routes[$operation],$id),$payload);
  flash('success',$operation==='check-out'?'Gatepass checked out successfully.':'Gatepass checked in successfully.');
 }catch(ApiException $e){flash('danger',$e->getMessage());}
  catch(Throwable){flash('danger','The gate operation could not be completed.');}
