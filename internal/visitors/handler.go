@@ -2,6 +2,7 @@ package visitors
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -38,8 +39,13 @@ func (h *Handler) SetBlacklist(w http.ResponseWriter,r *http.Request){
 func (h *Handler) ListIDTypes(w http.ResponseWriter,r *http.Request){
 	if _,ok:=tenantRequest(w,r);!ok{return};activeOnly:=r.URL.Query().Get("all")!="true";items,err:=h.idTypes.List(r.Context(),activeOnly);if err!=nil{httpx.WriteError(w,httpx.ErrInternal);return};dtos:=make([]IDTypeDTO,0,len(items));for i:=range items{dtos=append(dtos,IDTypeToDTO(&items[i]))};httpx.WriteJSON(w,http.StatusOK,dtos)
 }
+func (h *Handler) GetIDType(w http.ResponseWriter,r *http.Request){
+	if _,ok:=tenantRequest(w,r);!ok{return};id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return}
+	t,err:=h.idTypes.ByID(r.Context(),id);if err!=nil{log.Printf("ID TYPE GET FAILED: id=%d error=%v",id,err);httpx.WriteError(w,httpx.ErrNotFound);return}
+	httpx.WriteJSON(w,http.StatusOK,IDTypeToDTO(t))
+}
 func (h *Handler) CreateIDType(w http.ResponseWriter,r *http.Request){
-	if _,ok:=tenantRequest(w,r);!ok{return};var in IDTypeInput;if !httpx.DecodeJSON(w,r,&in){return};if in.Name==""||in.Code==""{httpx.WriteError(w,httpx.ErrValidation.WithMessage("name and code are required"));return};requires:=true;if in.RequiresNumber!=nil{requires=*in.RequiresNumber};id,err:=h.idTypes.Create(r.Context(),in.Name,in.Code,requires);if err!=nil{writeServiceError(w,err);return};t,err:=h.idTypes.ByID(r.Context(),id);if err!=nil{httpx.WriteError(w,httpx.ErrInternal);return};httpx.WriteJSON(w,http.StatusCreated,IDTypeToDTO(t))
+	if _,ok:=tenantRequest(w,r);!ok{return};var in IDTypeInput;if !httpx.DecodeJSON(w,r,&in){return};if in.Name==""||in.Code==""{httpx.WriteError(w,httpx.ErrValidation.WithMessage("name and code are required"));return};requires:=true;if in.RequiresNumber!=nil{requires=*in.RequiresNumber};id,err:=h.idTypes.Create(r.Context(),in.Name,in.Code,requires);if err!=nil{log.Printf("ID TYPE CREATE FAILED: name=%q code=%q error=%v",in.Name,in.Code,err);writeServiceError(w,err);return};t,err:=h.idTypes.ByID(r.Context(),id);if err!=nil{httpx.WriteError(w,httpx.ErrInternal);return};httpx.WriteJSON(w,http.StatusCreated,IDTypeToDTO(t))
 }
 func (h *Handler) UpdateIDType(w http.ResponseWriter,r *http.Request){
 	if _,ok:=tenantRequest(w,r);!ok{return};id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return};var in IDTypeInput;if !httpx.DecodeJSON(w,r,&in){return};if err:=h.idTypes.Update(r.Context(),id,in);err!=nil{writeServiceError(w,err);return};t,err:=h.idTypes.ByID(r.Context(),id);if err!=nil{writeServiceError(w,err);return};httpx.WriteJSON(w,http.StatusOK,IDTypeToDTO(t))
