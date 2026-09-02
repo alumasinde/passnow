@@ -8,11 +8,7 @@ if(requestMethod()==='POST'){
  $payload=['name'=>trim((string)($_POST['name']??'')),'phone'=>$nullable((string)($_POST['phone']??'')),'email'=>$nullable((string)($_POST['email']??'')),'address'=>$nullable((string)($_POST['address']??'')),'active'=>isset($_POST['active'])];
  if($payload['name']==='')$errors[]='Company name is required.';
  if($payload['email']!==null&&!filter_var($payload['email'],FILTER_VALIDATE_EMAIL))$errors[]='Enter a valid email address.';
- if(!$errors)try{
-  if($id){ConfigCrud::update('/api/v1/visitor-companies/'.$id,$payload);flash('success','Visitor company updated successfully.');}
-  else{ConfigCrud::create('/api/v1/visitor-companies',$payload);flash('success','Visitor company created successfully.');}
-  redirect('visitor-companies.php');
- }catch(ApiException $e){$errors[]=$e->getMessage();}catch(Throwable){$errors[]='Unable to save this visitor company.';}
+ if(!$errors)try{if($id){ConfigCrud::update('/api/v1/visitor-companies/'.$id,$payload);flash('success','Visitor company updated successfully.');}else{ConfigCrud::create('/api/v1/visitor-companies',$payload);flash('success','Visitor company created successfully.');}redirect('visitor-companies.php');}catch(ApiException $e){$errors[]=$e->getMessage();}catch(Throwable){$errors[]='Unable to save this visitor company.';}
  $item=array_merge($item,$payload);
 }
 App::render('admin/visitor-companies-edit',compact('id','item','errors'));
