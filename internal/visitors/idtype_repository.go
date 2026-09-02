@@ -28,8 +28,8 @@ func (r *IDTypeRepository) ByID(ctx context.Context,id int64)(*IDType,error){
 	if errors.Is(err,sql.ErrNoRows){return nil,ErrIDTypeNotFound};if err!=nil{return nil,err};return &t,nil
 }
 
-func (r *IDTypeRepository) Create(ctx context.Context,name,code string,requiresNumber bool)(int64,error){
-	res,err:=r.db.ExecContext(ctx,`INSERT INTO id_types (name,code,requires_number,active,created_at,updated_at) VALUES (?,?,?,1,NOW(),NOW())`,name,code,requiresNumber);if err!=nil{return 0,err};return res.LastInsertId()
+func (r *IDTypeRepository) Create(ctx context.Context,name,code string,requiresNumber,active bool)(int64,error){
+	res,err:=r.db.ExecContext(ctx,`INSERT INTO id_types (name,code,requires_number,active,created_at,updated_at) VALUES (?,?,?,?,NOW(),NOW())`,name,code,requiresNumber,active);if err!=nil{return 0,err};return res.LastInsertId()
 }
 
 func (r *IDTypeRepository) Update(ctx context.Context,id int64,in IDTypeInput)error{
