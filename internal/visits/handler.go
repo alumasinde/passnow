@@ -90,7 +90,14 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w, httpx.ErrAuthRequired); return }
 	if d, ok := rbac.DecisionFromContext(r.Context()); ok {
-		switch d.Scope { case rbac.ScopeOwn: f.CreatedBy = &claims.UserID; case rbac.ScopeDepartment: if dpt, err := rbacSubjectDepartment(r.Context(), h.svc, claims.UserID); err == nil { f.DepartmentID = dpt } else { httpx.WriteError(w, httpx.ErrForbidden); return } }
+		switch d.Scope {
+		case rbac.ScopeOwn:
+			f.CreatedBy = &claims.UserID
+		case rbac.ScopeDepartment:
+			dpt, err := rbacSubjectDepartment(r.Context(), h.svc, claims.UserID)
+			if err != nil || dpt == nil { httpx.WriteError(w, httpx.ErrForbidden); return }
+			f.DepartmentID = dpt
+		}
 	}
 	p := httpx.ParsePagination(r)
 	items, total, err := h.svc.List(r.Context(), tenant.ID, f, p)
