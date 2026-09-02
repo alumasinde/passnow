@@ -59,13 +59,15 @@ func (r *Repository) ByBadgeToken(ctx context.Context, token string) (*Visit, er
 	return r.scan(row)
 }
 
-type ListFilter struct { Status *Status; VisitorID *int64; Search string; Date string }
+type ListFilter struct { Status *Status; VisitorID *int64; Search string; Date string; CreatedBy *int64; DepartmentID *int64 }
 
 func (r *Repository) List(ctx context.Context, f ListFilter, p httpx.Pagination) ([]Visit, int, error) {
 	where := "WHERE deleted_at IS NULL"
 	args := []any{}
 	if f.Status != nil { where += " AND status = ?"; args = append(args, *f.Status) }
 	if f.VisitorID != nil { where += " AND visitor_id = ?"; args = append(args, *f.VisitorID) }
+	if f.CreatedBy != nil { where += " AND created_by = ?"; args = append(args, *f.CreatedBy) }
+	if f.DepartmentID != nil { where += " AND department_id = ?"; args = append(args, *f.DepartmentID) }
 	if f.Date != "" { where += " AND DATE(COALESCE(expected_time, created_at)) = ?"; args = append(args, f.Date) }
 	if f.Search != "" { where += " AND (badge_number LIKE ? OR host_name LIKE ? OR purpose LIKE ? OR visitor_id IN (SELECT id FROM visitors WHERE first_name LIKE ? OR last_name LIKE ?))"; like := "%"+f.Search+"%"; args=append(args,like,like,like,like,like) }
 
