@@ -136,6 +136,7 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("PATCH /api/v1/users/memberships/{id}", protected("settings.users", api.RoleHandler.UpdateUserMembership))
 
 	// --- dashboard and personal approval queue ---
+	mux.Handle("GET /api/v1/dashboard", protected("dashboard.view", api.DashboardHandler.Dashboard))
 	mux.Handle("GET /api/v1/dashboard/summary", protected("dashboard.view", api.DashboardHandler.Summary))
 	mux.Handle("GET /api/v1/approvals/pending", protected("gatepasses.approve", api.GatepassHandler.MyPendingApprovals))
 }
