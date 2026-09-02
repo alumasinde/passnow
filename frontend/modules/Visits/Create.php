@@ -1,5 +1,5 @@
 <?php
-declare(strict_types=1); require_once __DIR__.'/../app/App.php'; Auth::requireLogin();
+declare(strict_types=1); require_once __DIR__.'/../../app/App.php'; Auth::requireLogin();
 $errors=[];$types=[];$departments=[];
 try{$p=Auth::api(App::api(),'GET','/api/v1/visit-types');$types=apiRows($p);}catch(Throwable){}
 try{$p=Auth::api(App::api(),'GET','/api/v1/departments');$departments=apiRows($p);}catch(Throwable){}
