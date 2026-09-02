@@ -47,7 +47,7 @@ func ResolveTenant(repo *tenants.Repository, baseDomain string) func(http.Handle
 			case strings.HasSuffix(host, "."+base):
 				t, err = repo.ByDomain(ctx, host)
 				if t == nil {
-					sub := strings.TrimSuffix(host, "."+baseDomain)
+					sub := strings.TrimSuffix(host, "."+base)
 					if sub != "" && sub != "www" { t, err = repo.BySlug(ctx, sub) }
 				}
 			}
@@ -79,11 +79,6 @@ func ResolveTenant(repo *tenants.Repository, baseDomain string) func(http.Handle
 				httpx.WriteError(w, httpx.ErrTenantNotFound)
 				return
 			}
-			if err != nil && t == nil {
-				httpx.WriteError(w, httpx.ErrTenantNotFound)
-				return
-			}
-
 			ctx = reqctx.WithTenant(ctx, t)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
