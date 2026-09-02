@@ -1,5 +1,5 @@
 <?php
-declare(strict_types=1);require_once __DIR__.'/../app/App.php';Auth::requireLogin();
+declare(strict_types=1);require_once __DIR__.'/../../app/App.php';Auth::requireLogin();
 $id=filter_input(INPUT_GET,'id',FILTER_VALIDATE_INT);$item=[];$errors=[];
 if($id)try{$p=Auth::api(App::api(),'GET','/api/v1/approval-workflows/'.$id);$item=apiValue($p,'workflow',$p['data']??$p);if(!is_array($item))$item=[];}catch(ApiException $e){$errors[]=$e->getMessage();}catch(Throwable){$errors[]='Unable to load workflow.';}
 if(requestMethod()==='POST'){
