@@ -14,10 +14,8 @@ const (
 	StatusExpired    Status = "expired"
 )
 
-// Visit is the domain/DB entity. Never expose this directly — use DTO.
 type Visit struct {
 	ID           int64
-	TenantID     int64
 	VisitorID    int64
 	VisitTypeID  *int64
 	DepartmentID *int64
@@ -46,10 +44,6 @@ type Visit struct {
 	DeletedAt *time.Time
 }
 
-// CanCheckIn reports whether this visit's current status permits check-in.
-// Centralizing the state machine here (not scattered across handler/repo
-// conditionals) keeps "what transitions are legal" defined in exactly one
-// place.
 func (v *Visit) CanCheckIn() bool {
 	return v.Status == StatusScheduled || v.Status == StatusExpected
 }
