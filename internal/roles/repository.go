@@ -69,6 +69,14 @@ func (r *Repository) PermissionCodesForRole(ctx context.Context, roleID int64) (
 	return codes, rows.Err()
 }
 
+func (r *Repository) UpdateRole(ctx context.Context, roleID int64, name string) error {
+	role, err := r.RoleByID(ctx, roleID)
+	if err != nil { return err }
+	if role.IsSystem { return errors.New("system roles cannot be renamed") }
+	_, err = r.db.ExecContext(ctx, `UPDATE roles SET name = ?, updated_at = NOW() WHERE id = ?`, name, roleID)
+	return err
+}
+
 func (r *Repository) CreateRole(ctx context.Context, name string, isSystem bool) (int64, error) {
 	res, err := r.db.ExecContext(ctx, `
 		INSERT INTO roles (name, is_system, created_at, updated_at)
