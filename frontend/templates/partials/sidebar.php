@@ -72,7 +72,7 @@ $bottomNavigation = array_values(array_filter(
             $href = (string)($item['href'] ?? '');
             if ($label === '' || $href === '') continue;
             ?>
-            <a class="nav-item <?= $isActive($item) ? 'active' : '' ?>" href="<?= e(url($href)) ?>">
+            <a class="nav-item <?= $isActive($item) ? 'active' : '' ?>" href="<?= e(url($href)) ?>" title="<?= e($label) ?>">
                 <i class="fa-solid <?= e($icon) ?>"></i>
                 <span><?= e($label) ?></span>
             </a>
