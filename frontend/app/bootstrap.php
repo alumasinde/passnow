@@ -33,6 +33,7 @@ require_once __DIR__ . '/Csrf.php';
 require_once __DIR__ . '/ApiException.php';
 require_once __DIR__ . '/ApiClient.php';
 require_once __DIR__ . '/Auth.php';
+require_once __DIR__ . '/Theme.php';
 require_once __DIR__ . '/View.php';
 require_once __DIR__ . '/ListQuery.php';
 require_once __DIR__ . '/Paginator.php';
