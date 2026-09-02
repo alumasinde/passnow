@@ -10,197 +10,78 @@ import (
 	"gatepass/internal/users"
 )
 
-// dummyHash is a real bcrypt hash of a fixed placeholder value, computed
-// once lazily. Used only to burn roughly the same CPU time as a genuine
-// VerifyPassword call when the account lookup itself fails, so response
-// timing doesn't reveal whether an email is registered.
 var (
 	dummyHashOnce sync.Once
-	dummyHash     string
+	dummyHash string
 )
 
 func getDummyHash(cost int) string {
-	dummyHashOnce.Do(func() {
-		h, err := HashPassword("dummy-password-for-timing-parity", cost)
-		if err != nil {
-			// Fall back to a fixed valid-format hash if generation somehow
-			// fails; CompareHashAndPassword will just return a mismatch.
-			h = "$2a$10$CwTycUXWue0Thq9StjUM0uJ8Q4Zi/tRJXQZQzY7X6O0Z6Y8n8f8f8"
-		}
-		dummyHash = h
+	dummyHashOnce.Do(func(){
+		h,err:=HashPassword("dummy-password-for-timing-parity",cost)
+		if err!=nil { h="$2a$10$CwTycUXWue0Thq9StjUM0uJ8Q4Zi/tRJXQZQzY7X6O0Z6Y8n8f8f8" }
+		dummyHash=h
 	})
 	return dummyHash
 }
 
 var (
-	// ErrInvalidCredentials is deliberately the SAME error for "no such
-	// user", "wrong password", and "no membership in this tenant" — never
-	// let a client distinguish these (user enumeration).
-	ErrInvalidCredentials = errors.New("auth: invalid credentials")
-	ErrAccountLocked      = errors.New("auth: account temporarily locked")
-	ErrAccountDisabled    = errors.New("auth: account disabled")
+	ErrInvalidCredentials=errors.New("auth: invalid credentials")
+	ErrAccountLocked=errors.New("auth: account temporarily locked")
+	ErrAccountDisabled=errors.New("auth: account disabled")
 )
 
-const (
-	maxFailedLogins  = 5
-	lockDurationSecs = 15 * 60
-)
+const ( maxFailedLogins=5; lockDurationSecs=15*60 )
 
 type Service struct {
-	users       *users.Repository
+	users *users.Repository
 	memberships *roles.Repository
-	refresh     *RefreshTokenRepository
-
-	jwtSecret       []byte
-	bcryptCost      int
-	accessTokenTTL  time.Duration
+	refresh *RefreshTokenRepository
+	jwtSecret []byte
+	bcryptCost int
+	accessTokenTTL time.Duration
 	refreshTokenTTL time.Duration
 }
 
-func NewService(
-	userRepo *users.Repository,
-	roleRepo *roles.Repository,
-	refreshRepo *RefreshTokenRepository,
-	jwtSecret []byte,
-	bcryptCost int,
-	accessTTL, refreshTTL time.Duration,
-) *Service {
-	return &Service{
-		users:           userRepo,
-		memberships:     roleRepo,
-		refresh:         refreshRepo,
-		jwtSecret:       jwtSecret,
-		bcryptCost:      bcryptCost,
-		accessTokenTTL:  accessTTL,
-		refreshTokenTTL: refreshTTL,
-	}
+func NewService(userRepo *users.Repository,roleRepo *roles.Repository,refreshRepo *RefreshTokenRepository,jwtSecret []byte,bcryptCost int,accessTTL,refreshTTL time.Duration)*Service{
+	return &Service{users:userRepo,memberships:roleRepo,refresh:refreshRepo,jwtSecret:jwtSecret,bcryptCost:bcryptCost,accessTokenTTL:accessTTL,refreshTokenTTL:refreshTTL}
 }
 
-type TokenPair struct {
-	AccessToken  string
-	RefreshToken string
-	ExpiresIn    int64 // seconds
+type TokenPair struct { AccessToken string; RefreshToken string; ExpiresIn int64 }
+
+func (s *Service) Login(ctx context.Context, tenantID int64,email,password string)(*TokenPair,*users.User,error){
+	u,err:=s.users.ByEmail(ctx,email)
+	if err!=nil { VerifyPassword(getDummyHash(s.bcryptCost),password); return nil,nil,ErrInvalidCredentials }
+	now:=time.Now().UTC()
+	if u.IsLocked(now){return nil,nil,ErrAccountLocked}
+	if u.Status!=users.StatusActive{return nil,nil,ErrAccountDisabled}
+	tx,err:=s.users.BeginTx(ctx);if err!=nil{return nil,nil,err};defer tx.Rollback()
+	if !VerifyPassword(u.PasswordHash,password){_ = s.users.RegisterFailedLogin(ctx,tx,u.ID,lockDurationSecs,maxFailedLogins);_ = tx.Commit();return nil,nil,ErrInvalidCredentials}
+	if err:=s.users.ResetFailedLogins(ctx,tx,u.ID);err!=nil{return nil,nil,err}
+	if err:=tx.Commit();err!=nil{return nil,nil,err}
+	membership,err:=s.memberships.MembershipFor(ctx,u.ID)
+	if err!=nil||!membership.IsActive(){return nil,nil,ErrInvalidCredentials}
+	pair,err:=s.issueTokenPair(ctx,u.ID,tenantID,membership.RoleID);if err!=nil{return nil,nil,err}
+	return pair,u,nil
 }
 
-// Login authenticates a user AND requires them to already have an active
-// membership in the resolved tenant — logging in is always tenant-scoped;
-// there is no "global" session that floats across tenants.
-func (s *Service) Login(ctx context.Context, tenantID int64, email, password string) (*TokenPair, *users.User, error) {
-	u, err := s.users.ByEmail(ctx, email)
-	if err != nil {
-		// Run a dummy bcrypt compare so the response time doesn't reveal
-		// whether the email exists (timing side-channel).
-		VerifyPassword(getDummyHash(s.bcryptCost), password)
-		return nil, nil, ErrInvalidCredentials
-	}
-
-	now := time.Now().UTC()
-	if u.IsLocked(now) {
-		return nil, nil, ErrAccountLocked
-	}
-	if u.Status != users.StatusActive {
-		return nil, nil, ErrAccountDisabled
-	}
-
-	tx, err := s.users.BeginTx(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer tx.Rollback()
-
-	if !VerifyPassword(u.PasswordHash, password) {
-		_ = s.users.RegisterFailedLogin(ctx, tx, u.ID, lockDurationSecs, maxFailedLogins)
-		_ = tx.Commit()
-		return nil, nil, ErrInvalidCredentials
-	}
-	if err := s.users.ResetFailedLogins(ctx, tx, u.ID); err != nil {
-		return nil, nil, err
-	}
-	if err := tx.Commit(); err != nil {
-		return nil, nil, err
-	}
-
-	membership, err := s.memberships.MembershipFor(ctx, tenantID, u.ID)
-	if err != nil || !membership.IsActive() {
-		// Same generic error — do not reveal "you have no access to this
-		// tenant" vs "wrong password" separately.
-		return nil, nil, ErrInvalidCredentials
-	}
-
-	pair, err := s.issueTokenPair(ctx, u.ID, tenantID, membership.RoleID)
-	if err != nil {
-		return nil, nil, err
-	}
-	return pair, u, nil
+func (s *Service) Refresh(ctx context.Context,tenantID int64,rawRefreshToken string)(*TokenPair,error){
+	userID,err:=s.refresh.Consume(ctx,tenantID,rawRefreshToken);if err!=nil{return nil,err}
+	u,err:=s.users.ByID(ctx,userID);if err!=nil||u.Status!=users.StatusActive{return nil,ErrInvalidCredentials}
+	membership,err:=s.memberships.MembershipFor(ctx,userID);if err!=nil||!membership.IsActive(){return nil,ErrInvalidCredentials}
+	return s.issueTokenPair(ctx,userID,tenantID,membership.RoleID)
 }
 
-// Refresh rotates a refresh token and issues a new access token for the
-// SAME tenant+role it was originally issued for. If the membership/role
-// has changed or been revoked since, the new access token reflects that —
-// refresh always re-reads current membership state rather than trusting
-// anything cached in the old token.
-func (s *Service) Refresh(ctx context.Context, tenantID int64, rawRefreshToken string) (*TokenPair, error) {
-	userID, err := s.refresh.Consume(ctx, tenantID, rawRefreshToken)
-	if err != nil {
-		return nil, err
-	}
-	u, err := s.users.ByID(ctx, userID)
-	if err != nil || u.Status != users.StatusActive {
-		return nil, ErrInvalidCredentials
-	}
+func (s *Service) Logout(ctx context.Context,userID int64)error{return s.refresh.RevokeAllForUser(ctx,userID)}
 
-	membership, err := s.memberships.MembershipFor(ctx, tenantID, userID)
-	if err != nil || !membership.IsActive() {
-		return nil, ErrInvalidCredentials
-	}
-
-	return s.issueTokenPair(ctx, userID, tenantID, membership.RoleID)
+func (s *Service) issueTokenPair(ctx context.Context,userID,tenantID,roleID int64)(*TokenPair,error){
+	access,err:=IssueAccessToken(s.jwtSecret,userID,tenantID,roleID,s.accessTokenTTL);if err!=nil{return nil,err}
+	rawRefresh,hash,err:=NewRefreshToken();if err!=nil{return nil,err}
+	if err:=s.refresh.Store(ctx,userID,tenantID,hash,s.refreshTokenTTL);err!=nil{return nil,err}
+	return &TokenPair{AccessToken:access,RefreshToken:rawRefresh,ExpiresIn:int64(s.accessTokenTTL.Seconds())},nil
 }
 
-func (s *Service) Logout(ctx context.Context, userID int64) error {
-	return s.refresh.RevokeAllForUser(ctx, userID)
-}
-
-func (s *Service) issueTokenPair(ctx context.Context, userID, tenantID, roleID int64) (*TokenPair, error) {
-	access, err := IssueAccessToken(s.jwtSecret, userID, tenantID, roleID, s.accessTokenTTL)
-	if err != nil {
-		return nil, err
-	}
-
-	rawRefresh, hash, err := NewRefreshToken()
-	if err != nil {
-		return nil, err
-	}
-	if err := s.refresh.Store(ctx, userID, tenantID, hash, s.refreshTokenTTL); err != nil {
-		return nil, err
-	}
-
-	return &TokenPair{
-		AccessToken:  access,
-		RefreshToken: rawRefresh,
-		ExpiresIn:    int64(s.accessTokenTTL.Seconds()),
-	}, nil
-}
-
-// Register creates a new global user account. It does NOT create a tenant
-// membership — inviting a user into a tenant is a separate, explicit
-// settings.users action performed by a Tenant Admin, so account creation
-// alone never grants access to any tenant's data.
-func (s *Service) Register(ctx context.Context, in users.CreateInput) (*users.User, error) {
-	hash, err := HashPassword(in.Password, s.bcryptCost)
-	if err != nil {
-		return nil, err
-	}
-	u := &users.User{
-		Email:        in.Email,
-		PasswordHash: hash,
-		FirstName:    in.FirstName,
-		LastName:     in.LastName,
-	}
-	id, err := s.users.Create(ctx, u)
-	if err != nil {
-		return nil, err
-	}
-	u.ID = id
-	return u, nil
+func (s *Service) Register(ctx context.Context,in users.CreateInput)(*users.User,error){
+	hash,err:=HashPassword(in.Password,s.bcryptCost);if err!=nil{return nil,err}
+	u:=&users.User{Email:in.Email,PasswordHash:hash,FirstName:in.FirstName,LastName:in.LastName}
+	id,err:=s.users.Create(ctx,u);if err!=nil{return nil,err};u.ID=id;return u,nil
 }
