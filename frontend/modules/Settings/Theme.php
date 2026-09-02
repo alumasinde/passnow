@@ -7,7 +7,11 @@ Auth::requireLogin();
 $errors = [];
 $data = [];
 try {
-    $data = Auth::api(App::api(), 'GET', '/api/v1/theme');
+    $response = Auth::api(App::api(), 'GET', '/api/v1/theme');
+    // Theme GET returns the database-backed object directly. Do not merge
+    // defaults here; the view owns presentation fallbacks only.
+    $data = is_array($response['data'] ?? null) ? $response['data'] : $response;
+    if (!is_array($data)) $data = [];
 } catch (ApiException $e) {
     $errors[] = $e->getMessage();
 } catch (Throwable) {
@@ -48,7 +52,9 @@ if (requestMethod() === 'POST') {
     }
 
     try {
-        $data = Auth::api(App::api(), 'PUT', '/api/v1/theme', $payload);
+        $response = Auth::api(App::api(), 'PUT', '/api/v1/theme', $payload);
+        $data = is_array($response['data'] ?? null) ? $response['data'] : $response;
+        if (!is_array($data)) $data = $payload;
         Theme::forget();
         flash('success', 'Tenant theme updated successfully.');
         redirect('theme-settings.php');
