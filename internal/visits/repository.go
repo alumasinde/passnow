@@ -59,18 +59,20 @@ func (r *Repository) ByBadgeToken(ctx context.Context, token string) (*Visit, er
 	return r.scan(row)
 }
 
-type ListFilter struct { Status *Status; VisitorID *int64 }
+type ListFilter struct { Status *Status; VisitorID *int64; Search string; Date string }
 
 func (r *Repository) List(ctx context.Context, f ListFilter, p httpx.Pagination) ([]Visit, int, error) {
 	where := "WHERE deleted_at IS NULL"
 	args := []any{}
 	if f.Status != nil { where += " AND status = ?"; args = append(args, *f.Status) }
 	if f.VisitorID != nil { where += " AND visitor_id = ?"; args = append(args, *f.VisitorID) }
+	if f.Date != "" { where += " AND DATE(COALESCE(expected_time, created_at)) = ?"; args = append(args, f.Date) }
+	if f.Search != "" { where += " AND (badge_number LIKE ? OR host_name LIKE ? OR purpose LIKE ? OR visitor_id IN (SELECT id FROM visitors WHERE first_name LIKE ? OR last_name LIKE ?))"; like := "%"+f.Search+"%"; args=append(args,like,like,like,like,like) }
 
 	var total int
 	if err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM visits "+where, args...).Scan(&total); err != nil { return nil, 0, err }
 	rows, err := r.db.QueryContext(ctx,
-		"SELECT "+selectCols+" FROM visits "+where+" ORDER BY created_at DESC LIMIT ? OFFSET ?",
+		"SELECT "+selectCols+" FROM visits "+where+" ORDER BY COALESCE(expected_time, created_at) DESC, created_at DESC LIMIT ? OFFSET ?",
 		append(args, p.Limit, p.Offset)...)
 	if err != nil { return nil, 0, err }
 	defer rows.Close()
