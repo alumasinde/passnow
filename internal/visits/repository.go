@@ -153,3 +153,11 @@ func randomToken() (string, error) {
 	if _, err := rand.Read(b); err != nil { return "", err }
 	return hex.EncodeToString(b), nil
 }
+
+
+func (r *Repository) UserDepartment(ctx context.Context, userID int64) (*int64, error) {
+	var departmentID *int64
+	err := r.db.QueryRowContext(ctx, "SELECT department_id FROM users WHERE id = ? LIMIT 1", userID).Scan(&departmentID)
+	if err != nil { return nil, err }
+	return departmentID, nil
+}
