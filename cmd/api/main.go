@@ -134,6 +134,7 @@ func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *rou
 	api.VisitorHandler = visitors.NewHandler(visitorSvc, idTypeRepo, companyRepo)
 	api.VisitorSettingsHandler = settings.NewVisitorSettingsHandler(settingsRepo)
 	api.GatepassSettingsHandler = settings.NewGatepassSettingsHandler(settingsRepo)
+	api.ThemeHandler = settings.NewThemeHandler(settingsRepo)
 	api.VisitTypeHandler = visits.NewVisitTypeHandler(visitTypeRepo)
 	api.DepartmentHandler = departments.NewHandler(deptRepo)
 	api.VisitHandler = visits.NewHandler(visitSvc)
