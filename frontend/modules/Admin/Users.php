@@ -7,5 +7,5 @@ $r=ResourcePage::list('/api/v1/users',$q,$extra,static function(array $rows):arr
  unset($row);return $rows;
 });
 $columns=[['key'=>'email','label'=>'Email'],['key'=>'full_name','label'=>'Name'],['key'=>'role_name','label'=>'Role'],['key'=>'department_name','label'=>'Department'],['key'=>'status','label'=>'Status']];
-$actions=[['label'=>'View','icon'=>'fa-eye','class'=>'btn-secondary','href'=>fn($row)=>url('admin/users/view?id='.rawurlencode((string)($row['id']??'')))],['label'=>'Edit','icon'=>'fa-pen','class'=>'btn-secondary','href'=>fn($row)=>url('admin/users/edit?id='.rawurlencode((string)($row['id']??''))) ]];
+$actions=[['label'=>'View','icon'=>'fa-eye','class'=>'btn-secondary','href'=>fn($row)=>url('admin/users/view?user_id='.rawurlencode((string)($row['user_id']??$row['id']??'')))],['label'=>'Edit','icon'=>'fa-pen','class'=>'btn-secondary','href'=>fn($row)=>url('admin/users/edit?user_id='.rawurlencode((string)($row['user_id']??$row['id']??''))) ]];
 App::render('admin/users',compact('q','r','columns','actions'));
