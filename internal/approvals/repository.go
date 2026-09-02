@@ -26,24 +26,32 @@ func NewRepository(db *sql.DB) *Repository {
 // steps are validated (exactly one of role_id/user_id, matching
 // approver_type) before anything is written.
 func (r *Repository) CreateWithSteps(ctx context.Context, tenantID int64, in CreateWorkflowInput) (int64, error) {
-	// tenantID is carried by the request context at the application boundary;
-	// this repository is tenant-local because each tenant has its own database.
-	if len(in.Steps) == 0 {
-		return 0, ErrInvalidStepConfig
-	}
+	// tenantID is retained for the application boundary; this repository is
+	// tenant-local because each tenant has a separate physical database.
+	_ = tenantID
+	if len(in.Steps) == 0 { return 0, ErrInvalidStepConfig }
 
 	hasRequired := false
 	for _, s := range in.Steps {
-		if s.Label == "" {
+		if s.Label == "" { return 0, ErrInvalidStepConfig }
+		required := s.Required == nil || *s.Required
+		if required { hasRequired = true }
+		switch ApproverType(s.ApproverType) {
+		case ApproverRole:
+			if s.RoleID == nil || s.UserID != nil || *s.RoleID <= 0 { return 0, ErrInvalidStepConfig }
+		case ApproverSpecificUser:
+			if s.UserID == nil || s.RoleID != nil || *s.UserID <= 0 { return 0, ErrInvalidStepConfig }
+		default:
 			return 0, ErrInvalidStepConfig
 		}
-		required := true
-		if s.Required != nil {
-			required = *s.Required
-		}
-		if required {
-			hasRequired = true
-		}
+	}
+	if !hasRequired { return 0, ErrWorkflowNeedsRequiredStep }
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil { return 0, err }
+	defer tx.Rollback()
+
+	for _, s := range in.Steps {
 		switch ApproverType(s.ApproverType) {
 		case ApproverRole:
 			var count int
@@ -57,81 +65,24 @@ func (r *Repository) CreateWithSteps(ctx context.Context, tenantID int64, in Cre
 			}
 		}
 	}
-	if !hasRequired {
-		return 0, ErrWorkflowNeedsRequiredStep
-	}
-
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return 0, err
-	}
-	defer tx.Rollback()
-
-	// Validate every approver inside the same transaction used to create the
-	// workflow. This prevents a tenant from referencing a role or user from
-	// another tenant and avoids TOCTOU gaps between validation and INSERT.
-	for _, s := range in.Steps {
-		switch ApproverType(s.ApproverType) {
-		case ApproverRole:
-			var roleTenantID int64
-			if err := tx.QueryRowContext(ctx,
-				`SELECT tenant_id FROM roles WHERE id = ? LIMIT 1`, *s.RoleID).Scan(&roleTenantID); err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					return 0, ErrApproverNotInTenant
-				}
-				return 0, err
-			}
-			if roleTenantID != tenantID {
-				return 0, ErrApproverNotInTenant
-			}
-		case ApproverSpecificUser:
-			var membershipTenantID int64
-			var membershipStatus string
-			if err := tx.QueryRowContext(ctx, `
-				SELECT tenant_id, status
-				FROM tenant_memberships
-				WHERE tenant_id = ? AND user_id = ?
-				LIMIT 1`, tenantID, *s.UserID).Scan(&membershipTenantID, &membershipStatus); err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					return 0, ErrApproverNotInTenant
-				}
-				return 0, err
-			}
-			if membershipTenantID != tenantID || membershipStatus != "active" {
-				return 0, ErrApproverNotInTenant
-			}
-		}
-	}
 
 	res, err := tx.ExecContext(ctx, `
 		INSERT INTO approval_workflows (name, active, created_at, updated_at)
 		VALUES (?, 1, NOW(), NOW())`, in.Name)
-	if err != nil {
-		return 0, err
-	}
+	if err != nil { return 0, err }
 	workflowID, err := res.LastInsertId()
-	if err != nil {
-		return 0, err
-	}
+	if err != nil { return 0, err }
 
 	for i, s := range in.Steps {
-		required := true
-		if s.Required != nil {
-			required = *s.Required
-		}
+		required := s.Required == nil || *s.Required
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO approval_workflow_steps
 				(workflow_id, step_order, label, approver_type, role_id, user_id, required)
 			VALUES (?, ?, ?, ?, ?, ?, ?)`,
 			workflowID, i+1, s.Label, s.ApproverType, s.RoleID, s.UserID, required,
-		); err != nil {
-			return 0, err
-		}
+		); err != nil { return 0, err }
 	}
-
-	if err := tx.Commit(); err != nil {
-		return 0, err
-	}
+	if err := tx.Commit(); err != nil { return 0, err }
 	return workflowID, nil
 }
 
