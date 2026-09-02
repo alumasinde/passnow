@@ -7,6 +7,7 @@ final class Auth {
  public static function requireLogin():void{if(!self::check())redirect('login');} public static function requirePlatform():void{if(!self::platformCheck())redirect('platform/login');}
  public static function user():array{return is_array($_SESSION['user']??null)?$_SESSION['user']:[];} public static function platformToken():?string{return $_SESSION['platform_access_token']??null;}
  public static function logout(ApiClient $api):void{try{if(!empty($_SESSION['access_token']))$api->request('POST','/api/v1/auth/logout',null,$_SESSION['access_token']);}catch(Throwable){}$_SESSION=[];session_destroy();}
- public static function api(ApiClient $api,string $method,string $path,?array $body=null):array{return $api->request($method,$path,$body,self::accessToken());} public static function accessToken():?string{return $_SESSION['access_token']??null;}
+ public static function api(ApiClient $api,string $method,string $path,?array $body=null):array{return $api->request($method,$path,$body,self::accessToken());}
+ public static function apiMultipart(ApiClient $api,string $method,string $path,array $fields,array $files):array{return $api->requestMultipart($method,$path,$fields,$files,self::accessToken());} public static function accessToken():?string{return $_SESSION['access_token']??null;}
  public static function platformApi(ApiClient $api,string $method,string $path,?array $body=null):array{return $api->request($method,$path,$body,self::platformToken());}
 }
