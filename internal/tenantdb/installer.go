@@ -16,26 +16,35 @@ type Installer struct {
 }
 
 func NewInstaller(dir string) *Installer {
-	if dir == "" { dir = "migrations/tenant" }
+	if dir == "" {
+		dir = "migrations/tenant"
+	}
 	return &Installer{Dir: dir}
 }
 
 // Install runs the tenant migration set against one isolated tenant database.
-// The tenant row is seeded locally after the schema exists using the platform
-// tenant ID, preserving the current tenant_id repository contract during the
-// database-per-tenant transition.
+//
+// Tenant identity belongs exclusively to the platform database. A tenant
+// database therefore receives only tenant-owned schema and seed data; it must
+// never contain a tenants table or a tenant_id row-scoping contract.
 func (i *Installer) Install(ctx context.Context, creds Credentials, tenantID int64, tenantName, slug, domainToken string) error {
-	if tenantID < 1 { return fmt.Errorf("tenantdb: invalid tenant id") }
+	if tenantID < 1 {
+		return fmt.Errorf("tenantdb: invalid tenant id")
+	}
+
 	db, err := sql.Open("mysql", mysqlDSN(creds))
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer db.Close()
+
 	pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	if err := db.PingContext(pingCtx); err != nil { return err }
+	if err := db.PingContext(pingCtx); err != nil {
+		return err
+	}
 
+	// The lock is only for serialising migrations for this isolated database.
 	lockName := fmt.Sprintf("%s_tenant_%d", migrations.LockPrefix, tenantID)
-	if err := migrations.RunUp(ctx, db, i.Dir, lockName); err != nil { return err }
-
-	_, err = db.ExecContext(ctx, "INSERT INTO tenants (id, name, slug, status, custom_domain_token, created_at, updated_at) VALUES (?, ?, ?, 'active', ?, NOW(), NOW()) ON DUPLICATE KEY UPDATE name=VALUES(name), slug=VALUES(slug), status='active', custom_domain_token=VALUES(custom_domain_token), updated_at=NOW()", tenantID, tenantName, slug, domainToken)
-	return err
+	return migrations.RunUp(ctx, db, i.Dir, lockName)
 }
