@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -135,13 +136,15 @@ func (h *Handler) Public(w http.ResponseWriter, r *http.Request) {
 	if len(publicID) != 32 { httpx.WriteError(w, httpx.ErrNotFound); return }
 	f, err := h.repo.ByPublicID(r.Context(), publicID)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) { httpx.WriteError(w, httpx.ErrNotFound); return }
+		if errors.Is(err, ErrNotFound) { log.Printf("MEDIA PUBLIC NOT FOUND: public_id=%q reason=database_record_missing", publicID); httpx.WriteError(w, httpx.ErrNotFound); return }
+		log.Printf("MEDIA PUBLIC LOOKUP FAILED: public_id=%q error=%v", publicID, err)
 		httpx.WriteError(w, httpx.ErrInternal); return
 	}
 	path := filepath.Join(h.storageRoot, filepath.FromSlash(f.StoragePath))
 	file, err := os.Open(path)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) { httpx.WriteError(w, httpx.ErrNotFound); return }
+		if errors.Is(err, os.ErrNotExist) { log.Printf("MEDIA PUBLIC NOT FOUND: public_id=%q reason=file_missing path=%q", publicID, path); httpx.WriteError(w, httpx.ErrNotFound); return }
+		log.Printf("MEDIA PUBLIC OPEN FAILED: public_id=%q path=%q error=%v", publicID, path, err)
 		httpx.WriteError(w, httpx.ErrInternal); return
 	}
 	defer file.Close()
@@ -168,6 +171,13 @@ func (h *Handler) publicURL(r *http.Request, publicID string) string {
 		scheme := "http"
 		if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") { scheme = "https" }
 		base = scheme + "://" + r.Host
+	}
+	// Public media requests are made directly by the browser and therefore do
+	// not carry the X-Tenant-Slug header used by authenticated API calls.
+	// Prefixing the URL with the tenant slug makes media work on IP/localhost
+	// development hosts as well as domain-based production deployments.
+	if tenant, ok := reqctx.TenantFromContext(r.Context()); ok && strings.TrimSpace(tenant.Slug) != "" {
+		return base + "/" + tenant.Slug + "/api/v1/media/public/" + publicID
 	}
 	return base + "/api/v1/media/public/" + publicID
 }
