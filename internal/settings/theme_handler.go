@@ -55,10 +55,20 @@ func (h *ThemeHandler) current(r *http.Request) ThemeDTO {
 		return out
 	}
 	var saved ThemeDTO
-	if json.Unmarshal(raw, &saved) != nil {
+	if json.Unmarshal(raw, &saved) == nil {
+		mergeTheme(&out, saved)
 		return out
 	}
-	mergeTheme(&out, saved)
+
+	// Legacy/manual SQL updates can store the complete object as a JSON string.
+	// Decode it too instead of silently falling back to blue/default branding.
+	var encoded string
+	if json.Unmarshal(raw, &encoded) == nil {
+		if json.Unmarshal([]byte(encoded), &saved) == nil {
+			mergeTheme(&out, saved)
+			return out
+		}
+	}
 	return out
 }
 
