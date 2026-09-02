@@ -43,6 +43,11 @@ final class Theme
         return self::$theme;
     }
 
+    public static function forget(): void
+    {
+        self::$theme = null;
+    }
+
     public static function brandName(): string
     {
         $name = trim((string)(self::current()['brand_name'] ?? ''));
