@@ -8,6 +8,7 @@ if(requestMethod()==='POST'){
  $payload=[];
  $payload['name']=trim((string)($_POST['name']??''));
  $payload['code']=strtoupper(trim((string)($_POST['code']??'')));
+ $payload['active']=isset($_POST['active']);
  if($payload['name']===''||$payload['code']==='')$errors[]='Name and code are required.';
  if(!$errors)try{
   if($id){ConfigCrud::update('/api/v1/departments/'.$id,$payload);flash('success','Updated successfully.');}
@@ -15,5 +16,5 @@ if(requestMethod()==='POST'){
   redirect('departments.php');
  }catch(ApiException $e){$errors[]=$e->getMessage();}catch(Throwable){$errors[]='Unable to save this record.';}
 }
-if (requestMethod()==='POST') $item=array_merge($item,['name'=>$payload['name']??'','code'=>$payload['code']??'']);
+if (requestMethod()==='POST') $item=array_merge($item,['name'=>$payload['name']??'','code'=>$payload['code']??'','active'=>$payload['active']??false]);
 App::render('admin/departments-edit',compact('id','item','errors'));
