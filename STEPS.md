@@ -47,7 +47,7 @@ go run ./cmd/migrate -scope tenant -action up -database passnow_glee_hotel -user
 Check status:
 
 ```powershell
-go run ./cmd/migrate -scope tenant -action status -database passnow_glee_hotel -user root
+go run ./cmd/migrate -scope tenant -action status -database albatech_passnow -user alumasinde -password "21082108"
 ```
 
 ## 5. Test backend
