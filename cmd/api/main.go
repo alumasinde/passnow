@@ -184,6 +184,7 @@ func buildTenantAPI(db *sql.DB, cfg *config.Config) *routes.API {
 	api.VisitorSettingsHandler = settings.NewVisitorSettingsHandler(settingsRepo)
 	api.GatepassSettingsHandler = settings.NewGatepassSettingsHandler(settingsRepo)
 	api.ThemeHandler = settings.NewThemeHandler(settingsRepo)
+	api.MediaHandler = media.NewHandler(media.NewRepository(db), cfg.MediaStoragePath, cfg.MediaPublicBaseURL, cfg.MediaMaxUploadBytes)
 	api.VisitTypeHandler = visits.NewVisitTypeHandler(visitTypeRepo)
 	api.DepartmentHandler = departments.NewHandler(deptRepo)
 	api.VisitHandler = visits.NewHandler(visitSvc)
