@@ -8,14 +8,12 @@ const (
 )
 
 type Workflow struct {
-	ID       int64
-	Name     string
-	Active   bool
+	ID        int64
+	Name      string
+	Active    bool
+	StepCount int
 }
 
-// Step is a template step (e.g. "Level 1: HOD"). Snapshotted onto each
-// gatepass at creation time as a gatepass_approvals row — see the
-// gatepasses package for why.
 type Step struct {
 	ID           int64
 	WorkflowID   int64
@@ -28,10 +26,11 @@ type Step struct {
 }
 
 type WorkflowDTO struct {
-	ID     int64     `json:"id"`
-	Name   string    `json:"name"`
-	Active bool      `json:"active"`
-	Steps  []StepDTO `json:"steps"`
+	ID        int64     `json:"id"`
+	Name      string    `json:"name"`
+	Active    bool      `json:"active"`
+	StepCount int       `json:"step_count,omitempty"`
+	Steps     []StepDTO `json:"steps"`
 }
 
 type StepDTO struct {
@@ -51,9 +50,7 @@ func StepToDTO(s *Step) StepDTO {
 	}
 }
 
-// StepInput is the allow-list for defining one workflow step at creation
-// time. Exactly one of RoleID/UserID must be set, matching ApproverType —
-// validated in the service, not left to the DB CHECK constraint alone.
+// StepInput is the explicit API allow-list for one ordered approval step.
 type StepInput struct {
 	Label        string `json:"label"`
 	ApproverType string `json:"approver_type"`
@@ -63,6 +60,9 @@ type StepInput struct {
 }
 
 type CreateWorkflowInput struct {
-	Name  string      `json:"name"`
-	Steps []StepInput `json:"steps"`
+	Name   string      `json:"name"`
+	Active *bool       `json:"active,omitempty"`
+	Steps  []StepInput `json:"steps"`
 }
+
+type UpdateWorkflowInput = CreateWorkflowInput
