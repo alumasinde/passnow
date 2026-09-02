@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<?php require __DIR__ . '/../partials/head.php'; ?>
+<?php $platformLayout = true; require __DIR__ . '/../partials/head.php'; ?>
 </head>
 <body class="app-page platform-page">
 <div class="app-shell">
