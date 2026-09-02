@@ -108,3 +108,10 @@
 .dashboard-accent-warning{--dashboard-accent:#f79009}
 .dashboard-accent-danger{--dashboard-accent:#f04438}
 .dashboard-accent-info{--dashboard-accent:#2e90fa}
+
+.dashboard-widget-actions{grid-column:span 6}
+.dashboard-action-list{padding:14px;display:grid;gap:9px}
+.dashboard-action{display:flex;align-items:center;gap:12px;min-height:58px;padding:10px 12px;border:1px solid #eaecf0;border-radius:10px;color:var(--color-text);background:#fff;transition:border-color .15s ease,transform .15s ease,box-shadow .15s ease}
+.dashboard-action:hover{border-color:color-mix(in srgb,var(--dashboard-accent) 35%,#d0d5dd);transform:translateY(-1px);box-shadow:0 5px 14px rgba(16,24,40,.06)}
+.dashboard-action-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:9px;background:color-mix(in srgb,var(--dashboard-accent) 10%,#fff);color:var(--dashboard-accent)}
+.dashboard-action-chevron{margin-left:auto;color:#98a2b3;font-size:11px}
