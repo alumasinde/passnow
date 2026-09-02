@@ -142,10 +142,28 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapR
 	if err != nil { return nil, err }
 	defer tenantTx.Rollback()
 
-	roleID, err := tenantRoleRepo.CreateRoleTx(ctx, tenantTx, tenantID, "Tenant Admin", true)
-	if err != nil { return nil, err }
-	if err := tenantRoleRepo.GrantAllPermissions(ctx, tenantTx, roleID); err != nil {
-		return nil, fmt.Errorf("seed tenant admin permissions: %w", err)
+	// Seed the default tenant roles. Tenant Admin receives the full
+	// permission catalog; the remaining roles are safe defaults for a new
+	// installation and can be adjusted by the tenant administrator later.
+	defaultRoles := []struct {
+		Name    string
+		GrantAll bool
+	}{
+		{Name: "Tenant Admin", GrantAll: true},
+		{Name: "Approver"},
+		{Name: "Security Officer"},
+		{Name: "Employee"},
+	}
+	var roleID int64
+	for _, seed := range defaultRoles {
+		id, err := tenantRoleRepo.CreateRoleTx(ctx, tenantTx, seed.Name, true)
+		if err != nil { return nil, fmt.Errorf("seed default role %q: %w", seed.Name, err) }
+		if seed.GrantAll {
+			if err := tenantRoleRepo.GrantAllPermissions(ctx, tenantTx, id); err != nil {
+				return nil, fmt.Errorf("seed tenant admin permissions: %w", err)
+			}
+			roleID = id
+		}
 	}
 	userID, err := tenantUserRepo.CreateTx(ctx, tenantTx, &users.User{
 		Email: in.AdminEmail, PasswordHash: hash, FirstName: in.AdminFirstName, LastName: in.AdminLastName,
