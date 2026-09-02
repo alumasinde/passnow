@@ -93,7 +93,7 @@ func (r *Repository) Summary(ctx context.Context) (*Summary, error) {
 		return nil, err
 	}
 
-	activity, err := r.recentActivity(ctx, tenantID, 15)
+	activity, err := r.recentActivity(ctx, 15)
 	if err != nil {
 		return nil, err
 	}
@@ -102,10 +102,10 @@ func (r *Repository) Summary(ctx context.Context) (*Summary, error) {
 	return s, nil
 }
 
-func (r *Repository) recentActivity(ctx context.Context, tenantID int64, limit int) ([]ActivityEntry, error) {
+func (r *Repository) recentActivity(ctx context.Context, limit int) ([]ActivityEntry, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT action, entity_type, entity_id, created_at FROM audit_logs
-		WHERE ORDER BY created_at DESC LIMIT ?`, limit)
+		ORDER BY created_at DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
 	}
