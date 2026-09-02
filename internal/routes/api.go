@@ -118,6 +118,7 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("GET /api/v1/approval-workflows", protected("settings.approvals", api.WorkflowHandler.List))
 	mux.Handle("GET /api/v1/approval-workflows/{id}", protected("settings.approvals", api.WorkflowHandler.Get))
 	mux.Handle("POST /api/v1/approval-workflows", protected("settings.approvals", api.WorkflowHandler.Create))
+	mux.Handle("PATCH /api/v1/approval-workflows/{id}", protected("settings.approvals", api.WorkflowHandler.Update))
 
 	// --- gatepass types and operations ---
 	// Opaque QR token is a high-entropy capability generated per gatepass.
