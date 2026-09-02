@@ -16,7 +16,7 @@ func NewTypeRepository(db *sql.DB) *TypeRepository {
 	return &TypeRepository{db: db}
 }
 
-const typeCols = `id, name, code, direction, is_returnable_default, returnability_policy, requires_items, requires_approval, workflow_id, active`
+const typeCols = `id, name, code, description, direction, is_returnable_default, returnability_policy, requires_items, requires_approval, workflow_id, active`
 
 func (r *TypeRepository) scan(row interface{ Scan(dest ...any) error }) (*GatepassType, error) {
 	var t GatepassType
@@ -24,6 +24,7 @@ func (r *TypeRepository) scan(row interface{ Scan(dest ...any) error }) (*Gatepa
 		&t.ID,
 		&t.Name,
 		&t.Code,
+		&t.Description,
 		&t.Direction,
 		&t.IsReturnableDefault,
 		&t.ReturnabilityPolicy,
@@ -107,12 +108,13 @@ func (r *TypeRepository) Create(ctx context.Context, in TypeInput) (int64, error
 
 	res, err := r.db.ExecContext(ctx, `
 		INSERT INTO gatepass_types
-			(name, code, direction, is_returnable_default,
+			(name, code, description, direction, is_returnable_default,
 			 returnability_policy, requires_items, requires_approval,
 			 workflow_id, active, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())`,
 		in.Name,
 		in.Code,
+		in.Description,
 		in.Direction,
 		returnable,
 		string(policy),
@@ -137,6 +139,9 @@ func (r *TypeRepository) Update(ctx context.Context, id int64, in TypeInput) err
 	}
 	if in.Code != "" {
 		t.Code = in.Code
+	}
+	if in.Description != nil {
+		t.Description = in.Description
 	}
 	if in.Direction != "" {
 		t.Direction = Direction(in.Direction)
@@ -173,12 +178,13 @@ func (r *TypeRepository) Update(ctx context.Context, id int64, in TypeInput) err
 
 	_, err = r.db.ExecContext(ctx, `
 		UPDATE gatepass_types SET
-			name = ?, code = ?, direction = ?, is_returnable_default = ?,
+			name = ?, code = ?, description = ?, direction = ?, is_returnable_default = ?,
 			returnability_policy = ?, requires_items = ?, requires_approval = ?,
 			workflow_id = ?, active = ?, updated_at = NOW()
 		WHERE id = ?`,
 		t.Name,
 		t.Code,
+		t.Description,
 		t.Direction,
 		t.IsReturnableDefault,
 		t.ReturnabilityPolicy,
