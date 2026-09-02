@@ -9,6 +9,7 @@ import (
 
 	"gatepass/internal/httpx"
 	"gatepass/internal/reqctx"
+	"gatepass/internal/rbac"
 )
 
 type Handler struct{svc *Service;idTypes *IDTypeRepository;companies *CompanyRepository}
@@ -57,6 +58,8 @@ func (h *Handler) List(w http.ResponseWriter,r *http.Request){
 	if c:=q.Get("company_id");c!=""{if n,err:=strconv.ParseInt(c,10,64);err==nil{f.CompanyID=&n}}
 	if b:=q.Get("blacklisted");b!=""{if v,err:=strconv.ParseBool(b);err==nil{f.Blacklisted=&v}}
 	f.Search=q.Get("q")
+	claims,ok:=reqctx.ClaimsFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return}
+	if d,ok:=rbac.DecisionFromContext(r.Context());ok&&d.Scope==rbac.ScopeOwn{f.CreatedBy=&claims.UserID}
 	p:=httpx.ParsePagination(r)
 	items,total,err:=h.svc.List(r.Context(),tenantID,f,p);if err!=nil{log.Printf("VISITOR LIST FAILED: %v",err);httpx.WriteError(w,httpx.ErrInternal);return}
 	dtos:=make([]DTO,0,len(items));for i:=range items{dtos=append(dtos,h.visitorDTO(r.Context(),&items[i]))}
