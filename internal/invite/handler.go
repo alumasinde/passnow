@@ -38,6 +38,7 @@ type Input struct {
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
 	RoleID    int64  `json:"role_id"`
+	DepartmentID *int64 `json:"department_id,omitempty"`
 }
 
 type Result struct {
@@ -75,7 +76,7 @@ func (s *Service) Invite(ctx context.Context, tenantID int64, in Input) (*Result
 		if err != nil {
 			return nil, err
 		}
-		newUser := &users.User{Email: in.Email, PasswordHash: hash, FirstName: in.FirstName, LastName: in.LastName, MustChangePassword: true}
+		newUser := &users.User{Email: in.Email, PasswordHash: hash, FirstName: in.FirstName, LastName: in.LastName, DepartmentID: in.DepartmentID, MustChangePassword: true}
 		userID, err = s.users.Create(ctx, newUser)
 		if err != nil {
 			return nil, err
