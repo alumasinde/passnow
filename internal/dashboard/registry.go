@@ -43,6 +43,12 @@ func DefaultRegistry() []WidgetDefinition {
 			Build: func(s *Summary) (any, any) { return s.CompletedVisitsToday, nil },
 		},
 		{
+			Code: "overstayed_visits", Type: "stat", Title: "Overstayed Visits",
+			Icon: "clock", Accent: "warning", Size: "sm", Order: 70,
+			Permissions: []string{"visits.view"},
+			Build: func(s *Summary) (any, any) { return s.OverstayedVisits, nil },
+		},
+		{
 			Code: "gatepass_overview", Type: "chart", Title: "Gate Pass Overview",
 			Icon: "chart-line", Accent: "primary", Size: "lg", Order: 100,
 			Permissions: []string{"gatepasses.view"},
