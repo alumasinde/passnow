@@ -60,3 +60,31 @@ func (r *Repository) VerifyCustomDomain(ctx context.Context,id int64)error{res,e
 func (r *Repository) Update(ctx context.Context, id int64, name, slug string) error {
  res,err:=r.db.ExecContext(ctx,"UPDATE tenants SET name=?, slug=?, updated_at=NOW() WHERE id=? AND deleted_at IS NULL",strings.TrimSpace(name),strings.ToLower(strings.TrimSpace(slug)),id);if err!=nil{return err};n,_:=res.RowsAffected();if n==0{return ErrNotFound};return nil
 }
+
+// ReadyIDs returns active tenants whose provisioned database is ready.
+// It keeps operational workers from repeatedly attempting tenants that are
+// still provisioning or whose database verification failed.
+func (r *Repository) ReadyIDs(ctx context.Context) ([]int64, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT t.id
+		FROM tenants t
+		INNER JOIN tenant_databases td ON td.tenant_id = t.id
+		WHERE t.status = 'active'
+		  AND t.deleted_at IS NULL
+		  AND td.status = 'ready'
+		ORDER BY t.id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := make([]int64, 0)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
