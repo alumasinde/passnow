@@ -29,6 +29,7 @@ type tokenResponse struct {
 	RefreshToken string    `json:"refresh_token"`
 	ExpiresIn    int64     `json:"expires_in"`
 	User         users.DTO `json:"user"`
+	TenantSlug   string    `json:"tenant_slug"`
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
@@ -71,6 +72,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		RefreshToken: pair.RefreshToken,
 		ExpiresIn:    pair.ExpiresIn,
 		User:         users.ToDTO(u),
+		TenantSlug:   tenant.Slug,
 	})
 }
 
