@@ -21,7 +21,7 @@ if(requestMethod()==='POST'){
  if(!$errors)try{
    if($payload)Auth::api(App::api(),'PATCH','/api/v1/users/memberships/'.$membershipID,$payload);
    flash('success',$payload?'User updated successfully.':'No changes were needed.');
-   redirect('user.php?id='.rawurlencode((string)$id));
+   redirect('admin/users/view?id='.rawurlencode((string)$id));
  }catch(ApiException $e){$errors[]=$e->getMessage();}catch(Throwable){$errors[]='Unable to update user.';}
  $user=array_merge($user,$payload);if(!empty($payload['clear_department']))$user['department_id']=null;
 }
