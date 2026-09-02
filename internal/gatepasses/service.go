@@ -80,7 +80,7 @@ func NewService(
 // mandate wins over the client's opt-in checkbox — see CreateInput docs),
 // and snapshots the workflow steps if so.
 func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, actorUserID int64) (*Gatepass, error) {
-	gtype, err := s.types.ByID(ctx, tenantID, in.GatepassTypeID)
+	gtype, err := s.types.ByID(ctx, in.GatepassTypeID)
 	if err != nil || !gtype.Active {
 		return nil, ErrInvalidType
 	}
@@ -116,7 +116,7 @@ func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, ac
 	}
 
 	if in.VisitID != nil {
-		if _, err := s.visitRepo.ByID(ctx, tenantID, *in.VisitID); err != nil {
+		if _, err := s.visitRepo.ByID(ctx, *in.VisitID); err != nil {
 			return nil, ErrInvalidVisit
 		}
 	}
@@ -184,7 +184,7 @@ func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, ac
 	}
 
 	g := &Gatepass{
-		TenantID: tenantID, GatepassTypeID: in.GatepassTypeID, DepartmentID: in.DepartmentID,
+		GatepassTypeID: in.GatepassTypeID, DepartmentID: in.DepartmentID,
 		RequesterType: RequesterType(in.RequesterType), RequesterUserID: requesterUserID, RequesterVisitorID: requesterVisitorID,
 		VisitID: in.VisitID, Purpose: in.Purpose, IsReturnable: isReturnable, ExpectedReturnAt: in.ExpectedReturnAt,
 		RequiresApproval: requiresApproval, WorkflowID: gtype.WorkflowID, CreatedBy: &actorUserID,
@@ -207,7 +207,7 @@ func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, ac
 	_ = passNumber
 
 	s.audit(ctx, tenantID, actorUserID, ActionGatepassCreated, id, nil)
-	return s.repo.ByID(ctx, tenantID, id)
+	return s.repo.ByID(ctx, id)
 }
 
 func (s *Service) Get(ctx context.Context, tenantID, id int64) (*Gatepass, error) {
@@ -215,15 +215,15 @@ func (s *Service) Get(ctx context.Context, tenantID, id int64) (*Gatepass, error
 }
 
 func (s *Service) List(ctx context.Context, tenantID int64, f ListFilter, p httpx.Pagination) ([]Gatepass, int, error) {
-	return s.repo.List(ctx, tenantID, f, p)
+	return s.repo.List(ctx, f, p)
 }
 
 func (s *Service) Items(ctx context.Context, tenantID, gatepassID int64) ([]ItemDTO, error) {
-	return s.repo.items.ListForGatepass(ctx, tenantID, gatepassID)
+	return s.repo.items.ListForGatepass(ctx, gatepassID)
 }
 
 func (s *Service) Movements(ctx context.Context, tenantID, gatepassID int64) ([]MovementDTO, error) {
-	return s.movements.List(ctx, tenantID, gatepassID)
+	return s.movements.List(ctx, gatepassID)
 }
 
 func (s *Service) CheckOutMovement(ctx context.Context, tenantID, id, actorUserID int64, in MovementInput) (*Gatepass, error) {
@@ -234,11 +234,11 @@ func (s *Service) CheckOutMovement(ctx context.Context, tenantID, id, actorUserI
 	if err != nil {
 		return nil, err
 	}
-	gtype, err := s.types.ByID(ctx, tenantID, g.GatepassTypeID)
+	gtype, err := s.types.ByID(ctx, g.GatepassTypeID)
 	if err != nil || !gtype.Active {
 		return nil, ErrInvalidType
 	}
-	result, err := s.movements.Checkout(ctx, tenantID, id, actorUserID, string(gtype.Direction), in)
+	result, err := s.movements.Checkout(ctx, id, actorUserID, string(gtype.Direction), in)
 	if err != nil {
 		return nil, err
 	}
@@ -254,11 +254,11 @@ func (s *Service) CheckInMovement(ctx context.Context, tenantID, id, actorUserID
 	if err != nil {
 		return nil, err
 	}
-	gtype, err := s.types.ByID(ctx, tenantID, g.GatepassTypeID)
+	gtype, err := s.types.ByID(ctx, g.GatepassTypeID)
 	if err != nil || !gtype.Active {
 		return nil, ErrInvalidType
 	}
-	result, err := s.movements.Checkin(ctx, tenantID, id, actorUserID, string(gtype.Direction), in)
+	result, err := s.movements.Checkin(ctx, id, actorUserID, string(gtype.Direction), in)
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +267,7 @@ func (s *Service) CheckInMovement(ctx context.Context, tenantID, id, actorUserID
 }
 
 func (s *Service) ApprovalSteps(ctx context.Context, tenantID, gatepassID int64) ([]ApprovalStep, error) {
-	return s.repo.ApprovalSteps(ctx, tenantID, gatepassID)
+	return s.repo.ApprovalSteps(ctx, gatepassID)
 }
 
 // Act processes an approve/reject on one step. Eligibility (does the
@@ -306,7 +306,7 @@ func (s *Service) Act(ctx context.Context, tenantID, gatepassID, stepID, actorUs
 		return nil, ErrNotEligibleApprover
 	}
 
-	g, err := s.repo.ActOnApprovalStep(ctx, tenantID, gatepassID, stepID, actorUserID, approve, comments)
+	g, err := s.repo.ActOnApprovalStep(ctx, gatepassID, stepID, actorUserID, approve, comments)
 	if err != nil {
 		return nil, err
 	}
@@ -328,11 +328,11 @@ func (s *Service) CheckOut(ctx context.Context, tenantID, id, actorUserID int64)
 	if err != nil {
 		return nil, err
 	}
-	gtype, err := s.types.ByID(ctx, tenantID, g.GatepassTypeID)
+	gtype, err := s.types.ByID(ctx, g.GatepassTypeID)
 	if err != nil {
 		return nil, ErrInvalidType
 	}
-	result, err := s.repo.CheckOut(ctx, tenantID, id, actorUserID, string(gtype.Direction))
+	result, err := s.repo.CheckOut(ctx, id, actorUserID, string(gtype.Direction))
 	if err != nil {
 		return nil, err
 	}
@@ -345,11 +345,11 @@ func (s *Service) CheckIn(ctx context.Context, tenantID, id, actorUserID int64) 
 	if err != nil {
 		return nil, err
 	}
-	gtype, err := s.types.ByID(ctx, tenantID, g.GatepassTypeID)
+	gtype, err := s.types.ByID(ctx, g.GatepassTypeID)
 	if err != nil {
 		return nil, ErrInvalidType
 	}
-	result, err := s.repo.CheckIn(ctx, tenantID, id, actorUserID, string(gtype.Direction))
+	result, err := s.repo.CheckIn(ctx, id, actorUserID, string(gtype.Direction))
 	if err != nil {
 		return nil, err
 	}
@@ -358,7 +358,7 @@ func (s *Service) CheckIn(ctx context.Context, tenantID, id, actorUserID int64) 
 }
 
 func (s *Service) Cancel(ctx context.Context, tenantID, id, actorUserID int64, reason string) (*Gatepass, error) {
-	g, err := s.repo.Cancel(ctx, tenantID, id, actorUserID, reason)
+	g, err := s.repo.Cancel(ctx, id, actorUserID, reason)
 	if err != nil {
 		return nil, err
 	}
@@ -374,10 +374,6 @@ func (s *Service) QRLookup(ctx context.Context, tenantID int64, token string) (*
 	if err != nil {
 		return nil, err
 	}
-	if g.TenantID != tenantID {
-		return nil, ErrNotFound
-	}
-
 	requesterName := ""
 	if g.RequesterUserID != nil {
 		if u, err := s.userRepo.ByID(ctx, *g.RequesterUserID); err == nil {
@@ -411,7 +407,7 @@ func (s *Service) PendingForApprover(ctx context.Context, tenantID, actorUserID 
 	if err != nil || !membership.IsActive() {
 		return nil, nil // not an active member here -> empty queue, not an error
 	}
-	return s.repo.PendingForApprover(ctx, tenantID, actorUserID, membership.RoleID)
+	return s.repo.PendingForApprover(ctx, actorUserID, membership.RoleID)
 }
 
 func (s *Service) audit(ctx context.Context, tenantID, actorUserID int64, action string, entityID int64, metadata map[string]any) {
