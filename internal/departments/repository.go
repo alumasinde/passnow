@@ -55,10 +55,10 @@ func (r *Repository) ByID(ctx context.Context, id int64) (*Department, error) {
 	return &d, nil
 }
 
-func (r *Repository) Create(ctx context.Context, name, code string) (int64, error) {
+func (r *Repository) Create(ctx context.Context, name, code string, active bool) (int64, error) {
 	res, err := r.db.ExecContext(ctx, `
 		INSERT INTO departments (name, code, active, created_at, updated_at)
-		VALUES (?, ?, 1, NOW(), NOW())`, name, code)
+		VALUES (?, ?, ?, NOW(), NOW())`, name, code, active)
 	if err != nil {
 		return 0, err
 	}
