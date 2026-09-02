@@ -146,15 +146,33 @@
     document.addEventListener('click', e => {
       const trigger = e.target.closest('[data-confirm]');
       if (trigger) {
+        const confirmText = trigger.dataset.confirm || 'Are you sure you want to continue?';
+        const backdrop = $('[data-modal-backdrop]');
         e.preventDefault();
+
+        // Some layouts (including Platform Admin) do not render the shared
+        // modal component. Fall back to the native confirmation dialog so
+        // destructive/important actions still work instead of becoming dead buttons.
+        if (!backdrop) {
+          if (!window.confirm(confirmText)) return;
+          if (trigger.form) {
+            if (typeof trigger.form.requestSubmit === 'function') trigger.form.requestSubmit();
+            else trigger.form.submit();
+          } else if (trigger.href) {
+            window.location.assign(trigger.href);
+          }
+          return;
+        }
+
         openModal({
           title: trigger.dataset.confirmTitle || 'Confirm action',
-          body: trigger.dataset.confirm || 'Are you sure you want to continue?',
+          body: confirmText,
           confirmText: trigger.dataset.confirmButton || 'Confirm',
           danger: trigger.dataset.confirmDanger !== 'false',
           onConfirm: () => {
             if (trigger.form) {
-              trigger.form.submit();
+              if (typeof trigger.form.requestSubmit === 'function') trigger.form.requestSubmit();
+              else trigger.form.submit();
             } else if (trigger.href) {
               window.location.assign(trigger.href);
             }
