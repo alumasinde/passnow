@@ -42,7 +42,7 @@ func (r *VisitTypeRepository) ByID(ctx context.Context, id int64) (*VisitType, e
 func (r *VisitTypeRepository) Create(ctx context.Context, in VisitTypeInput) (int64, error) {
 	res, err := r.db.ExecContext(ctx, `
 		INSERT INTO visit_types (name, code, description, active, created_at, updated_at)
-		VALUES (?, ?, ?, 1, NOW(), NOW())`, in.Name, in.Code, in.Description)
+		VALUES (?, ?, ?, ?, NOW(), NOW())`, in.Name, in.Code, in.Description, func() bool { if in.Active != nil { return *in.Active }; return true }())
 	if err != nil { return 0, err }
 	return res.LastInsertId()
 }
