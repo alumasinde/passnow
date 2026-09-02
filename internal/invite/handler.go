@@ -68,7 +68,7 @@ func (s *Service) Invite(ctx context.Context, tenantID int64, in Input) (*Result
 	var tempPassword string
 
 	if err == nil {
-		userID = existing.ID
+		return nil, users.ErrEmailTaken
 	} else {
 		tempPassword = DefaultInitialPassword
 		hash, err := auth.HashPassword(tempPassword, s.bcryptCost)
@@ -127,6 +127,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 			httpx.WriteError(w, httpx.ErrValidation.WithMessage("role_id is invalid"))
 			return
 		}
+		if errors.Is(err, users.ErrEmailTaken) { httpx.WriteError(w, httpx.ErrValidation.WithMessage("a user with this email already exists")); return }
 		httpx.WriteError(w, httpx.ErrInternal)
 		return
 	}
