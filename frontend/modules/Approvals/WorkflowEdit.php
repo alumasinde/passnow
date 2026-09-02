@@ -17,7 +17,7 @@ try {
 
 try {
     $usersPayload = Auth::api(App::api(), 'GET', '/api/v1/users');
-    $users = apiRows($usersPayload);
+    $users = array_map(static function(array $u): array { $u['id']=(int)($u['user_id']??$u['id']??0); $u['name']=trim((string)($u['first_name']??'').' '.(string)($u['last_name']??'')); if($u['name']==='')$u['name']=(string)($u['email']??''); return $u; }, apiRows($usersPayload));
 } catch (Throwable) {}
 
 if ($id) {
