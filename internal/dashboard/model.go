@@ -11,6 +11,7 @@ type Summary struct {
 	CheckedInToday       int `json:"checked_in_today"`
 	ExpectedToday        int `json:"expected_today"`
 	CompletedVisitsToday int `json:"completed_visits_today"`
+	OverstayedVisits int `json:"overstayed_visits"`
 
 	ActiveGatepasses        int `json:"active_gatepasses"`
 	PendingApprovals        int `json:"pending_approvals"`
