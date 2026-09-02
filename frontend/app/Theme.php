@@ -26,7 +26,9 @@ final class Theme
         ];
 
         try {
-            $response = App::api()->request('GET', '/api/v1/theme');
+            // Theme is tenant-protected. Use the authenticated API helper so
+            // the request carries both the access token and tenant context.
+            $response = Auth::api(App::api(), 'GET', '/api/v1/theme');
             $data = is_array($response['data'] ?? null) ? $response['data'] : $response;
             if (is_array($data)) {
                 foreach ($defaults as $key => $fallback) {
