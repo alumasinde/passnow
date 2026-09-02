@@ -3,10 +3,11 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../app/App.php';
 Auth::requireLogin();
 
-$errors=[]; $types=[]; $visitors=[]; $departments=[];
+$errors=[]; $types=[]; $visitors=[]; $departments=[]; $currentDepartmentID=null;
 try { $types=apiRows(Auth::api(App::api(),'GET','/api/v1/gatepass-types')); } catch(Throwable){ $errors[]='Unable to load gatepass types.'; }
 try { $visitors=apiRows(Auth::api(App::api(),'GET','/api/v1/visitors?limit=200')); } catch(Throwable){}
 try { $departments=apiRows(Auth::api(App::api(),'GET','/api/v1/departments?limit=200')); } catch(Throwable){}
+try { $me=Auth::api(App::api(),'GET','/api/v1/auth/me'); $me=apiValue($me,'user',$me['data']??$me); $currentDepartmentID=is_array($me)&&isset($me['department_id'])?(int)$me['department_id']:null; } catch(Throwable){}
 
 $nullableInt=static fn($v): ?int => ((int)$v)>0?(int)$v:null;
 $nullableString=static fn($v): ?string => (($s=trim((string)$v))==='')?null:$s;
@@ -60,4 +61,4 @@ if(requestMethod()==='POST'){
         }catch(ApiException $e){$errors[]=$e->getMessage();}catch(Throwable){$errors[]='Unable to create the gatepass right now.';}
     }
 }
-App::render('gatepasses/create',compact('errors','types','visitors','departments'));
+App::render('gatepasses/create',compact('errors','types','visitors','departments','currentDepartmentID'));
