@@ -1,10 +1,9 @@
 <section class="page-header"><div><span class="eyebrow">Settings · Visitors</span><h1><?= $id ? 'Edit' : 'Add' ?> visitor company</h1><p>Configure the organization details available when registering visitors.</p></div><a class="btn btn-secondary" href="<?=e(url('visitor-companies.php'))?>"><i class="fa-solid fa-arrow-left"></i> Back</a></section>
 <?php if($errors):?><div class="alert alert-danger"><div><?php foreach($errors as $x):?><div><?=e($x)?></div><?php endforeach;?></div></div><?php endif;?>
-<form method="post" class="content-card form-card settings-type-form" data-loading-form><input type="hidden" name="_csrf" value="<?=e(Csrf::token())?>">
-<div class="form-section"><h2>Company details</h2><div class="form-grid">
-<div class="field"><label for="name">Company name <span class="required">*</span></label><input id="name" name="name" required maxlength="160" value="<?=e((string)($item['name']??''))?>" placeholder="Organization name"></div>
-<div class="field"><label for="phone">Phone</label><input id="phone" name="phone" maxlength="30" value="<?=e((string)($item['phone']??''))?>" placeholder="+254..."></div>
-<div class="field"><label for="email">Email</label><input id="email" name="email" type="email" maxlength="255" value="<?=e((string)($item['email']??''))?>" placeholder="contact@example.com"></div>
-<div class="field field-full"><label for="address">Address</label><textarea id="address" name="address" rows="3" maxlength="255" placeholder="Physical or postal address"><?=e((string)($item['address']??''))?></textarea></div>
+<form method="post" class="content-card form-card settings-type-form" data-loading-form><input type="hidden" name="_csrf" value="<?=e(Csrf::token())?>"><div class="form-section"><h2>Company details</h2><div class="form-grid">
+<div class="field"><label for="name">Company name <span class="required">*</span></label><input id="name" name="name" required maxlength="160" value="<?=e((string)($item['name']??''))?>"></div>
+<div class="field"><label for="phone">Phone</label><input id="phone" name="phone" maxlength="30" value="<?=e((string)($item['phone']??''))?>"></div>
+<div class="field"><label for="email">Email</label><input id="email" name="email" type="email" maxlength="255" value="<?=e((string)($item['email']??''))?>"></div>
+<div class="field field-full"><label for="address">Address</label><textarea id="address" name="address" rows="3" maxlength="255"><?=e((string)($item['address']??''))?></textarea></div>
 <div class="field field-full"><label class="checkbox-row"><input type="checkbox" name="active" value="1" <?=!array_key_exists('active',$item)||!empty($item['active'])?'checked':''?>><span><strong>Company is active</strong><br><small>Inactive companies remain on historical visitor records but cannot be selected for new registrations.</small></span></label></div>
 </div></div><div class="form-actions"><a class="btn btn-secondary" href="<?=e(url('visitor-companies.php'))?>">Cancel</a><button class="btn btn-primary" type="submit" data-loading-label="Saving..."><span data-button-label>Save visitor company</span></button></div></form>
