@@ -1,8 +1,7 @@
-// Package settings is the generic tenant-scoped key/value config store.
+// Package settings is the generic key/value config store for a tenant database.
 // New admin-toggleable behavior (a feature flag, a numeric limit, a
-// per-module option) should be a new KEY here, not a new database column
-// or a new table — this is what keeps the platform "dynamic" instead of
-// requiring a migration every time Platform Admin needs a new switch.
+// per-module option) should be a new key here, not a new database column
+// or a new table. Tenant isolation is provided by the database connection.
 package settings
 
 import (
@@ -23,11 +22,11 @@ func NewRepository(db *sql.DB) *Repository {
 }
 
 // Get returns the raw JSON value for a key, or ErrNotFound.
-func (r *Repository) Get(ctx context.Context, tenantID int64, key string) (json.RawMessage, error) {
+func (r *Repository) Get(ctx context.Context, key string) (json.RawMessage, error) {
 	var raw json.RawMessage
 	err := r.db.QueryRowContext(ctx,
-		`SELECT value FROM tenant_settings WHERE tenant_id = ? AND setting_key = ? LIMIT 1`,
-		tenantID, key,
+		`SELECT value FROM tenant_settings WHERE setting_key = ? LIMIT 1`,
+		key,
 	).Scan(&raw)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -38,10 +37,8 @@ func (r *Repository) Get(ctx context.Context, tenantID int64, key string) (json.
 	return raw, nil
 }
 
-// GetBool returns the boolean value for key, or fallback if unset/invalid.
-// Used for simple on/off Platform Admin toggles like pre-registration.
-func (r *Repository) GetBool(ctx context.Context, tenantID int64, key string, fallback bool) bool {
-	raw, err := r.Get(ctx, tenantID, key)
+func (r *Repository) GetBool(ctx context.Context, key string, fallback bool) bool {
+	raw, err := r.Get(ctx, key)
 	if err != nil {
 		return fallback
 	}
@@ -52,9 +49,8 @@ func (r *Repository) GetBool(ctx context.Context, tenantID int64, key string, fa
 	return v
 }
 
-// GetString returns the string value for key, or fallback if unset/invalid.
-func (r *Repository) GetString(ctx context.Context, tenantID int64, key string, fallback string) string {
-	raw, err := r.Get(ctx, tenantID, key)
+func (r *Repository) GetString(ctx context.Context, key string, fallback string) string {
+	raw, err := r.Get(ctx, key)
 	if err != nil {
 		return fallback
 	}
@@ -65,27 +61,25 @@ func (r *Repository) GetString(ctx context.Context, tenantID int64, key string, 
 	return v
 }
 
-// Set upserts a key's value. updatedBy is the acting user's ID, for audit
-// trail purposes (who flipped this switch).
-func (r *Repository) Set(ctx context.Context, tenantID int64, key string, value any, updatedBy int64) error {
+// Set upserts a key's value. updatedBy is the acting user's ID.
+func (r *Repository) Set(ctx context.Context, key string, value any, updatedBy int64) error {
 	raw, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
 	_, err = r.db.ExecContext(ctx, `
-		INSERT INTO tenant_settings (tenant_id, setting_key, value, updated_by, created_at, updated_at)
-		VALUES (?, ?, ?, ?, NOW(), NOW())
+		INSERT INTO tenant_settings (setting_key, value, updated_by, created_at, updated_at)
+		VALUES (?, ?, ?, NOW(), NOW())
 		ON DUPLICATE KEY UPDATE value = VALUES(value), updated_by = VALUES(updated_by), updated_at = NOW()`,
-		tenantID, key, raw, updatedBy,
+		key, raw, updatedBy,
 	)
 	return err
 }
 
-// All returns every setting for a tenant as key -> raw JSON, e.g. for a
-// settings page that lists everything at once.
-func (r *Repository) All(ctx context.Context, tenantID int64) (map[string]json.RawMessage, error) {
+// All returns every setting as key -> raw JSON.
+func (r *Repository) All(ctx context.Context) (map[string]json.RawMessage, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT setting_key, value FROM tenant_settings WHERE tenant_id = ?`, tenantID)
+		`SELECT setting_key, value FROM tenant_settings`)
 	if err != nil {
 		return nil, err
 	}
