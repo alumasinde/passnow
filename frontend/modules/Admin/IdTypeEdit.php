@@ -10,6 +10,7 @@ if(requestMethod()==='POST'){
  $payload['code']=strtoupper(trim((string)($_POST['code']??'')));
  $payload['requires_number']=isset($_POST['requires_number']);
  $payload['active']=isset($_POST['active']);
+ $payload['active']=isset($_POST['active']);
  if($payload['name']===''||$payload['code']==='')$errors[]='Name and code are required.';
  if(!$errors)try{
   if($id){ConfigCrud::update('/api/v1/id-types/'.$id,$payload);flash('success','Updated successfully.');}
