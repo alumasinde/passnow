@@ -1,5 +1,5 @@
 <?php
-declare(strict_types=1);require_once __DIR__.'/../app/App.php';Auth::requireLogin();
+declare(strict_types=1);require_once __DIR__.'/../../app/App.php';Auth::requireLogin();
 $data=[];$errors=[];
 try{$p=Auth::api(App::api(),'GET','/api/v1/settings/visitors');$data=apiValue($p,'settings',$p['data']??$p);if(!is_array($data))$data=[];}catch(ApiException $e){$errors[]=$e->getMessage();}catch(Throwable){$errors[]='Unable to load settings.';}
 if(requestMethod()==='POST'){
