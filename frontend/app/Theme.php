@@ -26,6 +26,12 @@ final class Theme
         ];
 
         try {
+            // Platform administration is outside tenant resolution, so it has
+            // no tenant theme endpoint. Avoid issuing a guaranteed 404.
+            if (self::isPlatformRequest()) {
+                self::$theme = self::sanitize($defaults);
+                return self::$theme;
+            }
             // Theme is tenant-protected. Use the authenticated API helper so
             // the request carries both the access token and tenant context.
             $response = Auth::api(App::api(), 'GET', '/api/v1/theme');
@@ -120,6 +126,13 @@ final class Theme
             $theme[$key] = self::tenantAwareMediaURL((string)$theme[$key]);
         }
         return $theme;
+    }
+
+    private static function isPlatformRequest(): bool
+    {
+        $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+        $path = '/' . ltrim($path, '/');
+        return $path === '/platform' || str_starts_with($path, '/platform/');
     }
 
     private static function tenantAwareMediaURL(string $url): string
