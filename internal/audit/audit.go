@@ -36,7 +36,6 @@ func NewRepository(db *sql.DB) *Repository {
 func (r *Repository) DB() *sql.DB { return r.db }
 
 type Entry struct {
-	TenantID    *int64 // nil for platform-level events
 	ActorUserID *int64
 	Action      string
 	EntityType  string
@@ -63,9 +62,9 @@ func (r *Repository) Record(ctx context.Context, q Querier, e Entry) error {
 
 	_, err := q.ExecContext(ctx, `
 		INSERT INTO audit_logs
-			(tenant_id, actor_user_id, action, entity_type, entity_id, request_id, ip_address, user_agent, metadata, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-		e.TenantID, e.ActorUserID, e.Action, e.EntityType, e.EntityID,
+			(actor_user_id, action, entity_type, entity_id, request_id, ip_address, user_agent, metadata, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+		e.ActorUserID, e.Action, e.EntityType, e.EntityID,
 		nullIfEmpty(e.RequestID), nullIfEmpty(e.IPAddress), nullIfEmpty(e.UserAgent), metaJSON,
 	)
 	return err
