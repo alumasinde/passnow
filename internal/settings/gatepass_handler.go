@@ -7,9 +7,6 @@ import (
 	"gatepass/internal/reqctx"
 )
 
-// GatepassSettingsHandler exposes Platform Admin control over pass
-// numbering (prefix + whether the sequence resets yearly). Same
-// generic-store pattern as VisitorSettingsHandler.
 type GatepassSettingsHandler struct {
 	repo *Repository
 }
@@ -24,20 +21,18 @@ type gatepassSettingsDTO struct {
 }
 
 func (h *GatepassSettingsHandler) Get(w http.ResponseWriter, r *http.Request) {
-	tenant, ok := reqctx.TenantFromContext(r.Context())
-	if !ok {
+	if _, ok := reqctx.TenantFromContext(r.Context()); !ok {
 		httpx.WriteError(w, httpx.ErrAuthRequired)
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, gatepassSettingsDTO{
-		NumberPrefix:  h.repo.GetString(r.Context(), tenant.ID, KeyGatepassNumberPrefix, "GP"),
-		NumberUseYear: h.repo.GetBool(r.Context(), tenant.ID, KeyGatepassNumberUseYear, true),
+		NumberPrefix:  h.repo.GetString(r.Context(), KeyGatepassNumberPrefix, "GP"),
+		NumberUseYear: h.repo.GetBool(r.Context(), KeyGatepassNumberUseYear, true),
 	})
 }
 
 func (h *GatepassSettingsHandler) Update(w http.ResponseWriter, r *http.Request) {
-	tenant, ok := reqctx.TenantFromContext(r.Context())
-	if !ok {
+	if _, ok := reqctx.TenantFromContext(r.Context()); !ok {
 		httpx.WriteError(w, httpx.ErrAuthRequired)
 		return
 	}
@@ -54,11 +49,11 @@ func (h *GatepassSettingsHandler) Update(w http.ResponseWriter, r *http.Request)
 		httpx.WriteError(w, httpx.ErrValidation.WithMessage("number_prefix is required"))
 		return
 	}
-	if err := h.repo.Set(r.Context(), tenant.ID, KeyGatepassNumberPrefix, in.NumberPrefix, claims.UserID); err != nil {
+	if err := h.repo.Set(r.Context(), KeyGatepassNumberPrefix, in.NumberPrefix, claims.UserID); err != nil {
 		httpx.WriteError(w, httpx.ErrInternal)
 		return
 	}
-	if err := h.repo.Set(r.Context(), tenant.ID, KeyGatepassNumberUseYear, in.NumberUseYear, claims.UserID); err != nil {
+	if err := h.repo.Set(r.Context(), KeyGatepassNumberUseYear, in.NumberUseYear, claims.UserID); err != nil {
 		httpx.WriteError(w, httpx.ErrInternal)
 		return
 	}
