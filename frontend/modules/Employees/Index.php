@@ -1,5 +1,5 @@
 <?php
-declare(strict_types=1);require_once __DIR__.'/../app/App.php';Auth::requireLogin();
+declare(strict_types=1);require_once __DIR__.'/../../app/App.php';Auth::requireLogin();
 $q=new ListQuery(['status','department_id']);$extra=[];
 foreach(['status','department_id'] as $k)if(isset($_GET[$k])&&$_GET[$k]!=='')$extra[$k]=trim((string)$_GET[$k]);
 $r=ResourcePage::list('/api/v1/employees',$q,$extra);
