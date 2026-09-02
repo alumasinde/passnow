@@ -2,15 +2,12 @@ package platform
 
 import (
  "context"
- "database/sql"
- "errors"
  "fmt"
  "net/http"
  "strconv"
  "time"
 
  "gatepass/internal/httpx"
- "gatepass/internal/middleware"
  "gatepass/internal/tenantdb"
 )
 
@@ -44,7 +41,3 @@ func (h *TenantOpsHandler) Migrate(w http.ResponseWriter,r *http.Request){
 
 func opsTenantID(w http.ResponseWriter,r *http.Request)(int64,bool){id,err:=strconv.ParseInt(r.PathValue("id"),10,64);if err!=nil||id<1{httpx.WriteError(w,httpx.ErrValidation.WithMessage("invalid tenant id"));return 0,false};return id,true}
 
-// Compile-time check keeps platform routes explicitly protected at registration sites.
-var _ func([]byte,*AdminRepository,http.Handler)http.Handler = middleware.PlatformAdmin
-var _ = errors.New
-var _ *sql.DB
