@@ -4,7 +4,7 @@
         <h1>New gatepass</h1>
         <p>Create a request using the rules configured for your tenant.</p>
     </div>
-    <a class="btn btn-secondary" href="<?= e(url('gatepasses.php')) ?>" data-back>
+    <a class="btn btn-secondary" data-back href="<?= e(url('gatepasses.php')) ?>" data-back>
         <i class="fa-solid fa-arrow-left"></i>
         Back
     </a>
