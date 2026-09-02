@@ -1,39 +1,88 @@
 # PassNow Migrations
 
-PassNow uses two independent migration scopes.
+PassNow has exactly two executable migration scopes:
 
-## Platform
+```text
+migrations/
+├── platform/   # PassNow platform database only
+└── tenant/     # One isolated tenant application database
+```
 
-Directory:
+Do not add executable `.up.sql` files directly under `migrations/`.
 
-`migrations/platform`
+## Platform migrations
 
-Run against the single PassNow platform database. It contains only platform-owned data such as platform users/admins, tenants, tenant database metadata, and tenant domains.
+Run against the single PassNow platform database.
+
+Platform tables include:
+
+- `tenants`
+- `users` used for platform administration
+- `platform_admins`
+- `platform_audit_logs`
+- `tenant_databases`
+- `tenant_domains`
+
+Run:
 
 ```powershell
 go run ./cmd/migrate -scope platform -action up
 go run ./cmd/migrate -scope platform -action status
 ```
 
-## Tenant
+## Tenant migrations
 
-Directory:
+Run against one tenant's own database.
 
-`migrations/tenant`
+Tenant tables include:
 
-Run against one tenant database. It contains tenant application tables such as users, roles, employees, visitors, visits, gatepasses, approvals, settings, and audit data.
+- users and roles
+- permissions and memberships
+- audit logs
+- settings
+- departments and employees
+- ID types and visitor companies
+- visitors and visits
+- approval workflows
+- gatepass types, gatepasses, approvals and items
+- gatepass movements
+- notification outbox
+
+Tenant migrations must never create:
+
+- a `tenants` table
+- a `tenant_id` column for row isolation
+- foreign keys to a platform `tenants` table
+
+Tenant isolation is provided by the database connection itself.
+
+Run manually:
 
 ```powershell
 go run ./cmd/migrate -scope tenant -action up -database passnow_glee_hotel -user root
 go run ./cmd/migrate -scope tenant -action status -database passnow_glee_hotel -user root
 ```
 
-Optional connection overrides:
+With explicit connection values:
 
 ```powershell
 go run ./cmd/migrate -scope tenant -action up -host 127.0.0.1 -port 3306 -database passnow_glee_hotel -user root -password "your_password"
 ```
 
-The root `migrations/` directory is legacy and is no longer an executable migration scope. New migrations must be added only to `migrations/platform/` or `migrations/tenant/`.
+Tenant provisioning automatically runs `migrations/tenant/` after the tenant database is created or verified.
 
-Tenant provisioning automatically runs the tenant migration set when a tenant is created.
+## Adding a new migration
+
+Platform-only change:
+
+```text
+migrations/platform/0004_example.up.sql
+```
+
+Tenant application change:
+
+```text
+migrations/tenant/0014_example.up.sql
+```
+
+Never edit a migration that has already been applied to a database. Add a new migration instead.
