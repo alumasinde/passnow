@@ -121,6 +121,12 @@ func (h *Handler) GetCompany(w http.ResponseWriter,r *http.Request){
 	c,err:=h.companies.ByID(r.Context(),id);if err!=nil{writeServiceError(w,err);return}
 	httpx.WriteJSON(w,http.StatusOK,CompanyToDTO(c))
 }
+func (h *Handler) GetCompany(w http.ResponseWriter,r *http.Request){
+	if _,ok:=tenantRequest(w,r);!ok{return}
+	id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return}
+	company,err:=h.companies.ByID(r.Context(),id);if err!=nil{writeServiceError(w,err);return}
+	httpx.WriteJSON(w,http.StatusOK,CompanyToDTO(company))
+}
 func (h *Handler) CreateCompany(w http.ResponseWriter,r *http.Request){
 	if _,ok:=tenantRequest(w,r);!ok{return};var in CompanyInput;if !httpx.DecodeJSON(w,r,&in){return}
 	if in.Name==""{httpx.WriteError(w,httpx.ErrValidation.WithMessage("name is required"));return}
