@@ -20,6 +20,7 @@ import (
 	"gatepass/internal/employees"
 	"gatepass/internal/gatepasses"
 	"gatepass/internal/invite"
+	"gatepass/internal/media"
 	"gatepass/internal/navigation"
 	"gatepass/internal/platform"
 	"gatepass/internal/roles"
@@ -135,6 +136,7 @@ func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *rou
 	api.VisitorSettingsHandler = settings.NewVisitorSettingsHandler(settingsRepo)
 	api.GatepassSettingsHandler = settings.NewGatepassSettingsHandler(settingsRepo)
 	api.ThemeHandler = settings.NewThemeHandler(settingsRepo)
+	api.MediaHandler = media.NewHandler(media.NewRepository(db), cfg.MediaStoragePath, cfg.MediaPublicBaseURL, cfg.MediaMaxUploadBytes)
 	api.VisitTypeHandler = visits.NewVisitTypeHandler(visitTypeRepo)
 	api.DepartmentHandler = departments.NewHandler(deptRepo)
 	api.VisitHandler = visits.NewHandler(visitSvc)
