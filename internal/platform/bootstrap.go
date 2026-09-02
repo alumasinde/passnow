@@ -150,8 +150,14 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapR
 		GrantAll bool
 	}{
 		{Name: "Tenant Admin", GrantAll: true},
+		{Name: "Owner"},
+		{Name: "General Manager"},
+		{Name: "HR Director"},
+		{Name: "HOD"},
+		{Name: "Security Manager"},
+		{Name: "Gate Supervisor"},
+		{Name: "Gate Officer"},
 		{Name: "Approver"},
-		{Name: "Security Officer"},
 		{Name: "Employee"},
 	}
 	var roleID int64
