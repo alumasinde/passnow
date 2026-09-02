@@ -14,7 +14,7 @@ func DefaultRegistry() []WidgetDefinition {
 			Code: "active_visits", Type: "stat", Title: "Active Visits",
 			Icon: "door-open", Accent: "success", Size: "sm", Order: 20,
 			Permissions: []string{"visits.view"},
-			Build: func(s *Summary) (any, any) { return s.CurrentlyOnPremises, nil },
+			Build: func(s *Summary) (any, any) { return s.CheckedInToday, nil },
 		},
 		{
 			Code: "gatepasses_issued_today", Type: "stat", Title: "Gate Pass Issued",
@@ -62,10 +62,7 @@ func DefaultRegistry() []WidgetDefinition {
 			Permissions: []string{"gatepasses.view"},
 			Build: func(s *Summary) (any, any) {
 				return s.EmployeeGatepassesToday + s.VisitorGatepassesToday, map[string]any{
-					"series": []map[string]any{
-						{"key": "employee", "label": "Employee Pass", "value": s.EmployeeGatepassesToday},
-						{"key": "visitor", "label": "Visitor Pass", "value": s.VisitorGatepassesToday},
-					},
+					"series": s.GatepassTypeBreakdown,
 				}
 			},
 		},
