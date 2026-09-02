@@ -63,6 +63,12 @@ go run ./cmd/migrate -scope tenant -action up -database passnow_glee_hotel -user
 go run ./cmd/migrate -scope tenant -action status -database passnow_glee_hotel -user root
 ```
 
+Recommended for a provisioned tenant (loads and decrypts the stored credentials):
+
+```powershell
+go run ./cmd/migrate -scope tenant -action status -tenant-id 1
+```
+
 With explicit connection values:
 
 ```powershell
