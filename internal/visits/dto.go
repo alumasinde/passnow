@@ -23,6 +23,7 @@ type DTO struct {
 	CanCheckIn bool `json:"can_check_in"`
 	CanCheckOut bool `json:"can_check_out"`
 	CanCancel bool `json:"can_cancel"`
+	Overstayed bool `json:"overstayed"`
 }
 
 func ToDTO(v *Visit) DTO {
@@ -32,6 +33,7 @@ func ToDTO(v *Visit) DTO {
 		BadgeNumber:v.BadgeNumber,CheckedInAt:v.CheckedInAt,CheckedOutAt:v.CheckedOutAt,
 		CancelReason:v.CancelReason,CreatedAt:v.CreatedAt,
 		CanCheckIn:v.CanCheckIn(),CanCheckOut:v.CanCheckOut(),CanCancel:v.CanCancel(),
+		Overstayed: v.Status==StatusCheckedIn && v.ExpectedTime!=nil && v.ExpectedTime.Before(time.Now().UTC()),
 	}
 }
 
