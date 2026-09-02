@@ -32,7 +32,7 @@ func (s *Service) Create(ctx context.Context,tenantID int64,in CreateInput,actor
 	if in.CompanyID!=nil{c,err:=s.companies.ByID(ctx,*in.CompanyID);if err!=nil||!c.Active{return nil,ErrInvalidCompany}}
 	source:=SourceWalkIn
 	if in.WantsPreRegistration{if !s.settingsRepo.GetBool(ctx,settings.KeyVisitorsAllowPreRegistration,false){return nil,ErrPreRegistrationDisabled};source=SourcePreRegistered}
-	v:=&Visitor{FirstName:in.FirstName,LastName:in.LastName,IDTypeID:in.IDTypeID,IDNumber:in.IDNumber,CompanyID:in.CompanyID,Phone:in.Phone,Email:in.Email,Notes:in.Notes,Source:source,CreatedBy:&actorUserID}
+	v:=&Visitor{FirstName:in.FirstName,LastName:in.LastName,IDTypeID:in.IDTypeID,IDNumber:in.IDNumber,CompanyID:in.CompanyID,Phone:in.Phone,Email:in.Email,Notes:in.Notes,PhotoRef:in.PhotoRef,Source:source,CreatedBy:&actorUserID}
 	id,err:=s.repo.Create(ctx,v);if err!=nil{return nil,err};v.ID=id
 	_ = s.auditRepo.Record(ctx,s.auditRepo.DB(),audit.Entry{ActorUserID:&actorUserID,Action:audit.ActionVisitorCreated,EntityType:"visitor",EntityID:&id,Metadata:map[string]any{"source":string(source)}})
 	return v,nil
