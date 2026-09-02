@@ -63,7 +63,7 @@ func (s *Service) Invite(ctx context.Context, tenantID int64, in Input) (*Result
 		return nil, ErrRoleNotFound
 	}
 
-	existing, err := s.users.ByEmail(ctx, in.Email)
+	_, err := s.users.ByEmail(ctx, in.Email)
 	var userID int64
 	var tempPassword string
 
