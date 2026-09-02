@@ -134,7 +134,7 @@
             step.querySelectorAll('[data-name]').forEach(el => el.name = 'steps[' + index + '][' + el.dataset.name + ']');
             step.querySelectorAll('input[name],select[name]').forEach(el => {
                 if (!el.dataset.name) {
-                    el.name = el.name.replace(/steps\\[\\d+\\]/, 'steps[' + index + ']');
+                    el.name = el.name.replace(/steps\[\d+\]/, 'steps[' + index + ']');
                 }
             });
         });
