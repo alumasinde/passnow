@@ -98,7 +98,7 @@
     </div>
 
     <div class="form-actions">
-        <a class="btn btn-secondary" href="<?= e(url('gatepasses.php')) ?>" data-back>Cancel</a>
+        <a class="btn btn-secondary" data-back href="<?= e(url('gatepasses.php')) ?>" data-back>Cancel</a>
         <button class="btn btn-primary" type="submit" data-loading-label="Creating...">
             <span data-button-label>Create gatepass</span>
         </button>
