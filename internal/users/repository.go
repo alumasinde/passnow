@@ -120,3 +120,24 @@ func (r *Repository) ResetFailedLogins(ctx context.Context, tx *sql.Tx, userID i
 func (r *Repository) BeginTx(ctx context.Context) (*sql.Tx, error) {
 	return r.db.BeginTx(ctx, nil)
 }
+
+// SetPasswordHash replaces a user password with an already-bcrypt-hashed value.
+// It is intentionally repository-local so privileged administrative workflows can
+// reset credentials without duplicating SQL in command packages.
+func (r *Repository) SetPasswordHash(ctx context.Context, id int64, passwordHash string) error {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE users
+		SET password_hash = ?, failed_login_count = 0, locked_until = NULL, updated_at = NOW()
+		WHERE id = ? AND deleted_at IS NULL`, passwordHash, id)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
