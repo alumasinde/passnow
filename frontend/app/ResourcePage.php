@@ -11,7 +11,7 @@ final class ResourcePage
     ): array {
         $page = $query->page();
         $perPage = $query->perPage((int)App::config('ui.page_size', 20));
-        $params = array_merge(['page'=>$page,'per_page'=>$perPage], $extraParams);
+        $params = array_merge(['limit'=>$perPage,'offset'=>($page-1)*$perPage], $extraParams);
         if ($query->search() !== '') $params['q'] = $query->search();
 
         try {
