@@ -80,7 +80,7 @@ $canCheckin = in_array($status, ['checked_out', 'out'], true);
                 </button>
             <?php endif; ?>
 
-            <a class="btn btn-secondary" href="<?= e(url('gatepass-qr.php?id=' . $id)) ?>" data-back>
+            <a class="btn btn-secondary" data-back href="<?= e(url('gatepass-qr.php?id=' . $id)) ?>" data-back>
                 <i class="fa-solid fa-qrcode"></i> QR
             </a>
         </div>
