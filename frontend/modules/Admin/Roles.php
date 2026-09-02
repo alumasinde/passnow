@@ -5,5 +5,5 @@ $q=new ListQuery([]);$r=ResourcePage::list('/api/v1/roles',$q,[],static function
  unset($row);return $rows;
 });
 $columns=[['key'=>'name','label'=>'Role'],['key'=>'description','label'=>'Type'],['key'=>'user_count','label'=>'Users']];
-$actions=[['label'=>'Permissions','icon'=>'fa-key','class'=>'btn-secondary','href'=>fn($row)=>url('role-permissions.php?id='.rawurlencode((string)($row['id']??''))) ]];
+$actions=[['label'=>'Edit role','icon'=>'fa-pen','class'=>'btn-secondary','href'=>fn($row)=>url('roles-edit.php?id='.rawurlencode((string)($row['id']??'')))],['label'=>'Permissions','icon'=>'fa-key','class'=>'btn-secondary','href'=>fn($row)=>url('role-permissions.php?id='.rawurlencode((string)($row['id']??''))) ]];
 App::render('admin/roles',compact('q','r','columns','actions'));
