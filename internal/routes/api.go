@@ -11,6 +11,7 @@ import (
 	"gatepass/internal/employees"
 	"gatepass/internal/gatepasses"
 	"gatepass/internal/invite"
+	"gatepass/internal/media"
 	"gatepass/internal/middleware"
 	"gatepass/internal/navigation"
 	"gatepass/internal/platform"
@@ -32,6 +33,7 @@ type API struct {
 	VisitorSettingsHandler  *settings.VisitorSettingsHandler
 	GatepassSettingsHandler *settings.GatepassSettingsHandler
 	ThemeHandler            *settings.ThemeHandler
+	MediaHandler            *media.Handler
 	VisitTypeHandler        *visits.VisitTypeHandler
 	DepartmentHandler       *departments.Handler
 	VisitHandler            *visits.Handler
@@ -66,6 +68,12 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	// --- tenant theme (public read for branded login/application shell) ---
 	mux.Handle("GET /api/v1/theme", http.HandlerFunc(api.ThemeHandler.Get))
 	mux.Handle("PUT /api/v1/theme", protected("settings.theme", api.ThemeHandler.Update))
+
+	// --- tenant media library ---
+	mux.Handle("GET /api/v1/media/public/{publicID}", http.HandlerFunc(api.MediaHandler.Public))
+	mux.Handle("POST /api/v1/media", protected("settings.media", api.MediaHandler.Upload))
+	mux.Handle("GET /api/v1/media", protected("settings.media", api.MediaHandler.List))
+	mux.Handle("DELETE /api/v1/media/{id}", protected("settings.media", api.MediaHandler.Delete))
 
 	// --- auth ---
 	mux.Handle("POST /api/v1/auth/login", api.LoginLimiter.Middleware("login")(http.HandlerFunc(api.AuthHandler.Login)))
