@@ -550,3 +550,11 @@ func (r *Repository) Cancel(ctx context.Context, id, actorUserID int64, reason s
 	}
 	return r.ByID(ctx, id)
 }
+
+
+func (r *Repository) UserDepartment(ctx context.Context, userID int64) (*int64, error) {
+	var departmentID *int64
+	err := r.db.QueryRowContext(ctx, "SELECT department_id FROM tenant_memberships WHERE user_id = ? AND status = 'active' LIMIT 1", userID).Scan(&departmentID)
+	if err != nil { return nil, err }
+	return departmentID, nil
+}
