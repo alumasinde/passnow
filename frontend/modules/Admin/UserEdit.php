@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);require_once __DIR__.'/../../app/App.php';Auth::requireLogin();
-$id=filter_input(INPUT_GET,'id',FILTER_VALIDATE_INT);if(!$id){http_response_code(400);exit('Invalid user ID.');}
+$id=filter_input(INPUT_GET,'user_id',FILTER_VALIDATE_INT) ?: filter_input(INPUT_GET,'id',FILTER_VALIDATE_INT);if(!$id){http_response_code(400);exit('Invalid user ID.');}
 $errors=[];$user=[];$roles=[];$departments=[];$currentUser=[];
 try{$p=Auth::api(App::api(),'GET','/api/v1/auth/me');$currentUser=apiValue($p,'user',$p['data']??$p);if(!is_array($currentUser))$currentUser=[];}catch(Throwable){}
 try{$p=Auth::api(App::api(),'GET','/api/v1/users/'.$id);$user=apiValue($p,'user',$p['data']??$p);if(!is_array($user))$user=[];}catch(ApiException $e){$errors[]=$e->getMessage();}catch(Throwable){$errors[]='Unable to load user.';}
