@@ -1,5 +1,5 @@
 <?php
-declare(strict_types=1);require_once __DIR__.'/../app/App.php';Auth::requireLogin();
+declare(strict_types=1);require_once __DIR__.'/../../app/App.php';Auth::requireLogin();
 $q=new ListQuery(['status','role_id']);$extra=[];
 foreach(['status','role_id'] as $k)if(isset($_GET[$k])&&$_GET[$k]!=='')$extra[$k]=trim((string)$_GET[$k]);
 $r=AdminResource::page('/api/v1/users',$q,$extra);
