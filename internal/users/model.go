@@ -18,6 +18,7 @@ type User struct {
 	PasswordHash     string
 	FirstName        string
 	LastName         string
+	DepartmentID     *int64
 	Status           Status
 	MustChangePassword bool
 	FailedLoginCount int
