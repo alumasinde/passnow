@@ -11,7 +11,7 @@
     <?php if ($error): ?>
         <div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i><?= e($error) ?></div>
     <?php elseif ($token): ?>
-        <img src="<?= e(url('gatepass-qr.php?token=' . rawurlencode((string)$token))') ?>"
+        <img src="<?= e(url('gatepass-qr-image.php?token=' . rawurlencode((string)$token))') ?>"
              alt="Gatepass QR code" class="qr-image">
         <p class="muted">The QR token is intentionally not displayed as plain text.</p>
     <?php else: ?>
