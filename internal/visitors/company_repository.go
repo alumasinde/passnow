@@ -31,7 +31,7 @@ func (r *CompanyRepository) ByID(ctx context.Context,id int64)(*Company,error){
 }
 
 func (r *CompanyRepository) Create(ctx context.Context,in CompanyInput)(int64,error){
-	res,err:=r.db.ExecContext(ctx,`INSERT INTO visitor_companies (name,phone,email,address,active,created_at,updated_at) VALUES (?,?,?,?,1,NOW(),NOW())`,in.Name,in.Phone,in.Email,in.Address)
+	res,err:=r.db.ExecContext(ctx,`INSERT INTO visitor_companies (name,phone,email,address,active,created_at,updated_at) VALUES (?,?,?,?,?,NOW(),NOW())`,in.Name,in.Phone,in.Email,in.Address,func() bool { if in.Active != nil { return *in.Active }; return true }())
 	if err!=nil{if database.IsDuplicateKeyErr(err){return 0,ErrCompanyNameTaken};return 0,err};return res.LastInsertId()
 }
 
