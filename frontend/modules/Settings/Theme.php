@@ -36,7 +36,7 @@ if (requestMethod() === 'POST') {
             if ((int)($_FILES[$input]['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
                 throw new RuntimeException('Unable to receive the selected media file.');
             }
-            $uploaded = Auth::apiMultipart(App::api(), 'POST', '/api/v1/media', ['purpose' => 'branding'], [$input === 'logo_file' ? 'file' : 'file' => (string)$_FILES[$input]['tmp_name']]);
+            $uploaded = Auth::apiMultipart(App::api(), 'POST', '/api/v1/media', ['purpose' => 'branding'], ['file' => (string)$_FILES[$input]['tmp_name']]);
             if (!empty($uploaded['public_url'])) $payload[$target] = (string)$uploaded['public_url'];
         }
     }
