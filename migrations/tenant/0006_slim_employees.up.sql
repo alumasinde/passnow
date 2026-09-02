@@ -5,7 +5,7 @@
 -- Keep the table itself (not merged into users or tenant_memberships):
 -- most employees who appear as gatepass requesters or visit hosts never
 -- log in at all, so they can't live only on tenant_memberships (which is
--- exclusively about login access). And employees is tenant-scoped data
+-- exclusively about login access). And employees is tenant-local data
 -- about "everyone who works here" — distinct from users, which is
 -- "everyone who can log in," a much smaller, cross-tenant set.
 --
