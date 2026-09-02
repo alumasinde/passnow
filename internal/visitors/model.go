@@ -16,28 +16,21 @@ const (
 	StatusBlacklisted Status = "blacklisted"
 )
 
-// Visitor is the domain/DB entity. Never expose this directly — use DTO.
+// Visitor belongs to the tenant database selected for the request.
 type Visitor struct {
-	ID       int64
-	TenantID int64
-
+	ID int64
 	FirstName string
-	LastName  string
-
+	LastName string
 	IDTypeID int64
 	IDNumber *string
-
 	CompanyID *int64
-
-	Phone    *string
-	Email    *string
+	Phone *string
+	Email *string
 	PhotoRef *string
-	Notes    *string
-
-	Source          Source
-	Status          Status
+	Notes *string
+	Source Source
+	Status Status
 	BlacklistReason *string
-
 	CreatedBy *int64
 	UpdatedBy *int64
 	CreatedAt time.Time
@@ -45,27 +38,21 @@ type Visitor struct {
 	DeletedAt *time.Time
 }
 
-func (v *Visitor) FullName() string {
-	return v.FirstName + " " + v.LastName
-}
+func (v *Visitor) FullName() string { return v.FirstName+" "+v.LastName }
 
-// IDType is a tenant-configurable ID document type (National ID, Passport...).
 type IDType struct {
-	ID             int64
-	TenantID       int64
-	Name           string
-	Code           string
+	ID int64
+	Name string
+	Code string
 	RequiresNumber bool
-	Active         bool
+	Active bool
 }
 
-// Company is a tenant-configurable visitor organization.
 type Company struct {
-	ID       int64
-	TenantID int64
-	Name     string
-	Phone    *string
-	Email    *string
-	Address  *string
-	Active   bool
+	ID int64
+	Name string
+	Phone *string
+	Email *string
+	Address *string
+	Active bool
 }
