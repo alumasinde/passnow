@@ -123,7 +123,7 @@ func (h *Handler) CheckIn(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, ToDTO(v))
+	httpx.WriteJSON(w, http.StatusOK, h.svc.ToDTO(r.Context(), v))
 }
 
 func (h *Handler) CheckOut(w http.ResponseWriter, r *http.Request) {
@@ -147,7 +147,7 @@ func (h *Handler) CheckOut(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, ToDTO(v))
+	httpx.WriteJSON(w, http.StatusOK, h.svc.ToDTO(r.Context(), v))
 }
 
 func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
@@ -179,7 +179,7 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, ToDTO(v))
+	httpx.WriteJSON(w, http.StatusOK, h.svc.ToDTO(r.Context(), v))
 }
 
 // BadgeLookup is what a security guard's scanner calls with the token read
