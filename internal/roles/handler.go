@@ -3,6 +3,7 @@ package roles
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"gatepass/internal/httpx"
 	"gatepass/internal/reqctx"
@@ -109,6 +110,10 @@ type membershipDTO struct {
 	RoleID int64 `json:"role_id"`
 	RoleName string `json:"role_name"`
 	DepartmentID *int64 `json:"department_id,omitempty"`
+	DepartmentName *string `json:"department_name,omitempty"`
+	MustChangePassword bool `json:"must_change_password"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 	Status string `json:"status"`
 }
 
@@ -117,7 +122,7 @@ func (h *Handler) ListUsers(w http.ResponseWriter,r *http.Request){
 	items,err:=h.repo.ListMemberships(r.Context())
 	if err!=nil {httpx.WriteError(w,httpx.ErrInternal);return}
 	out:=make([]membershipDTO,0,len(items))
-	for _,m:=range items{out=append(out,membershipDTO{MembershipID:m.MembershipID,UserID:m.UserID,Email:m.Email,FirstName:m.FirstName,LastName:m.LastName,RoleID:m.RoleID,RoleName:m.RoleName,DepartmentID:m.DepartmentID,Status:string(m.Status)})}
+	for _,m:=range items{out=append(out,membershipDTO{MembershipID:m.MembershipID,UserID:m.UserID,Email:m.Email,FirstName:m.FirstName,LastName:m.LastName,RoleID:m.RoleID,RoleName:m.RoleName,DepartmentID:m.DepartmentID,DepartmentName:m.DepartmentName,MustChangePassword:m.MustChangePassword,CreatedAt:m.CreatedAt,UpdatedAt:m.UpdatedAt,Status:string(m.Status)})}
 	httpx.WriteJSON(w,http.StatusOK,out)
 }
 
@@ -144,5 +149,5 @@ func (h *Handler) GetUser(w http.ResponseWriter,r *http.Request){
 	if !requireTenant(w,r){return}
 	userID,err:=strconv.ParseInt(r.PathValue("id"),10,64); if err!=nil||userID<1 {httpx.WriteError(w,httpx.ErrNotFound);return}
 	m,err:=h.repo.MembershipViewByUserID(r.Context(),userID); if err!=nil {httpx.WriteError(w,httpx.ErrNotFound);return}
-	httpx.WriteJSON(w,http.StatusOK,membershipDTO{MembershipID:m.MembershipID,UserID:m.UserID,Email:m.Email,FirstName:m.FirstName,LastName:m.LastName,RoleID:m.RoleID,RoleName:m.RoleName,DepartmentID:m.DepartmentID,Status:string(m.Status)})
+	httpx.WriteJSON(w,http.StatusOK,membershipDTO{MembershipID:m.MembershipID,UserID:m.UserID,Email:m.Email,FirstName:m.FirstName,LastName:m.LastName,RoleID:m.RoleID,RoleName:m.RoleName,DepartmentID:m.DepartmentID,DepartmentName:m.DepartmentName,MustChangePassword:m.MustChangePassword,CreatedAt:m.CreatedAt,UpdatedAt:m.UpdatedAt,Status:string(m.Status)})
 }
