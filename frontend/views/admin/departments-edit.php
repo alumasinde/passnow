@@ -1,6 +1,6 @@
 <section class="page-header"><div><span class="eyebrow">Administration</span><h1><?= $id ? 'Edit' : 'Add' ?> Department</h1><p>Changes are validated by the Go API.</p></div><a class="btn btn-secondary" href="<?=e(url('departments.php'))?>">Back</a></section>
 <?php if($errors):?><div class="alert alert-danger"><div><?php foreach($errors as $x):?><div><?=e($x)?></div><?php endforeach;?></div></div><?php endif;?>
 <form method="post" class="content-card form-card" data-loading-form><input type="hidden" name="_csrf" value="<?=e(Csrf::token())?>"><div class="form-grid">
-<?php component('field',['name'=>'name','label'=>'Name','value'=>(string)($item['name']??''),'required'=>true]);?>
-<?php component('field',['name'=>'code','label'=>'Code','value'=>(string)($item['code']??''),'required'=>true,'placeholder'=>'e.g. HR']);?>
+<div class="field"><label for="department_name">Name <span class="required">*</span></label><input id="department_name" name="name" type="text" value="<?=e((string)oldOr('name',$item['name']??''))?>" required autocomplete="off"></div>
+<div class="field"><label for="department_code">Code <span class="required">*</span></label><input id="department_code" name="code" type="text" value="<?=e((string)oldOr('code',$item['code']??''))?>" required placeholder="e.g. HR" autocomplete="off"></div>
 </div><div class="form-actions"><a class="btn btn-secondary" href="<?=e(url('departments.php'))?>">Cancel</a><button class="btn btn-primary" type="submit" data-loading-label="Saving..."><span data-button-label>Save</span></button></div></form>
