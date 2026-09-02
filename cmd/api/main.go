@@ -20,6 +20,7 @@ import (
 	"gatepass/internal/employees"
 	"gatepass/internal/gatepasses"
 	"gatepass/internal/invite"
+	"gatepass/internal/navigation"
 	"gatepass/internal/platform"
 	"gatepass/internal/roles"
 	"gatepass/internal/routes"
@@ -143,6 +144,7 @@ func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *rou
 	api.InviteHandler = invite.NewHandler(inviteSvc)
 	dashboardRepo := dashboard.NewRepository(db)
 	api.DashboardHandler = dashboard.NewHandler(dashboardRepo, dashboard.NewService(dashboardRepo, roleRepo))
+	api.NavigationHandler = navigation.NewHandler(navigation.NewService(roleRepo))
 
 	return tenantRepo, api, platform.NewHandler(bootstrapSvc, cfg.PlatformBootstrapToken), platformAdminHandler, platformAdminRepo
 }
@@ -188,6 +190,7 @@ func buildTenantAPI(db *sql.DB, cfg *config.Config) *routes.API {
 	api.InviteHandler = invite.NewHandler(inviteSvc)
 	dashboardRepo := dashboard.NewRepository(db)
 	api.DashboardHandler = dashboard.NewHandler(dashboardRepo, dashboard.NewService(dashboardRepo, roleRepo))
+	api.NavigationHandler = navigation.NewHandler(navigation.NewService(roleRepo))
 	return api
 }
 
