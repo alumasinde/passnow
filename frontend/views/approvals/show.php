@@ -5,7 +5,7 @@ $stepId=(int)($approval['pending_step_id']??$approval['step_id']??0);
 ?>
 <section class="page-header">
  <div><span class="eyebrow">Approval review</span><h1><?=e($number)?></h1><p><?=e((string)($approval['purpose']??'Review gatepass request'))?></p></div>
- <a class="btn btn-secondary" href="<?=e(url('approvals.php'))?>" data-back><i class="fa-solid fa-arrow-left"></i> Back</a>
+ <a class="btn btn-secondary" data-back href="<?=e(url('approvals.php'))?>" data-back><i class="fa-solid fa-arrow-left"></i> Back</a>
 </section>
 <?php if($error): ?><div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i><?=e($error)?></div><?php endif; ?>
 
