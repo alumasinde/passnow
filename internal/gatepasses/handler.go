@@ -88,8 +88,20 @@ func (h *Handler) UpdateType(w http.ResponseWriter, r *http.Request) {
 	if !httpx.DecodeJSON(w, r, &in) {
 		return
 	}
+	if in.Direction != "" && in.Direction != "in" && in.Direction != "out" && in.Direction != "both" {
+		httpx.WriteError(w, httpx.ErrValidation.WithMessage("direction must be in, out, or both"))
+		return
+	}
+	if in.ReturnabilityPolicy != nil && *in.ReturnabilityPolicy != "optional" && *in.ReturnabilityPolicy != "required" && *in.ReturnabilityPolicy != "not_allowed" {
+		httpx.WriteError(w, httpx.ErrValidation.WithMessage("returnability_policy must be optional, required, or not_allowed"))
+		return
+	}
 	if err := h.types.Update(r.Context(), id, in); err != nil {
-		httpx.WriteError(w, httpx.ErrNotFound)
+		if errors.Is(err, ErrTypeNotFound) {
+			httpx.WriteError(w, httpx.ErrNotFound)
+		} else {
+			httpx.WriteError(w, httpx.ErrValidation.WithMessage(err.Error()))
+		}
 		return
 	}
 	t, err := h.types.ByID(r.Context(), id)
