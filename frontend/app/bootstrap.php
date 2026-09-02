@@ -1,6 +1,12 @@
 <?php
 declare(strict_types=1);
 
+spl_autoload_register(static function (string $class): void {
+    if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $class)) return;
+    $file = __DIR__ . DIRECTORY_SEPARATOR . $class . '.php';
+    if (is_file($file)) require_once $file;
+});
+
 $envPath = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . '.env';
 if (is_file($envPath) && is_readable($envPath)) {
     foreach (file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
@@ -39,3 +45,4 @@ require_once __DIR__ . '/ListQuery.php';
 require_once __DIR__ . '/Paginator.php';
 
 AppContext::init($config);
+ErrorHandler::register($config);
