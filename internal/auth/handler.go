@@ -30,6 +30,7 @@ type tokenResponse struct {
 	ExpiresIn    int64     `json:"expires_in"`
 	User         users.DTO `json:"user"`
 	TenantSlug   string    `json:"tenant_slug"`
+	MustChangePassword bool `json:"must_change_password"`
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
@@ -73,6 +74,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		ExpiresIn:    pair.ExpiresIn,
 		User:         users.ToDTO(u),
 		TenantSlug:   tenant.Slug,
+		MustChangePassword: u.MustChangePassword,
 	})
 }
 
@@ -117,4 +119,17 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+type changePasswordRequest struct { CurrentPassword string `json:"current_password"`; NewPassword string `json:"new_password"` }
+func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w,httpx.ErrAuthRequired); return }
+	var req changePasswordRequest; if !httpx.DecodeJSON(w,r,&req){return}
+	if req.CurrentPassword=="" || req.NewPassword=="" { httpx.WriteError(w,httpx.ErrValidation.WithMessage("current_password and new_password are required")); return }
+	if err := h.svc.ChangePassword(r.Context(),claims.UserID,req.CurrentPassword,req.NewPassword); err != nil {
+		if errors.Is(err,ErrInvalidCredentials){httpx.WriteError(w,httpx.ErrValidation.WithMessage("current password is incorrect"));return}
+		if strings.Contains(err.Error(),"at least 8"){httpx.WriteError(w,httpx.ErrValidation.WithMessage("new password must be at least 8 characters"));return}
+		httpx.WriteError(w,httpx.ErrInternal);return
+	}
+	httpx.WriteJSON(w,http.StatusOK,map[string]any{"message":"Password changed successfully"})
 }
