@@ -5,9 +5,15 @@ Auth::requireLogin();
 
 $data=[];$errors=[];
 try{
-    $p=Auth::api(App::api(),'GET','/api/v1/settings/gatepass');
-    $data=apiValue($p,'settings',$p['data']??$p);
+    $response=Auth::api(App::api(),'GET','/api/v1/settings/gatepass');
+    // The Go handler returns the settings object directly. Preserve database
+    // values exactly; only unwrap known envelopes if the API changes later.
+    $data=is_array($response['data']??null)?$response['data']:$response;
     if(!is_array($data))$data=[];
+    $data['number_prefix']=trim((string)($data['number_prefix']??''));
+    $data['number_use_year']=array_key_exists('number_use_year',$data)
+        ? filter_var($data['number_use_year'],FILTER_VALIDATE_BOOLEAN,FILTER_NULL_ON_FAILURE) ?? false
+        : null;
 }catch(ApiException $e){$errors[]=$e->getMessage();}
 catch(Throwable){$errors[]='Unable to load settings.';}
 
@@ -22,7 +28,9 @@ if(requestMethod()==='POST'){
         $data=array_merge($data,$payload);
     }else{
         try{
-            $data=Auth::api(App::api(),'PUT','/api/v1/settings/gatepass',$payload);
+            $response=Auth::api(App::api(),'PUT','/api/v1/settings/gatepass',$payload);
+            $data=is_array($response['data']??null)?$response['data']:$response;
+            if(!is_array($data))$data=$payload;
             flash('success','Gatepass settings updated.');
             redirect('gatepass-settings.php');
         }catch(ApiException $e){
