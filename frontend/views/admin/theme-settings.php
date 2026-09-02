@@ -20,7 +20,7 @@ $data = array_merge($defaults, is_array($data ?? null) ? $data : []);
         <h1>Theme & branding</h1>
         <p>Configure your organization identity, colors, sidebar and appearance without hardcoding the frontend.</p>
     </div>
-    <a class="btn btn-secondary" href="<?= e(url('settings')) ?>" data-back><i class="fa-solid fa-arrow-left"></i> Settings</a>
+    <a class="btn btn-secondary" data-back href="<?= e(url('settings')) ?>" data-back><i class="fa-solid fa-arrow-left"></i> Settings</a>
 </section>
 
 <?php if ($errors): ?>
