@@ -22,14 +22,14 @@ func NewRepository(db *sql.DB) *Repository {
 }
 
 const selectCols = `
-	id, email, password_hash, first_name, last_name, status, must_change_password,
+	id, email, password_hash, first_name, last_name, department_id, status, must_change_password,
 	failed_login_count, locked_until, created_at, updated_at, deleted_at
 `
 
 func (r *Repository) scan(row interface{ Scan(dest ...any) error }) (*User, error) {
 	var u User
 	if err := row.Scan(
-		&u.ID, &u.Email, &u.PasswordHash, &u.FirstName, &u.LastName, &u.Status, &u.MustChangePassword,
+		&u.ID, &u.Email, &u.PasswordHash, &u.FirstName, &u.LastName, &u.DepartmentID, &u.Status, &u.MustChangePassword,
 		&u.FailedLoginCount, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.DeletedAt,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -58,9 +58,9 @@ func (r *Repository) ByID(ctx context.Context, id int64) (*User, error) {
 // logs, not response — the handler layer decides what the client sees).
 func (r *Repository) Create(ctx context.Context, u *User) (int64, error) {
 	res, err := r.db.ExecContext(ctx, `
-		INSERT INTO users (email, password_hash, first_name, last_name, status, must_change_password, created_at, updated_at)
-		VALUES (?, ?, ?, ?, 'active', ?, NOW(), NOW())`,
-		u.Email, u.PasswordHash, u.FirstName, u.LastName, u.MustChangePassword,
+		INSERT INTO users (email, password_hash, first_name, last_name, department_id, status, must_change_password, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, 'active', ?, NOW(), NOW())`,
+		u.Email, u.PasswordHash, u.FirstName, u.LastName, u.DepartmentID, u.MustChangePassword,
 	)
 	if err != nil {
 		if database.IsDuplicateKeyErr(err) {
