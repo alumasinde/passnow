@@ -1,11 +1,10 @@
 package departments
 
 type Department struct {
-	ID       int64
-	TenantID int64
-	Name     string
-	Code     string
-	Active   bool
+	ID     int64
+	Name   string
+	Code   string
+	Active bool
 }
 
 type DTO struct {
