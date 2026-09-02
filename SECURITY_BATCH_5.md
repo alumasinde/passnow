@@ -13,6 +13,7 @@ This prevents a stale JWT role from retaining privileges after a role change.
 
 ## Refresh-token binding
 
+
 Refresh tokens now carry `tenant_id`. A token issued in tenant A cannot be
 used at tenant B's refresh endpoint, even when the same user belongs to both.
 
