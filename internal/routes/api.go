@@ -31,6 +31,7 @@ type API struct {
 	VisitorHandler          *visitors.Handler
 	VisitorSettingsHandler  *settings.VisitorSettingsHandler
 	GatepassSettingsHandler *settings.GatepassSettingsHandler
+	ThemeHandler            *settings.ThemeHandler
 	VisitTypeHandler        *visits.VisitTypeHandler
 	DepartmentHandler       *departments.Handler
 	VisitHandler            *visits.Handler
@@ -61,6 +62,10 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	protected := func(permission string, h http.HandlerFunc) http.Handler {
 		return middleware.Protected(api.JWTSecret, api.RoleRepo, permission, h)
 	}
+
+	// --- tenant theme (public read for branded login/application shell) ---
+	mux.Handle("GET /api/v1/theme", http.HandlerFunc(api.ThemeHandler.Get))
+	mux.Handle("PUT /api/v1/theme", protected("settings.theme", api.ThemeHandler.Update))
 
 	// --- auth ---
 	mux.Handle("POST /api/v1/auth/login", api.LoginLimiter.Middleware("login")(http.HandlerFunc(api.AuthHandler.Login)))
