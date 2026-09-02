@@ -256,7 +256,6 @@ func (h *Handler) CheckOut(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
-	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w, httpx.ErrAuthRequired); return }
 	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) { httpx.WriteError(w, httpx.ErrForbidden); return }
 	var in MovementInput
 	if !httpx.DecodeJSON(w, r, &in) {
@@ -286,7 +285,6 @@ func (h *Handler) CheckIn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
-	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w, httpx.ErrAuthRequired); return }
 	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) { httpx.WriteError(w, httpx.ErrForbidden); return }
 	var in MovementInput
 	if !httpx.DecodeJSON(w, r, &in) {
@@ -337,7 +335,6 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
-	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w, httpx.ErrAuthRequired); return }
 	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) { httpx.WriteError(w, httpx.ErrForbidden); return }
 	var in CancelInput
 	if !httpx.DecodeJSON(w, r, &in) {
