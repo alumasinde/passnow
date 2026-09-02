@@ -1,4 +1,4 @@
--- Departments: lightweight tenant-scoped lookup for "who/where a visitor is
+-- Departments: lightweight local lookup for "who/where a visitor is
 -- visiting" before a full Employees module exists. Kept as its own table
 -- (not owned by visits) since Employees will reference it too.
 CREATE TABLE departments (
@@ -10,7 +10,7 @@ CREATE TABLE departments (
     updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at  DATETIME NULL,
 
-    UNIQUE KEY uq_departments_code (code),
+    UNIQUE KEY uq_departments_code (code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Generic concurrency-safe number sequence generator. One row per
@@ -23,7 +23,7 @@ CREATE TABLE number_sequences (
     period      VARCHAR(10) NOT NULL DEFAULT '', -- e.g. "2026", or "" if not period-scoped
     last_value  BIGINT UNSIGNED NOT NULL DEFAULT 0,
 
-    PRIMARY KEY (scope, period),
+    PRIMARY KEY (scope, period)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE visits (
