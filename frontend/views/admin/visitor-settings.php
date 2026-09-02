@@ -1,6 +1,6 @@
 <section class="page-header"><div><span class="eyebrow">Administration</span><h1>Visitor settings</h1><p>Configure visitor registration behaviour for this tenant.</p></div></section>
 <?php if($errors):?><div class="alert alert-danger"><div><?php foreach($errors as $x):?><div><?=e($x)?></div><?php endforeach;?></div></div><?php endif;?>
-<form method="post" class="content-card form-card" data-loading-form>
+<form method="post" class="content-card form-card" data-ajax-form>
 <input type="hidden" name="_csrf" value="<?=e(Csrf::token())?>">
 <div class="form-grid">
 <div class="field field-full">
