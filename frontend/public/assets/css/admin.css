@@ -1,1 +1,44 @@
 .data-table{width:100%;border-collapse:collapse}.data-table th,.data-table td{padding:.9rem;border-bottom:1px solid var(--border,#e5e7eb);text-align:left}.table-wrap{overflow:auto}
+
+/* Platform tenant database operations */
+.tenant-db-page{display:grid;gap:1.25rem}
+.tenant-db-header{display:flex;align-items:flex-end;justify-content:space-between;gap:1.5rem;padding:.25rem 0}
+.tenant-db-heading{max-width:760px}
+.tenant-db-heading .eyebrow{display:block;margin-bottom:.35rem}
+.tenant-db-heading h1{margin:.15rem 0 .45rem;font-size:1.8rem;letter-spacing:-.025em}
+.tenant-db-heading p{margin:0;color:var(--muted,#64748b);line-height:1.6}
+.tenant-db-back-link{display:inline-flex;align-items:center;gap:.5rem;margin-bottom:.85rem;color:var(--primary,#2563eb);font-weight:600;font-size:.9rem;text-decoration:none}
+.tenant-db-back-link:hover{text-decoration:underline}
+.tenant-db-actions{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap}
+.tenant-db-card{background:var(--surface,#fff);border:1px solid var(--border,#e2e8f0);border-radius:16px;padding:1.35rem;box-shadow:0 8px 24px rgba(15,23,42,.04)}
+.tenant-db-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1.25rem}
+.tenant-db-title-group{display:flex;align-items:center;gap:.9rem}
+.tenant-db-title-group h2{margin:0 0 .25rem;font-size:1.2rem}
+.tenant-db-title-group p{margin:0;color:var(--muted,#64748b);font-size:.93rem}
+.tenant-db-icon{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;font-size:1.15rem;flex:0 0 auto}
+.health-icon{background:rgba(22,163,74,.11);color:#15803d}
+.migration-icon{background:rgba(37,99,235,.1);color:var(--primary,#2563eb)}
+.tenant-health-badge{display:inline-flex;align-items:center;gap:.5rem;padding:.55rem .9rem;border-radius:10px;font-weight:700;font-size:.92rem;white-space:nowrap}
+.tenant-health-badge.healthy{color:#166534;background:#dcfce7;border:1px solid #bbf7d0}
+.tenant-health-badge.unhealthy{color:#b91c1c;background:#fee2e2;border:1px solid #fecaca}
+.tenant-health-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--border,#e2e8f0);border-radius:12px;overflow:hidden;background:var(--field-bg,#fafafa)}
+.tenant-health-detail{display:flex;align-items:center;gap:.8rem;padding:1rem 1.1rem}
+.tenant-health-detail+.tenant-health-detail{border-left:1px solid var(--border,#e2e8f0)}
+.tenant-health-detail-icon{width:34px;height:34px;display:grid;place-items:center;color:var(--muted,#64748b)}
+.detail-label{display:block;color:var(--muted,#64748b);font-size:.78rem;font-weight:600;margin-bottom:.2rem}
+.tenant-health-detail strong{font-size:.98rem}
+.text-success{color:#15803d!important}.text-danger{color:#b91c1c!important}
+.tenant-health-message{display:flex;gap:.8rem;align-items:flex-start;margin-top:1rem;padding:1rem;border-radius:10px}
+.tenant-health-message>span{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto}
+.tenant-health-message strong{display:block;margin:.05rem 0 .25rem}.tenant-health-message p{margin:0;color:inherit;opacity:.88;font-size:.9rem}
+.tenant-health-message.success{border:1px solid #86efac;background:#f0fdf4;color:#166534}.tenant-health-message.success>span{background:#15803d;color:#fff}
+.tenant-health-message.danger{border:1px solid #fecaca;background:#fef2f2;color:#991b1b}.tenant-health-message.danger>span{background:#dc2626;color:#fff}
+.tenant-migration-body{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1.25rem;align-items:center;border:1px solid var(--border,#e2e8f0);border-radius:12px;padding:1.15rem;background:var(--field-bg,#fafafa)}
+.tenant-migration-copy h3{margin:0 0 .45rem;font-size:1rem}.tenant-migration-copy p{margin:0;color:var(--muted,#64748b);line-height:1.65;font-size:.92rem}
+.tenant-migration-copy code{padding:.12rem .35rem;border-radius:5px;background:rgba(37,99,235,.08);color:var(--primary,#2563eb)}
+.tenant-migration-note{display:flex;gap:.65rem;margin-top:1rem;color:#1d4ed8;font-size:.88rem}.tenant-migration-note i{margin-top:.15rem}.tenant-migration-note strong,.tenant-migration-note span{display:block}.tenant-migration-note span{color:var(--muted,#64748b);margin-top:.12rem}
+.tenant-migration-action{min-width:180px;text-align:center}.tenant-run-migrations{min-height:44px;width:100%;display:inline-flex;justify-content:center;align-items:center;gap:.55rem}
+.tenant-action-hint{display:block;margin-top:.65rem;color:var(--muted,#64748b);font-size:.76rem}
+.tenant-action-hint i{margin-right:.35rem}
+.tenant-migrations-blocked{display:flex;gap:.7rem;text-align:left;padding:.8rem;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;font-size:.85rem}.tenant-migrations-blocked strong,.tenant-migrations-blocked span{display:block}.tenant-migrations-blocked span{margin-top:.2rem}
+@media(max-width:760px){.tenant-db-header{align-items:flex-start;flex-direction:column}.tenant-db-actions{width:100%}.tenant-db-actions .btn{flex:1}.tenant-health-details{grid-template-columns:1fr}.tenant-health-detail+.tenant-health-detail{border-left:0;border-top:1px solid var(--border,#e2e8f0)}.tenant-migration-body{grid-template-columns:1fr}.tenant-migration-action{width:100%}.tenant-db-card{padding:1rem}.tenant-db-card-header{align-items:flex-start}.tenant-health-badge{font-size:.84rem}}
