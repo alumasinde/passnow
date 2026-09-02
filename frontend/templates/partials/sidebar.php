@@ -1,1 +1,95 @@
-<?php $navigation=[['label'=>'Dashboard','icon'=>'fa-gauge','href'=>'dashboard'],['label'=>'Gatepasses','icon'=>'fa-right-left','href'=>'gatepasses'],['label'=>'Visitors','icon'=>'fa-id-card','href'=>'visitors'],['label'=>'Visits','icon'=>'fa-calendar-check','href'=>'visits'],['label'=>'Employees','icon'=>'fa-users','href'=>'employees'],['label'=>'Approvals','icon'=>'fa-user-check','href'=>'approvals'],['label'=>'Reports','icon'=>'fa-chart-column','href'=>'reports']]; ?><aside class="sidebar" data-sidebar><div class="brand"><span class="brand-mark"><i class="fa-solid fa-door-open"></i></span><span class="brand-name"><?= e(App::config('app.name')) ?></span></div><nav class="sidebar-nav" aria-label="Main navigation"><?php foreach($navigation as $item): ?><a class="nav-item <?= basename($_SERVER['PHP_SELF']??'')===$item['href']?'active':'' ?>" href="<?= e(url($item['href'])) ?>"><i class="fa-solid <?= e($item['icon']) ?>"></i><span><?= e($item['label']) ?></span></a><?php endforeach; ?></nav><div class="sidebar-bottom"><a class="nav-item" href="<?= e(url('settings')) ?>"><i class="fa-solid fa-gear"></i><span>Settings</span></a></div></aside>
+<?php
+declare(strict_types=1);
+
+$navigation = [];
+$navigationError = null;
+
+try {
+    $response = Auth::api(App::api(), 'GET', '/api/v1/navigation');
+    $items = $response['items'] ?? [];
+    if (is_array($items)) {
+        $navigation = array_values(array_filter($items, static fn ($item): bool => is_array($item)));
+    }
+} catch (Throwable $e) {
+    $navigationError = 'Navigation is temporarily unavailable.';
+}
+
+$currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+
+$isActive = static function (array $item) use ($currentPath): bool {
+    $prefixes = $item['match_prefixes'] ?? [];
+    if (!is_array($prefixes)) {
+        return false;
+    }
+
+    foreach ($prefixes as $prefix) {
+        $prefix = '/' . ltrim((string)$prefix, '/');
+        if ($prefix === '/') {
+            continue;
+        }
+
+        if (
+            $currentPath === $prefix ||
+            str_starts_with($currentPath, $prefix . '/') ||
+            str_ends_with($currentPath, $prefix) ||
+            str_contains($currentPath, $prefix . '/')
+        ) {
+            return true;
+        }
+    }
+
+    return false;
+};
+
+$mainNavigation = array_values(array_filter(
+    $navigation,
+    static fn (array $item): bool => ($item['placement'] ?? 'main') === 'main'
+));
+
+$bottomNavigation = array_values(array_filter(
+    $navigation,
+    static fn (array $item): bool => ($item['placement'] ?? 'main') === 'bottom'
+));
+?>
+<aside class="sidebar" data-sidebar>
+    <div class="brand">
+        <span class="brand-mark"><i class="fa-solid fa-door-open"></i></span>
+        <span class="brand-name"><?= e(App::config('app.name')) ?></span>
+    </div>
+
+    <nav class="sidebar-nav" aria-label="Main navigation">
+        <?php foreach ($mainNavigation as $item): ?>
+            <?php
+            $label = (string)($item['label'] ?? '');
+            $icon = (string)($item['icon'] ?? 'fa-circle');
+            $href = (string)($item['href'] ?? '');
+            if ($label === '' || $href === '') continue;
+            ?>
+            <a class="nav-item <?= $isActive($item) ? 'active' : '' ?>" href="<?= e(url($href)) ?>">
+                <i class="fa-solid <?= e($icon) ?>"></i>
+                <span><?= e($label) ?></span>
+            </a>
+        <?php endforeach; ?>
+    </nav>
+
+    <div class="sidebar-bottom">
+        <?php foreach ($bottomNavigation as $item): ?>
+            <?php
+            $label = (string)($item['label'] ?? '');
+            $icon = (string)($item['icon'] ?? 'fa-circle');
+            $href = (string)($item['href'] ?? '');
+            if ($label === '' || $href === '') continue;
+            ?>
+            <a class="nav-item <?= $isActive($item) ? 'active' : '' ?>" href="<?= e(url($href)) ?>">
+                <i class="fa-solid <?= e($icon) ?>"></i>
+                <span><?= e($label) ?></span>
+            </a>
+        <?php endforeach; ?>
+
+        <?php if ($navigationError !== null): ?>
+            <span class="sidebar-status" title="<?= e($navigationError) ?>">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </span>
+        <?php endif; ?>
+    </div>
+</aside>
