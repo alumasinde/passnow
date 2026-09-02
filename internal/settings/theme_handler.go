@@ -102,9 +102,9 @@ func (h *ThemeHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if !httpx.DecodeJSON(w, r, &in) {
 		return
 	}
-	normalized, err := validateTheme(in)
-	if err != nil {
-		httpx.WriteError(w, httpx.ErrValidation.WithMessage(err.Error()))
+	normalized, validationMessage := validateTheme(in)
+	if validationMessage != "" {
+		httpx.WriteError(w, httpx.ErrValidation.WithMessage(validationMessage))
 		return
 	}
 	if err := h.repo.Set(r.Context(), KeyTheme, normalized, claims.UserID); err != nil {
@@ -114,18 +114,18 @@ func (h *ThemeHandler) Update(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, normalized)
 }
 
-func validateTheme(in ThemeDTO) (ThemeDTO, error) {
+func validateTheme(in ThemeDTO) (ThemeDTO, string) {
 	in.BrandName = strings.TrimSpace(in.BrandName)
 	in.LogoURL = strings.TrimSpace(in.LogoURL)
 	in.FaviconURL = strings.TrimSpace(in.FaviconURL)
 	if len(in.BrandName) > 160 {
-		return ThemeDTO{}, httpx.ErrValidation.WithMessage("brand_name must be 160 characters or fewer")
+		return ThemeDTO{}, "brand_name must be 160 characters or fewer"
 	}
-	if err := validateAssetURL(in.LogoURL); err != nil {
-		return ThemeDTO{}, httpx.ErrValidation.WithMessage("logo_url " + err.Error())
+	if message := validateAssetURL(in.LogoURL); message != "" {
+		return ThemeDTO{}, "logo_url " + message
 	}
-	if err := validateAssetURL(in.FaviconURL); err != nil {
-		return ThemeDTO{}, httpx.ErrValidation.WithMessage("favicon_url " + err.Error())
+	if message := validateAssetURL(in.FaviconURL); message != "" {
+		return ThemeDTO{}, "favicon_url " + message
 	}
 
 	colors := []struct {
@@ -142,18 +142,18 @@ func validateTheme(in ThemeDTO) (ThemeDTO, error) {
 	}
 	for _, c := range colors {
 		if !hexColor.MatchString(c.value) {
-			return ThemeDTO{}, httpx.ErrValidation.WithMessage(c.name + " must be a 6-digit hex color")
+			return ThemeDTO{}, c.name + " must be a 6-digit hex color"
 		}
 	}
 	switch in.Appearance {
 	case "light", "dark", "system":
 	default:
-		return ThemeDTO{}, httpx.ErrValidation.WithMessage("appearance must be light, dark, or system")
+		return ThemeDTO{}, "appearance must be light, dark, or system"
 	}
-	return in, nil
+	return in, ""
 }
 
-func validateAssetURL(raw string) error {
+func validateAssetURL(raw string) string {
 	if raw == "" || strings.HasPrefix(raw, "/") {
 		return nil
 	}
