@@ -125,7 +125,7 @@ func (s *Service) Login(ctx context.Context, tenantID int64,email,password strin
 }
 
 func (s *Service) Refresh(ctx context.Context,tenantID int64,rawRefreshToken string)(*TokenPair,error){
-	userID,err:=s.refresh.Consume(ctx,tenantID,rawRefreshToken);if err!=nil{return nil,err}
+	userID,err:=s.refresh.Consume(ctx,rawRefreshToken);if err!=nil{return nil,err}
 	u,err:=s.users.ByID(ctx,userID);if err!=nil||u.Status!=users.StatusActive{return nil,ErrInvalidCredentials}
 	membership,err:=s.memberships.MembershipFor(ctx,userID);if err!=nil||!membership.IsActive(){return nil,ErrInvalidCredentials}
 	return s.issueTokenPair(ctx,userID,tenantID,membership.RoleID)
@@ -136,7 +136,7 @@ func (s *Service) Logout(ctx context.Context,userID int64)error{return s.refresh
 func (s *Service) issueTokenPair(ctx context.Context,userID,tenantID,roleID int64)(*TokenPair,error){
 	access,err:=IssueAccessToken(s.jwtSecret,userID,tenantID,roleID,s.accessTokenTTL);if err!=nil{return nil,err}
 	rawRefresh,hash,err:=NewRefreshToken();if err!=nil{return nil,err}
-	if err:=s.refresh.Store(ctx,userID,tenantID,hash,s.refreshTokenTTL);err!=nil{return nil,err}
+	if err:=s.refresh.Store(ctx,userID,hash,s.refreshTokenTTL);err!=nil{return nil,err}
 	return &TokenPair{AccessToken:access,RefreshToken:rawRefresh,ExpiresIn:int64(s.accessTokenTTL.Seconds())},nil
 }
 
