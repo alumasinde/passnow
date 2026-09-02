@@ -43,7 +43,7 @@ func NewService(repo *Repository, visitorRepo *visitors.Repository, visitTypes *
 // immediately performs the check-in transition (badge generation
 // included) as one logical operation from the caller's point of view.
 func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, actorUserID int64) (*Visit, error) {
-	visitor, err := s.visitorRepo.ByID(ctx, tenantID, in.VisitorID)
+	visitor, err := s.visitorRepo.ByID(ctx, in.VisitorID)
 	if err != nil {
 		return nil, ErrVisitorNotFound
 	}
@@ -58,7 +58,7 @@ func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, ac
 		}
 	}
 	if in.DepartmentID != nil {
-		d, err := s.deptRepo.ByID(ctx, tenantID, *in.DepartmentID)
+		d, err := s.deptRepo.ByID(ctx, *in.DepartmentID)
 		if err != nil || !d.Active {
 			return nil, ErrInvalidDepartment
 		}
@@ -138,7 +138,7 @@ func (s *Service) BadgeByToken(ctx context.Context, tenantID int64, token string
 	if v.TenantID != tenantID {
 		return nil, nil, ErrNotFound
 	}
-	visitor, err := s.visitorRepo.ByID(ctx, tenantID, v.VisitorID)
+	visitor, err := s.visitorRepo.ByID(ctx, v.VisitorID)
 	if err != nil {
 		return nil, nil, err
 	}
