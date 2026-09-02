@@ -9,10 +9,16 @@ $item = [];
 $errors = [];
 $roles = [];
 $users = [];
+$departments = [];
 
 try {
     $rolesPayload = Auth::api(App::api(), 'GET', '/api/v1/roles');
     $roles = apiRows($rolesPayload);
+} catch (Throwable) {}
+
+try {
+    $departmentsPayload = Auth::api(App::api(), 'GET', '/api/v1/departments');
+    $departments = apiRows($departmentsPayload);
 } catch (Throwable) {}
 
 try {
@@ -56,7 +62,7 @@ if (requestMethod() === 'POST') {
     }
 
     $payload = [
-        'name' => trim((string)($_POST['name'] ?? '')),
+        'name' => trim((string)($_POST['workflow_name'] ?? $_POST['name'] ?? '')),
         'active' => !empty($_POST['active']),
         'steps' => $steps,
     ];
@@ -101,4 +107,4 @@ if (!$steps) {
     ]];
 }
 
-App::render('admin/approval-workflow-edit', compact('id', 'item', 'errors', 'roles', 'users', 'steps'));
+App::render('admin/approval-workflow-edit', compact('id', 'item', 'errors', 'roles', 'users', 'departments', 'steps'));
