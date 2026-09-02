@@ -1,5 +1,5 @@
 <?php
-declare(strict_types=1);require_once __DIR__.'/../app/App.php';Auth::requireLogin();
+declare(strict_types=1);require_once __DIR__.'/../../app/App.php';Auth::requireLogin();
 $id=filter_input(INPUT_GET,'id',FILTER_VALIDATE_INT);if(!$id){http_response_code(400);exit('Invalid role ID.');}
 $role=[];$permissions=[];$selected=[];$error=null;
 try{$p=Auth::api(App::api(),'GET','/api/v1/roles');foreach(apiRows($p) as $row)if((int)($row['id']??0)===$id)$role=$row;}catch(Throwable){}
