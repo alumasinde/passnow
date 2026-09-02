@@ -57,7 +57,7 @@ type Result struct {
 // password. Either way, the membership itself is what actually grants
 // tenant access — creating/finding the user alone grants nothing.
 func (s *Service) Invite(ctx context.Context, tenantID int64, in Input) (*Result, error) {
-	if _, err := s.roles.RoleByID(ctx, tenantID, in.RoleID); err != nil {
+	if _, err := s.roles.RoleByID(ctx, in.RoleID); err != nil {
 		return nil, ErrRoleNotFound
 	}
 
@@ -83,7 +83,7 @@ func (s *Service) Invite(ctx context.Context, tenantID int64, in Input) (*Result
 		}
 	}
 
-	membershipID, err := s.roles.CreateMembership(ctx, tenantID, userID, in.RoleID, roles.MembershipActive)
+	membershipID, err := s.roles.CreateMembership(ctx, userID, in.RoleID, roles.MembershipActive)
 	if err != nil {
 		return nil, err
 	}
