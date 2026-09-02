@@ -89,7 +89,8 @@
   }
 
   function initUserMenu() {
-    const trigger = $('[data-user-menu]'), dropdown = $('[data-user-dropdown]'), wrap = $('[data-user-menu-wrap]');
+    const trigger = $('[data-user-menu]'), dropdown = $('[data-user-dropdown]');
+    const wrap = $('[data-user-menu-wrap]') || trigger?.closest('.user-menu');
     if (!trigger || !dropdown || !wrap) return;
     const close = () => { dropdown.hidden = true; trigger.setAttribute('aria-expanded','false'); wrap.classList.remove('is-open'); };
     const open = () => { dropdown.hidden = false; trigger.setAttribute('aria-expanded','true'); wrap.classList.add('is-open'); };
