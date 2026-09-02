@@ -14,6 +14,8 @@ $verb=$operation==='check-out'?'leaving the premises':'returning to the premises
   <input type="hidden" name="_csrf" value="<?=e(Csrf::token())?>">
   <input type="hidden" name="id" value="<?=e((string)$id)?>">
   <input type="hidden" name="operation" value="<?=e($operation)?>">
+  <div class="form-grid"><div class="field"><label>Gate name</label><input name="gate_name" maxlength="120" placeholder="e.g. Main Gate"></div><div class="field field-full"><label>Gate notes</label><textarea name="notes" maxlength="500" placeholder="Optional verification notes"></textarea></div></div>
+  <?php if($operation==='check-in'): ?><label class="checkbox-field"><input type="checkbox" name="full_return" value="1" checked><span><strong>Full return verified</strong><small>All outstanding returnable items have been physically verified.</small></span></label><?php endif; ?>
   <div class="form-actions">
    <a class="btn btn-secondary" href="<?=e(url('gatepass.php?id='.$id))?>">Cancel</a>
    <button class="btn btn-primary" type="submit" data-loading-label="<?=e($action.'ing...')?>"><span data-button-label>Confirm <?=e(strtolower($action))?></span></button>
