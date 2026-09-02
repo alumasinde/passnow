@@ -1,6 +1,7 @@
 package departments
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -29,6 +30,14 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, dtos)
 }
 
+func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil { httpx.WriteError(w, httpx.ErrNotFound); return }
+	d, err := h.repo.ByID(r.Context(), id)
+	if err != nil { log.Printf("DEPARTMENT GET FAILED: id=%d error=%v", id, err); httpx.WriteError(w, httpx.ErrNotFound); return }
+	httpx.WriteJSON(w, http.StatusOK, ToDTO(d))
+}
+
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var in Input
 	if !httpx.DecodeJSON(w, r, &in) {
@@ -40,6 +49,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	id, err := h.repo.Create(r.Context(), in.Name, in.Code)
 	if err != nil {
+		log.Printf("DEPARTMENT CREATE FAILED: name=%q code=%q error=%v", in.Name, in.Code, err)
 		httpx.WriteError(w, httpx.ErrInternal)
 		return
 	}
