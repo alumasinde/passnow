@@ -2,9 +2,10 @@
 declare(strict_types=1);
 require_once __DIR__.'/../../app/App.php';
 Auth::requireLogin();
-$errors=[];$types=[];$departments=[];$visitors=[];$employees=[];
+$errors=[];$types=[];$departments=[];$visitors=[];$employees=[];$currentDepartmentID=null;
 try{$p=Auth::api(App::api(),'GET','/api/v1/visit-types');$types=apiRows($p);}catch(Throwable $e){$errors[]='Unable to load visit types.';}
 try{$p=Auth::api(App::api(),'GET','/api/v1/departments');$departments=apiRows($p);}catch(Throwable){}
+try{$me=Auth::api(App::api(),'GET','/api/v1/auth/me');$me=apiValue($me,'user',$me['data']??$me);$currentDepartmentID=is_array($me)&&isset($me['department_id'])?(int)$me['department_id']:null;}catch(Throwable){}
 try{$p=Auth::api(App::api(),'GET','/api/v1/visitors?limit=100');$visitors=apiRows($p);}catch(Throwable){}
 try{$p=Auth::api(App::api(),'GET','/api/v1/employees?limit=100');$employees=apiRows($p);}catch(Throwable){}
 
@@ -33,4 +34,4 @@ if(requestMethod()==='POST'){
  }catch(ApiException $e){$errors[]=$e->getMessage();}catch(Throwable){$errors[]='Unable to create visit.';}
 }
 $preselectedVisitor=(int)($_GET['visitor_id']??oldOr('visitor_id'));
-App::render('visits/create',compact('errors','types','departments','visitors','employees','preselectedVisitor'));
+App::render('visits/create',compact('errors','types','departments','visitors','employees','preselectedVisitor','currentDepartmentID'));
