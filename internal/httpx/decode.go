@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 )
 
@@ -15,6 +16,7 @@ func DecodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxBodyBytes))
 	dec.DisallowUnknownFields() // reject unexpected fields outright — cheap defense against mass-assignment typos
 	if err := dec.Decode(dst); err != nil {
+		log.Printf("HTTP JSON DECODE FAILED: method=%s path=%q content_type=%q error=%v", r.Method, r.URL.Path, r.Header.Get("Content-Type"), err)
 		WriteError(w, ErrBadRequestBody)
 		return false
 	}
