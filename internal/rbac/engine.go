@@ -43,12 +43,15 @@ func (e *Engine) PermissionsForUser(ctx context.Context, userID, claimedRoleID i
 }
 
 func (e *Engine) Authorize(ctx context.Context, userID, claimedRoleID int64, requested string) (Decision, error) {
+    requested = strings.TrimSpace(requested)
+    if requested == "" { return Decision{}, nil }
     perms, err := e.PermissionsForUser(ctx, userID, claimedRoleID)
     if err != nil { return Decision{}, err }
     if perms[requested] {
         r,a,s:=Parse(requested); return Decision{Allowed:true,Granted:requested,Resource:r,Action:a,Scope:s},nil
     }
     r,a,s:=Parse(requested)
+    if r == "" || a == "" { return Decision{}, nil }
     if s!=ScopeNone {
         // all is intentionally NOT treated as a wildcard for department/own.
         // Scope must be explicitly enforced by Phase 3.
