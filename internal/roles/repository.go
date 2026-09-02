@@ -254,9 +254,12 @@ func (r *Repository) UpdateMembership(ctx context.Context, membershipID int64, r
 		return err
 	}
 	if roleID != nil {
+		if *roleID < 1 { return errors.New("roles: invalid role") }
+		if _, err := r.RoleByID(ctx, *roleID); err != nil { return err }
 		m.RoleID = *roleID
 	}
 	if status != nil {
+		switch *status { case MembershipActive, MembershipInvited, MembershipDisabled: default: return errors.New("roles: invalid membership status") }
 		m.Status = *status
 	}
 	tx, err := r.db.BeginTx(ctx, nil)
