@@ -1,6 +1,7 @@
 package media
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -75,7 +76,7 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 
 	dst, err := os.OpenFile(absolutePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0640)
 	if err != nil { httpx.WriteError(w, httpx.ErrInternal); return }
-	written, copyErr := io.Copy(dst, io.MultiReader(strings.NewReader(string(head)), file))
+	written, copyErr := io.Copy(dst, io.MultiReader(bytes.NewReader(head), file))
 	closeErr := dst.Close()
 	if copyErr != nil || closeErr != nil {
 		_ = os.Remove(absolutePath)
