@@ -10,4 +10,4 @@ if(requestMethod()==='POST'){
  if($payload['last_name']==='')$errors[]='Last name is required.';
  if(!$errors)try{Auth::api(App::api(),'POST','/api/v1/users',$payload);flash('success','User created successfully.');redirect('users.php');}catch(ApiException $e){$errors[]=$e->getMessage();}catch(Throwable){$errors[]='Unable to create user.';}
 }
-App::render('admin/invite-user',compact('errors','roles'));
+App::render('admin/create-user',compact('errors','roles'));
