@@ -96,6 +96,7 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("POST /api/v1/visitor-companies", protected("settings.visitors", api.VisitorHandler.CreateCompany))
 	mux.Handle("PATCH /api/v1/visitor-companies/{id}", protected("settings.visitors", api.VisitorHandler.UpdateCompany))
 	mux.Handle("GET /api/v1/visit-types", protected("visitors.view", api.VisitTypeHandler.List))
+	mux.Handle("GET /api/v1/visit-types/{id}", protected("visitors.view", api.VisitTypeHandler.Get))
 	mux.Handle("POST /api/v1/visit-types", protected("settings.visitors", api.VisitTypeHandler.Create))
 	mux.Handle("PATCH /api/v1/visit-types/{id}", protected("settings.visitors", api.VisitTypeHandler.Update))
 	mux.Handle("GET /api/v1/settings/visitors", protected("settings.visitors", api.VisitorSettingsHandler.Get))
@@ -124,6 +125,7 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	// Opaque QR token is a high-entropy capability generated per gatepass.
 	mux.Handle("GET /api/v1/gatepasses/qr/image/{token}", http.HandlerFunc(api.GatepassHandler.QRTokenImage))
 	mux.Handle("GET /api/v1/gatepass-types", protected("gatepasses.view", api.GatepassHandler.ListTypes))
+	mux.Handle("GET /api/v1/gatepass-types/{id}", protected("gatepasses.view", api.GatepassHandler.GetType))
 	mux.Handle("POST /api/v1/gatepass-types", protected("settings.gatepass", api.GatepassHandler.CreateType))
 	mux.Handle("PATCH /api/v1/gatepass-types/{id}", protected("settings.gatepass", api.GatepassHandler.UpdateType))
 	mux.Handle("POST /api/v1/gatepasses", protected("gatepasses.create", api.GatepassHandler.Create))
