@@ -1,13 +1,11 @@
--- Tenant database core schema. The local tenants row is metadata only and is seeded with the platform tenant ID during provisioning.
--- InnoDB + utf8mb4 everywhere. Every tenant-owned table carries tenant_id
--- with a composite FK/index; cross-tenant queries are prevented at the
--- repository layer, but uniqueness constraints are enforced here too.
+-- Tenant database core schema.
+-- Each tenant has its own physical database. Tenant isolation is therefore
+-- enforced by the database boundary; tenant_id columns and a local tenants
+-- table are intentionally not part of this schema.
 
 CREATE TABLE users (
     id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    -- A user account is global (one login), but access to a tenant is
-    -- governed entirely by tenant_memberships below, so the same person
-    -- can have a different role per tenant.
+    -- User accounts are local to this tenant database.
     email           VARCHAR(255) NOT NULL,
     password_hash   VARCHAR(255) NOT NULL,
     first_name      VARCHAR(100) NOT NULL,
@@ -29,7 +27,7 @@ CREATE TABLE roles (
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-    UNIQUE KEY uq_roles_name (name),
+    UNIQUE KEY uq_roles_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE permissions (
@@ -48,11 +46,8 @@ CREATE TABLE role_permissions (
     CONSTRAINT fk_rp_permission FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- A user's membership + role IN a given tenant. This is the join that makes
--- "a user's role can differ between tenants" true, and is also the object
--- every authorization check must consult (never trust a role claim from a
--- JWT alone without revalidating against this table's current state, or at
--- minimum revalidate on every privileged action).
+-- A user's local membership and role. The membership is inherently for this
+-- tenant because this entire database belongs to one tenant.
 CREATE TABLE tenant_memberships (
     id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id     BIGINT UNSIGNED NOT NULL,
@@ -93,7 +88,5 @@ CREATE TABLE audit_logs (
 
     KEY idx_audit_time (created_at),
     KEY idx_audit_entity (entity_type, entity_id)
-    -- No FK to tenants/users on purpose: audit rows must survive even if
-    -- referential cleanup happens elsewhere; never allow UPDATE/DELETE on
-    -- this table from application code (enforce at the DB user's GRANTs).
+    -- Audit rows intentionally survive application-level cleanup.
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
