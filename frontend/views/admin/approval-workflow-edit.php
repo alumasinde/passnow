@@ -2,7 +2,7 @@
     <div>
         <span class="eyebrow">Administration</span>
         <h1><?= $id ? 'Edit' : 'New' ?> approval workflow</h1>
-        <p>Build the approval chain step by step. No JSON configuration is required.</p>
+        <p>Build the approval chain step by step. Give the workflow a clear name, then choose each approver.</p>
     </div>
     <a class="btn btn-secondary" href="<?= e(url('approval-workflows.php')) ?>" data-back>Back</a>
 </section>
@@ -15,7 +15,7 @@
     <input type="hidden" name="_csrf" value="<?= e(Csrf::token()) ?>">
 
     <div class="form-grid">
-        <?php component('field', ['name'=>'name','label'=>'Workflow name','value'=>(string)($item['name'] ?? ''),'required'=>true]); ?>
+        <div class="field"><label for="workflow_name">Workflow name <span class="required">*</span></label><input id="workflow_name" name="workflow_name" type="text" required value="<?= e((string)($item['name'] ?? '')) ?>" placeholder="e.g. Standard Gatepass Approval"></div>
         <div class="field">
             <label class="checkbox-row">
                 <input type="checkbox" name="active" value="1" <?= !array_key_exists('active',$item) || !empty($item['active']) ? 'checked' : '' ?>>
