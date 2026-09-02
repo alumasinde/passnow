@@ -39,11 +39,13 @@ func hashToken(raw string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func (r *RefreshTokenRepository) Store(ctx context.Context, userID, tenantID int64, tokenHash string, ttl time.Duration) error {
+// Refresh tokens are tenant-bound by the database connection. Tenant databases
+// intentionally do not contain a tenant_id column.
+func (r *RefreshTokenRepository) Store(ctx context.Context, userID int64, tokenHash string, ttl time.Duration) error {
 	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO refresh_tokens (user_id, tenant_id, token_hash, expires_at, created_at)
-		VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL ? SECOND), NOW())`,
-		userID, tenantID, tokenHash, int(ttl.Seconds()))
+		INSERT INTO refresh_tokens (user_id, token_hash, expires_at, created_at)
+		VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? SECOND), NOW())`,
+		userID, tokenHash, int(ttl.Seconds()))
 	return err
 }
 
@@ -52,7 +54,7 @@ func (r *RefreshTokenRepository) Store(ctx context.Context, userID, tenantID int
 // is treated as invalid — this also means a stolen-and-reused token after
 // the legitimate rotation will fail, which is a detectable signal worth
 // alerting on (not implemented here — hook into audit).
-func (r *RefreshTokenRepository) Consume(ctx context.Context, tenantID int64, raw string) (int64, error) {
+func (r *RefreshTokenRepository) Consume(ctx context.Context, raw string) (int64, error) {
 	hash := hashToken(raw)
 
 	tx, err := r.db.BeginTx(ctx, nil)
@@ -61,13 +63,13 @@ func (r *RefreshTokenRepository) Consume(ctx context.Context, tenantID int64, ra
 	}
 	defer tx.Rollback()
 
-	var userID, tokenTenantID int64
+	var userID int64
 	var revokedAt sql.NullTime
 	var expiresAt time.Time
 	err = tx.QueryRowContext(ctx, `
-		SELECT user_id, tenant_id, revoked_at, expires_at
+		SELECT user_id, revoked_at, expires_at
 		FROM refresh_tokens
-		WHERE token_hash = ? FOR UPDATE`, hash).Scan(&userID, &tokenTenantID, &revokedAt, &expiresAt)
+		WHERE token_hash = ? FOR UPDATE`, hash).Scan(&userID, &revokedAt, &expiresAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, ErrRefreshTokenInvalid
@@ -75,19 +77,13 @@ func (r *RefreshTokenRepository) Consume(ctx context.Context, tenantID int64, ra
 		return 0, err
 	}
 
-	// Validate the tenant binding before revoking the token. A token from
-	// tenant A must not be usable at tenant B, and an attacker at B should
-	// not be able to burn a legitimate tenant-A refresh token.
-	if tokenTenantID != tenantID {
-		return 0, ErrRefreshTokenInvalid
-	}
 	if revokedAt.Valid || time.Now().UTC().After(expiresAt) {
 		return 0, ErrRefreshTokenInvalid
 	}
 
 	if _, err := tx.ExecContext(ctx,
-		`UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = ? AND tenant_id = ?`,
-		hash, tenantID); err != nil {
+		`UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = ?`,
+		hash); err != nil {
 		return 0, err
 	}
 
