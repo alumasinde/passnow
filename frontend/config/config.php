@@ -17,6 +17,9 @@ return [
         'csrf_ttl' => (int) (getenv('CSRF_TTL') ?: 3600),
         'api_timeout' => (int) (getenv('API_TIMEOUT') ?: 15),
     ],
+    'errors' => [
+        'debug' => filter_var(getenv('APP_DEBUG') ?: (getenv('APP_ENV') === 'development' ? '1' : '0'), FILTER_VALIDATE_BOOL),
+    ],
     'ui' => [
         'font_awesome_url' => getenv('FONT_AWESOME_URL') ?: 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css',
         'page_size' => (int) (getenv('PAGE_SIZE') ?: 20),
