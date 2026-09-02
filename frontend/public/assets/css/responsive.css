@@ -15,3 +15,10 @@
 
 @media(max-width:1000px){.dashboard-widget-content{grid-column:span 12}.dashboard-content-grid{grid-template-columns:repeat(12,minmax(0,1fr))}}
 @media(max-width:650px){.dashboard-bars{gap:12px;padding-left:14px;padding-right:14px}.dashboard-widget-content{min-height:290px}.dashboard-widget-header{padding:17px}.dashboard-breakdown-list{padding:17px}.dashboard-activity-list{padding-left:17px;padding-right:17px}}
+
+@media(max-width:700px){
+  .theme-preview-shell{grid-template-columns:1fr;min-height:0}
+  .theme-preview-sidebar{grid-template-columns:repeat(3,1fr);align-items:center}
+  .theme-preview-brand{grid-column:1/-1;padding-bottom:8px}
+  .theme-preview-main{padding:16px}
+}
