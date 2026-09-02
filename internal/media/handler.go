@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"gatepass/internal/httpx"
@@ -114,8 +115,11 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
-	id, ok := httpx.PathInt64(w, r, "id")
-	if !ok { return }
+	id, err := strconv.ParseInt(strings.TrimSpace(r.PathValue("id")), 10, 64)
+	if err != nil || id <= 0 {
+		httpx.WriteError(w, httpx.ErrValidation.WithMessage("invalid media id"))
+		return
+	}
 	f, err := h.repo.Delete(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) { httpx.WriteError(w, httpx.ErrNotFound); return }
