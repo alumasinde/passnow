@@ -1,1 +1,1 @@
-<?php declare(strict_types=1); require_once __DIR__.'/../app/App.php'; http_response_code(403); App::render('errors/403');
+<?php declare(strict_types=1); require_once __DIR__.'/../../app/App.php'; http_response_code(403); App::render('errors/403');
