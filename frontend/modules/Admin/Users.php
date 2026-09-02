@@ -6,6 +6,6 @@ $r=ResourcePage::list('/api/v1/users',$q,$extra,static function(array $rows):arr
  foreach($rows as &$row){$row['id']=$row['user_id']??$row['id']??null;$row['full_name']=trim((string)($row['first_name']??'').' '.(string)($row['last_name']??''));}
  unset($row);return $rows;
 });
-$columns=[['key'=>'email','label'=>'Email'],['key'=>'full_name','label'=>'Name'],['key'=>'role_name','label'=>'Role'],['key'=>'department_id','label'=>'Department ID'],['key'=>'status','label'=>'Status']];
-$actions=[['label'=>'View','icon'=>'fa-eye','class'=>'btn-secondary','href'=>fn($row)=>url('user.php?id='.rawurlencode((string)($row['id']??'')))],['label'=>'Edit','icon'=>'fa-pen','class'=>'btn-secondary','href'=>fn($row)=>url('user-edit.php?id='.rawurlencode((string)($row['id']??''))) ]];
+$columns=[['key'=>'email','label'=>'Email'],['key'=>'full_name','label'=>'Name'],['key'=>'role_name','label'=>'Role'],['key'=>'department_name','label'=>'Department'],['key'=>'status','label'=>'Status']];
+$actions=[['label'=>'View','icon'=>'fa-eye','class'=>'btn-secondary','href'=>fn($row)=>url('admin/users/view?id='.rawurlencode((string)($row['id']??'')))],['label'=>'Edit','icon'=>'fa-pen','class'=>'btn-secondary','href'=>fn($row)=>url('admin/users/edit?id='.rawurlencode((string)($row['id']??''))) ]];
 App::render('admin/users',compact('q','r','columns','actions'));
