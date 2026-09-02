@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"gatepass/internal/httpx"
-	"gatepass/internal/reqctx"
 )
 
 type Handler struct {
@@ -17,13 +16,8 @@ func NewHandler(repo *Repository) *Handler {
 }
 
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
-	tenant, ok := reqctx.TenantFromContext(r.Context())
-	if !ok {
-		httpx.WriteError(w, httpx.ErrAuthRequired)
-		return
-	}
 	activeOnly := r.URL.Query().Get("all") != "true"
-	items, err := h.repo.List(r.Context(), tenant.ID, activeOnly)
+	items, err := h.repo.List(r.Context(), activeOnly)
 	if err != nil {
 		httpx.WriteError(w, httpx.ErrInternal)
 		return
@@ -36,11 +30,6 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
-	tenant, ok := reqctx.TenantFromContext(r.Context())
-	if !ok {
-		httpx.WriteError(w, httpx.ErrAuthRequired)
-		return
-	}
 	var in Input
 	if !httpx.DecodeJSON(w, r, &in) {
 		return
@@ -49,21 +38,20 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrValidation.WithMessage("name and code are required"))
 		return
 	}
-	id, err := h.repo.Create(r.Context(), tenant.ID, in.Name, in.Code)
+	id, err := h.repo.Create(r.Context(), in.Name, in.Code)
 	if err != nil {
 		httpx.WriteError(w, httpx.ErrInternal)
 		return
 	}
-	d, _ := h.repo.ByID(r.Context(), tenant.ID, id)
+	d, err := h.repo.ByID(r.Context(), id)
+	if err != nil {
+		httpx.WriteError(w, httpx.ErrInternal)
+		return
+	}
 	httpx.WriteJSON(w, http.StatusCreated, ToDTO(d))
 }
 
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
-	tenant, ok := reqctx.TenantFromContext(r.Context())
-	if !ok {
-		httpx.WriteError(w, httpx.ErrAuthRequired)
-		return
-	}
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		httpx.WriteError(w, httpx.ErrNotFound)
@@ -73,10 +61,14 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	if !httpx.DecodeJSON(w, r, &in) {
 		return
 	}
-	if err := h.repo.Update(r.Context(), tenant.ID, id, in); err != nil {
+	if err := h.repo.Update(r.Context(), id, in); err != nil {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
-	d, _ := h.repo.ByID(r.Context(), tenant.ID, id)
+	d, err := h.repo.ByID(r.Context(), id)
+	if err != nil {
+		httpx.WriteError(w, httpx.ErrNotFound)
+		return
+	}
 	httpx.WriteJSON(w, http.StatusOK, ToDTO(d))
 }
