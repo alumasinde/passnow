@@ -115,6 +115,12 @@ func (h *Handler) ListCompanies(w http.ResponseWriter,r *http.Request){
 	dtos:=make([]CompanyDTO,0,len(items));for i:=range items{dtos=append(dtos,CompanyToDTO(&items[i]))}
 	httpx.WriteJSON(w,http.StatusOK,httpx.ListEnvelope[CompanyDTO]{Items:dtos,Limit:p.Limit,Offset:p.Offset,Total:total})
 }
+func (h *Handler) GetCompany(w http.ResponseWriter,r *http.Request){
+	if _,ok:=tenantRequest(w,r);!ok{return}
+	id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return}
+	c,err:=h.companies.ByID(r.Context(),id);if err!=nil{writeServiceError(w,err);return}
+	httpx.WriteJSON(w,http.StatusOK,CompanyToDTO(c))
+}
 func (h *Handler) CreateCompany(w http.ResponseWriter,r *http.Request){
 	if _,ok:=tenantRequest(w,r);!ok{return};var in CompanyInput;if !httpx.DecodeJSON(w,r,&in){return}
 	if in.Name==""{httpx.WriteError(w,httpx.ErrValidation.WithMessage("name is required"));return}
