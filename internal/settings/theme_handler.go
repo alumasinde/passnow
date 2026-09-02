@@ -155,11 +155,11 @@ func validateTheme(in ThemeDTO) (ThemeDTO, string) {
 
 func validateAssetURL(raw string) string {
 	if raw == "" || strings.HasPrefix(raw, "/") {
-		return nil
+		return ""
 	}
 	u, err := url.ParseRequestURI(raw)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return httpx.ErrValidation.WithMessage("must be an absolute http(s) URL or root-relative path")
+		return "must be an absolute http(s) URL or root-relative path"
 	}
-	return nil
+	return ""
 }
