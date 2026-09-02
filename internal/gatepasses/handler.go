@@ -40,6 +40,24 @@ func (h *Handler) ListTypes(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, dtos)
 }
 
+func (h *Handler) GetType(w http.ResponseWriter, r *http.Request) {
+	if _, ok := reqctx.TenantFromContext(r.Context()); !ok {
+		httpx.WriteError(w, httpx.ErrAuthRequired)
+		return
+	}
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id < 1 {
+		httpx.WriteError(w, httpx.ErrNotFound)
+		return
+	}
+	t, err := h.types.ByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, ErrTypeNotFound) { httpx.WriteError(w, httpx.ErrNotFound) } else { httpx.WriteError(w, httpx.ErrInternal) }
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, TypeToDTO(t))
+}
+
 func (h *Handler) CreateType(w http.ResponseWriter, r *http.Request) {
 	if _, ok := reqctx.TenantFromContext(r.Context()); !ok {
 		httpx.WriteError(w, httpx.ErrAuthRequired)
