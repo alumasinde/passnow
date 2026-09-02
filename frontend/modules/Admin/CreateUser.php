@@ -9,6 +9,6 @@ if(requestMethod()==='POST'){
  if(!filter_var($payload['email'],FILTER_VALIDATE_EMAIL))$errors[]='A valid email is required.';
  if($payload['first_name']==='')$errors[]='First name is required.';
  if($payload['last_name']==='')$errors[]='Last name is required.';
- if(!$errors)try{Auth::api(App::api(),'POST','/api/v1/users',$payload);flash('success','User created successfully.');redirect('users.php');}catch(ApiException $e){$errors[]=$e->getMessage();}catch(Throwable){$errors[]='Unable to create user.';}
+ if(!$errors)try{Auth::api(App::api(),'POST','/api/v1/users',$payload);flash('success','User created successfully.');redirect('admin/users');}catch(ApiException $e){$errors[]=$e->getMessage();}catch(Throwable){$errors[]='Unable to create user.';}
 }
 App::render('admin/create-user',compact('errors','roles','departments'));
