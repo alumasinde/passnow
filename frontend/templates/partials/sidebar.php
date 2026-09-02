@@ -56,12 +56,12 @@ $bottomNavigation = array_values(array_filter(
     <div class="brand">
         <span class="brand-mark">
             <?php if (($theme['logo_url'] ?? '') !== ''): ?>
-                <img src="<?= e((string)$theme['logo_url']) ?>" alt="<?= e(Theme::brandName()) ?> logo" class="brand-logo">
+                <img src="<?= e((string)$theme['logo_url']) ?>" alt="<?= e(Theme::brandName()) ?> logo" class="brand-logo" data-tenant-logo>
             <?php else: ?>
                 <i class="fa-solid fa-door-open"></i>
             <?php endif; ?>
         </span>
-        <span class="brand-name"><?= e(Theme::brandName()) ?></span>
+        <span class="brand-name" data-tenant-brand-name><?= e(Theme::brandName()) ?></span>
     </div>
 
     <nav class="sidebar-nav" aria-label="Main navigation">
