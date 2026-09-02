@@ -22,14 +22,14 @@ func NewRepository(db *sql.DB) *Repository {
 }
 
 const selectCols = `
-	id, email, password_hash, first_name, last_name, status,
+	id, email, password_hash, first_name, last_name, status, must_change_password,
 	failed_login_count, locked_until, created_at, updated_at, deleted_at
 `
 
 func (r *Repository) scan(row interface{ Scan(dest ...any) error }) (*User, error) {
 	var u User
 	if err := row.Scan(
-		&u.ID, &u.Email, &u.PasswordHash, &u.FirstName, &u.LastName, &u.Status,
+		&u.ID, &u.Email, &u.PasswordHash, &u.FirstName, &u.LastName, &u.Status, &u.MustChangePassword,
 		&u.FailedLoginCount, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt, &u.DeletedAt,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -58,9 +58,9 @@ func (r *Repository) ByID(ctx context.Context, id int64) (*User, error) {
 // logs, not response — the handler layer decides what the client sees).
 func (r *Repository) Create(ctx context.Context, u *User) (int64, error) {
 	res, err := r.db.ExecContext(ctx, `
-		INSERT INTO users (email, password_hash, first_name, last_name, status, created_at, updated_at)
-		VALUES (?, ?, ?, ?, 'active', NOW(), NOW())`,
-		u.Email, u.PasswordHash, u.FirstName, u.LastName,
+		INSERT INTO users (email, password_hash, first_name, last_name, status, must_change_password, created_at, updated_at)
+		VALUES (?, ?, ?, ?, 'active', ?, NOW(), NOW())`,
+		u.Email, u.PasswordHash, u.FirstName, u.LastName, u.MustChangePassword,
 	)
 	if err != nil {
 		if database.IsDuplicateKeyErr(err) {
@@ -75,9 +75,9 @@ func (r *Repository) Create(ctx context.Context, u *User) (int64, error) {
 // bootstrap use).
 func (r *Repository) CreateTx(ctx context.Context, tx *sql.Tx, u *User) (int64, error) {
 	res, err := tx.ExecContext(ctx, `
-		INSERT INTO users (email, password_hash, first_name, last_name, status, created_at, updated_at)
-		VALUES (?, ?, ?, ?, 'active', NOW(), NOW())`,
-		u.Email, u.PasswordHash, u.FirstName, u.LastName,
+		INSERT INTO users (email, password_hash, first_name, last_name, status, must_change_password, created_at, updated_at)
+		VALUES (?, ?, ?, ?, 'active', ?, NOW(), NOW())`,
+		u.Email, u.PasswordHash, u.FirstName, u.LastName, u.MustChangePassword,
 	)
 	if err != nil {
 		if database.IsDuplicateKeyErr(err) {
@@ -124,6 +124,12 @@ func (r *Repository) BeginTx(ctx context.Context) (*sql.Tx, error) {
 // SetPasswordHash replaces a user password with an already-bcrypt-hashed value.
 // It is intentionally repository-local so privileged administrative workflows can
 // reset credentials without duplicating SQL in command packages.
+func (r *Repository) ChangePassword(ctx context.Context, id int64, passwordHash string) error {
+	res, err := r.db.ExecContext(ctx, `UPDATE users SET password_hash = ?, must_change_password = 0, failed_login_count = 0, locked_until = NULL, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`, passwordHash, id)
+	if err != nil { return err }
+	n, err := res.RowsAffected(); if err != nil { return err }; if n == 0 { return ErrNotFound }; return nil
+}
+
 func (r *Repository) SetPasswordHash(ctx context.Context, id int64, passwordHash string) error {
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE users
