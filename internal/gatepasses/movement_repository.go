@@ -14,12 +14,12 @@ func NewMovementRepository(db *sql.DB) *MovementRepository {
 	return &MovementRepository{db: db}
 }
 
-func (r *MovementRepository) List(ctx context.Context, tenantID, gatepassID int64) ([]MovementDTO, error) {
+func (r *MovementRepository) List(ctx context.Context, gatepassID int64) ([]MovementDTO, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, type, actor_user_id, gate_name, notes, occurred_at
 		FROM gatepass_movements
-		WHERE tenant_id = ? AND gatepass_id = ?
-		ORDER BY occurred_at, id`, tenantID, gatepassID)
+		WHERE gatepass_id = ?
+		ORDER BY occurred_at, id`, gatepassID)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +31,7 @@ func (r *MovementRepository) List(ctx context.Context, tenantID, gatepassID int6
 		if err := rows.Scan(&m.ID, &m.Type, &m.ActorUserID, &m.GateName, &m.Notes, &m.OccurredAt); err != nil {
 			return nil, err
 		}
-		items, err := r.listItems(ctx, tenantID, m.ID)
+		items, err := r.listItems(ctx, m.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -41,12 +41,12 @@ func (r *MovementRepository) List(ctx context.Context, tenantID, gatepassID int6
 	return out, rows.Err()
 }
 
-func (r *MovementRepository) listItems(ctx context.Context, tenantID, movementID int64) ([]MovementItemDTO, error) {
+func (r *MovementRepository) listItems(ctx context.Context, movementID int64) ([]MovementItemDTO, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, gatepass_item_id, quantity, outcome, condition, notes
 		FROM gatepass_movement_items
-		WHERE tenant_id = ? AND movement_id = ?
-		ORDER BY id`, tenantID, movementID)
+		WHERE movement_id = ?
+		ORDER BY id`, movementID)
 	if err != nil {
 		return nil, err
 	}
@@ -66,14 +66,14 @@ func (r *MovementRepository) listItems(ctx context.Context, tenantID, movementID
 // Checkout records the physical departure and atomically changes the
 // gatepass status. The gatepass row is locked first; item rows are then
 // locked before the movement ledger is written.
-func (r *MovementRepository) Checkout(ctx context.Context, tenantID, gatepassID, actorUserID int64, direction string, in MovementInput) (*Gatepass, error) {
+func (r *MovementRepository) Checkout(ctx context.Context, gatepassID, actorUserID int64, direction string, in MovementInput) (*Gatepass, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	g, err := r.lockGatepass(ctx, tx, tenantID, gatepassID)
+	g, err := r.lockGatepass(ctx, tx, gatepassID)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func (r *MovementRepository) Checkout(ctx context.Context, tenantID, gatepassID,
 		return nil, ErrMovementNotAllowed
 	}
 
-	itemIDs, err := r.lockGatepassItems(ctx, tx, tenantID, gatepassID)
+	itemIDs, err := r.lockGatepassItems(ctx, tx, gatepassID)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func (r *MovementRepository) Checkout(ctx context.Context, tenantID, gatepassID,
 		// there simply are no item movement lines to write.
 	}
 
-	movementID, err := r.insertMovement(ctx, tx, tenantID, gatepassID, MovementCheckout, actorUserID, in)
+	movementID, err := r.insertMovement(ctx, tx, gatepassID, MovementCheckout, actorUserID, in)
 	if err != nil {
 		return nil, err
 	}
@@ -108,9 +108,9 @@ func (r *MovementRepository) Checkout(ctx context.Context, tenantID, gatepassID,
 	for itemID, qty := range itemIDs {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO gatepass_movement_items
-				(tenant_id, movement_id, gatepass_item_id, quantity, outcome, created_at)
+				(movement_id, gatepass_item_id, quantity, outcome, created_at)
 			VALUES (?, ?, ?, ?, 'released', NOW())`,
-			tenantID, movementID, itemID, qty); err != nil {
+			movementID, itemID, qty); err != nil {
 			return nil, err
 		}
 	}
@@ -119,26 +119,26 @@ func (r *MovementRepository) Checkout(ctx context.Context, tenantID, gatepassID,
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE gatepasses
 		SET status = ?, checked_out_at = NOW(), checked_out_by = ?, updated_at = NOW()
-		WHERE id = ? AND tenant_id = ?`, next, actorUserID, gatepassID, tenantID); err != nil {
+		WHERE id = ?`, next, actorUserID, gatepassID); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	return r.getGatepass(ctx, tenantID, gatepassID)
+	return r.getGatepass(ctx, gatepassID)
 }
 
 // Checkin applies a full or partial physical return. Returned/damaged/lost
 // are treated as accounted-for quantities. This means a missing item can be
 // explicitly resolved without falsely recording it as physically returned.
-func (r *MovementRepository) Checkin(ctx context.Context, tenantID, gatepassID, actorUserID int64, direction string, in MovementInput) (*Gatepass, error) {
+func (r *MovementRepository) Checkin(ctx context.Context, gatepassID, actorUserID int64, direction string, in MovementInput) (*Gatepass, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	g, err := r.lockGatepass(ctx, tx, tenantID, gatepassID)
+	g, err := r.lockGatepass(ctx, tx, gatepassID)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func (r *MovementRepository) Checkin(ctx context.Context, tenantID, gatepassID, 
 		return nil, err
 	}
 
-	items, err := r.lockGatepassItemsWithQuantities(ctx, tx, tenantID, gatepassID)
+	items, err := r.lockGatepassItemsWithQuantities(ctx, tx, gatepassID)
 	if err != nil {
 		return nil, err
 	}
@@ -182,16 +182,16 @@ func (r *MovementRepository) Checkin(ctx context.Context, tenantID, gatepassID, 
 		}
 	}
 
-	movementID, err := r.insertMovement(ctx, tx, tenantID, gatepassID, MovementCheckin, actorUserID, in)
+	movementID, err := r.insertMovement(ctx, tx, gatepassID, MovementCheckin, actorUserID, in)
 	if err != nil {
 		return nil, err
 	}
 	for _, line := range in.Items {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO gatepass_movement_items
-				(tenant_id, movement_id, gatepass_item_id, quantity, outcome, condition, notes, created_at)
+				(movement_id, gatepass_item_id, quantity, outcome, condition, notes, created_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
-			tenantID, movementID, line.GatepassItemID, line.Quantity,
+			movementID, line.GatepassItemID, line.Quantity,
 			line.Outcome, line.Condition, line.Notes); err != nil {
 			return nil, err
 		}
@@ -219,32 +219,32 @@ func (r *MovementRepository) Checkin(ctx context.Context, tenantID, gatepassID, 
 		SET status = ?, checked_in_at = CASE WHEN ? = 'checked_in' THEN NOW() ELSE checked_in_at END,
 		    checked_in_by = CASE WHEN ? = 'checked_in' THEN ? ELSE checked_in_by END,
 		    updated_at = NOW()
-		WHERE id = ? AND tenant_id = ?`,
-		next, next, next, actorUserID, gatepassID, tenantID); err != nil {
+		WHERE id = ?`,
+		next, next, next, actorUserID, gatepassID); err != nil {
 		return nil, err
 	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	return r.getGatepass(ctx, tenantID, gatepassID)
+	return r.getGatepass(ctx, gatepassID)
 }
 
-func (r *MovementRepository) lockGatepass(ctx context.Context, tx *sql.Tx, tenantID, id int64) (*Gatepass, error) {
+func (r *MovementRepository) lockGatepass(ctx context.Context, tx *sql.Tx, id int64) (*Gatepass, error) {
 	row := tx.QueryRowContext(ctx,
-		"SELECT "+gpCols+" FROM gatepasses WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL FOR UPDATE",
-		id, tenantID)
+		"SELECT "+gpCols+" FROM gatepasses WHERE id = ? AND deleted_at IS NULL FOR UPDATE",
+		id)
 	return scanGatepass(row)
 }
 
-func (r *MovementRepository) lockGatepassItems(ctx context.Context, tx *sql.Tx, tenantID, gatepassID int64) (map[int64]float64, error) {
+func (r *MovementRepository) lockGatepassItems(ctx context.Context, tx *sql.Tx, gatepassID int64) (map[int64]float64, error) {
 	rows, err := tx.QueryContext(ctx, `
 		SELECT id, quantity
 		FROM gatepass_items
-		WHERE tenant_id = ? AND gatepass_id = ?
+		WHERE gatepass_id = ?
 		  AND direction IN ('leaving','returning')
 		ORDER BY id
-		FOR UPDATE`, tenantID, gatepassID)
+		FOR UPDATE`, gatepassID)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +261,7 @@ func (r *MovementRepository) lockGatepassItems(ctx context.Context, tx *sql.Tx, 
 	return out, rows.Err()
 }
 
-func (r *MovementRepository) lockGatepassItemsWithQuantities(ctx context.Context, tx *sql.Tx, tenantID, gatepassID int64) (map[int64]float64, error) {
+func (r *MovementRepository) lockGatepassItemsWithQuantities(ctx context.Context, tx *sql.Tx, gatepassID int64) (map[int64]float64, error) {
 	rows, err := tx.QueryContext(ctx, `
 		SELECT gi.id, gi.quantity - COALESCE(SUM(
 			CASE WHEN gm.type = 'checkin' THEN gmi.quantity ELSE 0 END
@@ -272,7 +272,7 @@ func (r *MovementRepository) lockGatepassItemsWithQuantities(ctx context.Context
 		WHERE gi.tenant_id = ? AND gi.gatepass_id = ?
 		GROUP BY gi.id, gi.quantity
 		ORDER BY gi.id
-		FOR UPDATE`, tenantID, tenantID, gatepassID, tenantID, gatepassID)
+		FOR UPDATE`, gatepassID, gatepassID)
 	if err != nil {
 		return nil, err
 	}
@@ -292,12 +292,12 @@ func (r *MovementRepository) lockGatepassItemsWithQuantities(ctx context.Context
 	return out, rows.Err()
 }
 
-func (r *MovementRepository) insertMovement(ctx context.Context, tx *sql.Tx, tenantID, gatepassID int64, typ MovementType, actorUserID int64, in MovementInput) (int64, error) {
+func (r *MovementRepository) insertMovement(ctx context.Context, tx *sql.Tx, gatepassID int64, typ MovementType, actorUserID int64, in MovementInput) (int64, error) {
 	res, err := tx.ExecContext(ctx, `
 		INSERT INTO gatepass_movements
-			(tenant_id, gatepass_id, type, actor_user_id, gate_name, notes, occurred_at, created_at)
+			(gatepass_id, type, actor_user_id, gate_name, notes, occurred_at, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-		tenantID, gatepassID, typ, actorUserID, nullableString(in.GateName), in.Notes)
+		gatepassID, typ, actorUserID, nullableString(in.GateName), in.Notes)
 	if err != nil {
 		return 0, err
 	}
@@ -311,10 +311,10 @@ func nullableString(v string) any {
 	return v
 }
 
-func (r *MovementRepository) getGatepass(ctx context.Context, tenantID, id int64) (*Gatepass, error) {
+func (r *MovementRepository) getGatepass(ctx context.Context, id int64) (*Gatepass, error) {
 	row := r.db.QueryRowContext(ctx,
-		"SELECT "+gpCols+" FROM gatepasses WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL",
-		id, tenantID)
+		"SELECT "+gpCols+" FROM gatepasses WHERE id = ? AND deleted_at IS NULL",
+		id)
 	return scanGatepass(row)
 }
 
