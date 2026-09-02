@@ -1,4 +1,4 @@
--- Generic tenant-scoped key/value settings store. Used for Platform Admin
+-- Tenant-local key/value settings store. Used for tenant administration
 -- toggles like "can visitors be pre-registered" without a schema change
 -- per feature flag. value is JSON so a setting can hold bool/string/number/
 -- object as needed; callers agree on the shape per key.
@@ -10,10 +10,10 @@ CREATE TABLE tenant_settings (
     created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-    UNIQUE KEY uq_setting (setting_key),
+    UNIQUE KEY uq_setting (setting_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Configurable ID document types per tenant (National ID, Passport, ...).
+-- Configurable ID document types. (National ID, Passport, ...).
 CREATE TABLE id_types (
     id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name            VARCHAR(100) NOT NULL,
@@ -24,10 +24,10 @@ CREATE TABLE id_types (
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at      DATETIME NULL,
 
-    UNIQUE KEY uq_id_types_code (code),
+    UNIQUE KEY uq_id_types_code (code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Configurable visit purposes/types per tenant (Business Meeting, Delivery,
+-- Configurable visit purposes/types. (Business Meeting, Delivery,
 -- Interview, Maintenance, ...). Full visit-lifecycle usage comes with the
 -- Visits module; the lookup itself is built now since it's shared config.
 CREATE TABLE visit_types (
@@ -39,7 +39,7 @@ CREATE TABLE visit_types (
     updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at  DATETIME NULL,
 
-    UNIQUE KEY uq_visit_types_code (code),
+    UNIQUE KEY uq_visit_types_code (code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Organizations visitors belong to/represent.
@@ -54,7 +54,7 @@ CREATE TABLE visitor_companies (
     updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at  DATETIME NULL,
 
-    UNIQUE KEY uq_visitor_companies_name (name),
+    UNIQUE KEY uq_visitor_companies_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE visitors (
@@ -83,8 +83,7 @@ CREATE TABLE visitors (
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at      DATETIME NULL,
 
-    -- Prevents the same ID document being registered twice within a
-    -- tenant. NULL id_number rows are not constrained by this (MySQL
+    -- Prevents the same ID document being registered twice within this database. NULL id_number rows are not constrained by this (MySQL
     -- treats NULLs as distinct), which is correct for id_types that don't
     -- require a number.
     UNIQUE KEY uq_visitors_idtype_idnumber (id_type_id, id_number),
