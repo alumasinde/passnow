@@ -11,7 +11,7 @@ $canCheckin = in_array($status, ['checked_out', 'out'], true);
         <h1><?= e($number) ?></h1>
         <p><?= e((string)($gatepass['purpose'] ?? 'Gatepass details')) ?></p>
     </div>
-    <a class="btn btn-secondary" href="<?= e(url('gatepasses.php')) ?>">
+    <a class="btn btn-secondary" href="<?= e(url('gatepasses.php')) ?>" data-back>
         <i class="fa-solid fa-arrow-left"></i>
         Back
     </a>
@@ -80,7 +80,7 @@ $canCheckin = in_array($status, ['checked_out', 'out'], true);
                 </button>
             <?php endif; ?>
 
-            <a class="btn btn-secondary" href="<?= e(url('gatepass-qr.php?id=' . $id)) ?>">
+            <a class="btn btn-secondary" href="<?= e(url('gatepass-qr.php?id=' . $id)) ?>" data-back>
                 <i class="fa-solid fa-qrcode"></i> QR
             </a>
         </div>
