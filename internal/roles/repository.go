@@ -162,6 +162,16 @@ func (r *Repository) SetRolePermissions(ctx context.Context, roleID int64, codes
 	if _, err := r.RoleByID(ctx, roleID); err != nil {
 		return err
 	}
+	seen := make(map[string]struct{}, len(codes))
+	for _, code := range codes {
+		if _, ok := seen[code]; ok { continue }
+		seen[code] = struct{}{}
+		var id int64
+		if err := r.db.QueryRowContext(ctx, `SELECT id FROM permissions WHERE code = ? LIMIT 1`, code).Scan(&id); err != nil {
+			if errors.Is(err, sql.ErrNoRows) { return errors.New("roles: invalid permission code") }
+			return err
+		}
+	}
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -173,7 +183,7 @@ func (r *Repository) SetRolePermissions(ctx context.Context, roleID int64, codes
 		return err
 	}
 
-	for _, code := range codes {
+	for code := range seen {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO role_permissions (role_id, permission_id)
 			SELECT ?, id FROM permissions WHERE code = ?`, roleID, code); err != nil {
