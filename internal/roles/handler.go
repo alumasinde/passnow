@@ -108,6 +108,7 @@ type membershipDTO struct {
 	LastName string `json:"last_name"`
 	RoleID int64 `json:"role_id"`
 	RoleName string `json:"role_name"`
+	DepartmentID *int64 `json:"department_id,omitempty"`
 	Status string `json:"status"`
 }
 
@@ -116,13 +117,15 @@ func (h *Handler) ListUsers(w http.ResponseWriter,r *http.Request){
 	items,err:=h.repo.ListMemberships(r.Context())
 	if err!=nil {httpx.WriteError(w,httpx.ErrInternal);return}
 	out:=make([]membershipDTO,0,len(items))
-	for _,m:=range items{out=append(out,membershipDTO{MembershipID:m.MembershipID,UserID:m.UserID,Email:m.Email,FirstName:m.FirstName,LastName:m.LastName,RoleID:m.RoleID,RoleName:m.RoleName,Status:string(m.Status)})}
+	for _,m:=range items{out=append(out,membershipDTO{MembershipID:m.MembershipID,UserID:m.UserID,Email:m.Email,FirstName:m.FirstName,LastName:m.LastName,RoleID:m.RoleID,RoleName:m.RoleName,DepartmentID:m.DepartmentID,Status:string(m.Status)})}
 	httpx.WriteJSON(w,http.StatusOK,out)
 }
 
 type updateMembershipInput struct {
 	RoleID *int64 `json:"role_id"`
 	Status *string `json:"status"`
+	DepartmentID *int64 `json:"department_id"`
+	ClearDepartment bool `json:"clear_department"`
 }
 
 func (h *Handler) UpdateUserMembership(w http.ResponseWriter,r *http.Request){
@@ -133,6 +136,13 @@ func (h *Handler) UpdateUserMembership(w http.ResponseWriter,r *http.Request){
 	if !httpx.DecodeJSON(w,r,&in){return}
 	var status *MembershipStatus
 	if in.Status!=nil {s:=MembershipStatus(*in.Status);status=&s}
-	if err:=h.repo.UpdateMembership(r.Context(),membershipID,in.RoleID,status);err!=nil {httpx.WriteError(w,httpx.ErrNotFound);return}
-	w.WriteHeader(http.StatusNoContent)
+	if err:=h.repo.UpdateMembership(r.Context(),membershipID,in.RoleID,status,in.DepartmentID,in.ClearDepartment);err!=nil {httpx.WriteError(w,httpx.ErrNotFound);return}
+	httpx.WriteJSON(w,http.StatusOK,map[string]any{"membership_id":membershipID})
+}
+
+func (h *Handler) GetUser(w http.ResponseWriter,r *http.Request){
+	if !requireTenant(w,r){return}
+	userID,err:=strconv.ParseInt(r.PathValue("id"),10,64); if err!=nil||userID<1 {httpx.WriteError(w,httpx.ErrNotFound);return}
+	m,err:=h.repo.MembershipViewByUserID(r.Context(),userID); if err!=nil {httpx.WriteError(w,httpx.ErrNotFound);return}
+	httpx.WriteJSON(w,http.StatusOK,membershipDTO{MembershipID:m.MembershipID,UserID:m.UserID,Email:m.Email,FirstName:m.FirstName,LastName:m.LastName,RoleID:m.RoleID,RoleName:m.RoleName,DepartmentID:m.DepartmentID,Status:string(m.Status)})
 }
