@@ -2,7 +2,6 @@ package rbac
 
 import (
     "context"
-    "sort"
     "strings"
 
     "gatepass/internal/roles"
@@ -59,7 +58,6 @@ func (e *Engine) Authorize(ctx context.Context, userID, claimedRoleID int64, req
 }
 
 func (e *Engine) AuthorizeAny(ctx context.Context, userID, roleID int64, requested ...string) (Decision,error) {
-    sort.Strings(requested)
     for _, code := range requested {
         d,err:=e.Authorize(ctx,userID,roleID,code)
         if err!=nil { return Decision{},err }
