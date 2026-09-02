@@ -191,6 +191,17 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		st := Status(s)
 		f.Status = &st
 	}
+	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w, httpx.ErrAuthRequired); return }
+	if d, ok := rbac.DecisionFromContext(r.Context()); ok {
+		switch d.Scope {
+		case rbac.ScopeOwn:
+			f.CreatedBy = &claims.UserID
+		case rbac.ScopeDepartment:
+			dept, err := h.svc.UserDepartment(r.Context(), claims.UserID)
+			if err != nil || dept == nil { httpx.WriteError(w, httpx.ErrForbidden); return }
+			f.DepartmentID = dept
+		}
+	}
 	p := httpx.ParsePagination(r)
 	items, total, err := h.svc.List(r.Context(), tenant.ID, f, p)
 	if err != nil {
