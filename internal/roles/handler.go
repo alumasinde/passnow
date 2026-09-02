@@ -40,6 +40,28 @@ type roleDTO struct {
 	IsSystem bool `json:"is_system"`
 }
 
+func (h *Handler) GetRole(w http.ResponseWriter, r *http.Request) {
+	if !requireTenant(w, r) { return }
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id < 1 { httpx.WriteError(w, httpx.ErrNotFound); return }
+	role, err := h.repo.RoleByID(r.Context(), id)
+	if err != nil { httpx.WriteError(w, httpx.ErrNotFound); return }
+	codes, err := h.repo.PermissionCodesForRole(r.Context(), id)
+	if err != nil { httpx.WriteError(w, httpx.ErrInternal); return }
+	selected := make([]string, 0, len(codes)); for code := range codes { selected = append(selected, code) }
+	httpx.WriteJSON(w, http.StatusOK, struct { ID int64 `json:"id"`; Name string `json:"name"`; IsSystem bool `json:"is_system"`; PermissionCodes []string `json:"permission_codes"` }{role.ID, role.Name, role.IsSystem, selected})
+}
+
+type updateRoleInput struct { Name string `json:"name"` }
+func (h *Handler) UpdateRole(w http.ResponseWriter, r *http.Request) {
+	if !requireTenant(w, r) { return }
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64); if err != nil || id < 1 { httpx.WriteError(w,httpx.ErrNotFound); return }
+	var in updateRoleInput; if !httpx.DecodeJSON(w,r,&in) { return }
+	if in.Name == "" { httpx.WriteError(w,httpx.ErrValidation.WithMessage("name is required")); return }
+	if err := h.repo.UpdateRole(r.Context(),id,in.Name); err != nil { httpx.WriteError(w,httpx.ErrValidation.WithMessage(err.Error())); return }
+	httpx.WriteJSON(w,http.StatusOK,map[string]any{"id":id,"name":in.Name})
+}
+
 func (h *Handler) ListRoles(w http.ResponseWriter, r *http.Request) {
 	if !requireTenant(w, r) { return }
 	items, err := h.repo.ListRoles(r.Context())
