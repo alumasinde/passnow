@@ -20,14 +20,14 @@ $data = array_merge($defaults, is_array($data ?? null) ? $data : []);
         <h1>Theme & branding</h1>
         <p>Configure your organization identity, colors, sidebar and appearance without hardcoding the frontend.</p>
     </div>
-    <a class="btn btn-secondary" href="<?= e(url('settings')) ?>"><i class="fa-solid fa-arrow-left"></i> Settings</a>
+    <a class="btn btn-secondary" href="<?= e(url('settings')) ?>" data-back><i class="fa-solid fa-arrow-left"></i> Settings</a>
 </section>
 
 <?php if ($errors): ?>
     <div class="alert alert-danger"><div><?php foreach ($errors as $error): ?><div><?= e($error) ?></div><?php endforeach; ?></div></div>
 <?php endif; ?>
 
-<form method="post" enctype="multipart/form-data" class="content-card form-card" data-loading-form>
+<form method="post" enctype="multipart/form-data" class="content-card form-card" data-ajax-form data-theme-form>
     <input type="hidden" name="_csrf" value="<?= e(Csrf::token()) ?>">
     <div class="form-grid theme-form-grid">
         <div class="theme-section-title field-full"><strong>Brand identity</strong><small>Used across the login page, sidebar, top bar and browser tab.</small></div>
