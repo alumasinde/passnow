@@ -328,6 +328,23 @@ func (h *Handler) QRLookup(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, dto)
 }
 
+
+// QRTokenImage renders a QR image from the opaque token capability. The token
+// itself is random and validated against the tenant database before rendering.
+func (h *Handler) QRTokenImage(w http.ResponseWriter, r *http.Request) {
+	tenant, ok := reqctx.TenantFromContext(r.Context())
+	if !ok { httpx.WriteError(w, httpx.ErrAuthRequired); return }
+	token := r.PathValue("token")
+	if _, err := h.svc.QRLookup(r.Context(), tenant.ID, token); err != nil {
+		httpx.WriteError(w, httpx.ErrNotFound); return
+	}
+	png, err := qrcode.Encode(token, qrcode.Medium, 320)
+	if err != nil { httpx.WriteError(w, httpx.ErrInternal); return }
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "private, no-store")
+	_, _ = w.Write(png)
+}
+
 func (h *Handler) QRImage(w http.ResponseWriter, r *http.Request) {
 	tenant, ok := reqctx.TenantFromContext(r.Context())
 	if !ok {
