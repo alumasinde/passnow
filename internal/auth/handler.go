@@ -3,6 +3,7 @@ package auth
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 
@@ -32,25 +33,34 @@ type tokenResponse struct {
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
+	log.Println("========== LOGIN DEBUG START ==========")
+
 	tenant, ok := reqctx.TenantFromContext(r.Context())
 	if !ok {
+		log.Printf("LOGIN FAILED: tenant missing from request context path=%q", r.URL.Path)
 		httpx.WriteError(w, httpx.ErrAuthRequired)
 		return
 	}
+	log.Printf("LOGIN tenant resolved: id=%d slug=%q status=%q", tenant.ID, tenant.Slug, tenant.Status)
 
 	var req loginRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&req); err != nil {
+		log.Printf("LOGIN FAILED: request body decode error: %v", err)
 		httpx.WriteError(w, httpx.ErrBadRequestBody)
 		return
 	}
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	log.Printf("LOGIN email received/normalized: %q", req.Email)
+
 	if req.Email == "" || req.Password == "" {
+		log.Printf("LOGIN FAILED: missing email or password")
 		httpx.WriteError(w, httpx.ErrValidation.WithMessage("email and password are required"))
 		return
 	}
 
 	pair, u, err := h.svc.Login(r.Context(), tenant.ID, req.Email, req.Password)
 	if err != nil {
+		log.Printf("LOGIN SERVICE FAILED: tenant=%q tenant_id=%d email=%q error=%v", tenant.Slug, tenant.ID, req.Email, err)
 		switch {
 		case errors.Is(err, ErrAccountLocked):
 			httpx.WriteError(w, httpx.ErrAccountLocked)
@@ -63,6 +73,9 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	log.Printf("LOGIN SUCCESS: tenant=%q tenant_id=%d user_id=%d email=%q role_response_ready=true", tenant.Slug, tenant.ID, u.ID, u.Email)
+	log.Println("========== LOGIN DEBUG END ==========")
 
 	httpx.WriteJSON(w, http.StatusOK, tokenResponse{
 		AccessToken:  pair.AccessToken,
