@@ -1,6 +1,5 @@
 -- Tenant database core schema.
 -- Each tenant has its own physical database. Tenant isolation is therefore
--- enforced by the database boundary; tenant_id columns and a local tenants
 -- table are intentionally not part of this schema.
 
 CREATE TABLE users (

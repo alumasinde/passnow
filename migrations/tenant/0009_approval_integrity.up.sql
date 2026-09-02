@@ -1,4 +1,4 @@
--- Local approval integrity indexes. Database-per-tenant isolation removes tenant_id.
+-- Local approval integrity indexes.
 CREATE INDEX idx_workflow_steps_workflow_order
     ON approval_workflow_steps (workflow_id, step_order);
 CREATE INDEX idx_gatepass_approvals_status
