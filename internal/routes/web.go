@@ -10,11 +10,12 @@ import (
 	"gatepass/internal/middleware"
 	"gatepass/internal/platform"
 	"gatepass/internal/tenants"
+	"gatepass/internal/tenantdb"
 )
 
 // RegisterWeb registers routes that are intentionally outside tenant resolution:
 // health checks and first-tenant bootstrap.
-func RegisterWeb(rootMux *http.ServeMux, db *sql.DB, bootstrapHandler *platform.Handler, platformAdminHandler *platform.AdminHandler, platformAdminRepo *platform.AdminRepository, tenantRepo *tenants.Repository, jwtSecret []byte) {
+func RegisterWeb(rootMux *http.ServeMux, db *sql.DB, bootstrapHandler *platform.Handler, platformAdminHandler *platform.AdminHandler, platformAdminRepo *platform.AdminRepository, tenantRepo *tenants.Repository, tenantManager *tenantdb.Manager, jwtSecret []byte) {
 	rootMux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -36,6 +37,7 @@ func RegisterWeb(rootMux *http.ServeMux, db *sql.DB, bootstrapHandler *platform.
 	rootMux.HandleFunc("POST /api/v1/platform/auth/login", platformAdminHandler.Login)
 	rootMux.Handle("GET /api/v1/platform/me", middleware.PlatformAdmin(jwtSecret, platformAdminRepo, http.HandlerFunc(platformAdminHandler.Me)))
 	tenantHandler := platform.NewTenantHandler(tenantRepo)
+	opsHandler := platform.NewTenantOpsHandler(tenantManager, tenantdb.NewInstaller("migrations/tenant"))
 	rootMux.Handle("POST /api/v1/platform/tenants", middleware.PlatformAdmin(jwtSecret, platformAdminRepo, http.HandlerFunc(bootstrapHandler.CreateTenant)))
 	rootMux.Handle("GET /api/v1/platform/tenants", middleware.PlatformAdmin(jwtSecret, platformAdminRepo, http.HandlerFunc(tenantHandler.List)))
 	rootMux.Handle("GET /api/v1/platform/tenants/{id}", middleware.PlatformAdmin(jwtSecret, platformAdminRepo, http.HandlerFunc(tenantHandler.Get)))
@@ -43,6 +45,8 @@ func RegisterWeb(rootMux *http.ServeMux, db *sql.DB, bootstrapHandler *platform.
 	rootMux.Handle("PATCH /api/v1/platform/tenants/{id}", middleware.PlatformAdmin(jwtSecret, platformAdminRepo, http.HandlerFunc(tenantHandler.Update)))
 	rootMux.Handle("POST /api/v1/platform/tenants/{id}/domains", middleware.PlatformAdmin(jwtSecret, platformAdminRepo, http.HandlerFunc(tenantHandler.AddCustomDomain)))
 	rootMux.Handle("PATCH /api/v1/platform/tenants/{id}/domains/{domainID}/primary", middleware.PlatformAdmin(jwtSecret, platformAdminRepo, http.HandlerFunc(tenantHandler.SetPrimaryDomain)))
+	rootMux.Handle("GET /api/v1/platform/tenants/{id}/database-health", middleware.PlatformAdmin(jwtSecret, platformAdminRepo, http.HandlerFunc(opsHandler.Health)))
+	rootMux.Handle("POST /api/v1/platform/tenants/{id}/run-migrations", middleware.PlatformAdmin(jwtSecret, platformAdminRepo, http.HandlerFunc(opsHandler.Migrate)))
 	rootMux.Handle("DELETE /api/v1/platform/tenants/{id}/domains/{domainID}", middleware.PlatformAdmin(jwtSecret, platformAdminRepo, http.HandlerFunc(tenantHandler.DeleteDomain)))
 	rootMux.HandleFunc("POST /api/v1/platform/bootstrap-tenant", bootstrapHandler.BootstrapTenant)
 }
