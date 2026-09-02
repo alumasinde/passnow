@@ -16,12 +16,12 @@ func NewHandler(repo *Repository) *Handler {
 }
 
 func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
-	tenant, ok := reqctx.TenantFromContext(r.Context())
+	_, ok := reqctx.TenantFromContext(r.Context())
 	if !ok {
 		httpx.WriteError(w, httpx.ErrAuthRequired)
 		return
 	}
-	summary, err := h.repo.Summary(r.Context(), tenant.ID)
+	summary, err := h.repo.Summary(r.Context())
 	if err != nil {
 		httpx.WriteError(w, httpx.ErrInternal)
 		return
