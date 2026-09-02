@@ -322,7 +322,7 @@ func (r *Repository) ActOnApprovalStep(ctx context.Context, gatepassID, stepID, 
 			if err := tx.QueryRowContext(ctx, `
 				SELECT COUNT(*)
 				FROM tenant_memberships
-				WHERE tenant_id = ? AND user_id = ? AND role_id = ? AND status = 'active'`,
+				WHERE user_id = ? AND role_id = ? AND status = 'active'`,
 				actorUserID, roleID.Int64).Scan(&membershipCount); err != nil {
 				return nil, err
 			}
@@ -334,7 +334,7 @@ func (r *Repository) ActOnApprovalStep(ctx context.Context, gatepassID, stepID, 
 			if err := tx.QueryRowContext(ctx, `
 				SELECT COUNT(*)
 				FROM tenant_memberships
-				WHERE tenant_id = ? AND user_id = ? AND status = 'active'`,
+				WHERE user_id = ? AND status = 'active'`,
 				actorUserID).Scan(&membershipCount); err != nil {
 				return nil, err
 			}
@@ -483,8 +483,7 @@ func (r *Repository) PendingForApprover(ctx context.Context, actorUserID, actorR
 		SELECT g.id, g.pass_number, ga.id, ga.step_order, ga.label, g.requester_type, g.purpose, g.created_at
 		FROM gatepass_approvals ga
 		JOIN gatepasses g ON g.id = ga.gatepass_id
-		WHERE ga.tenant_id = ?
-		  AND ga.status = 'pending'
+		WHERE ga.status = 'pending'
 		  AND g.status = 'pending_approval'
 		  AND (
 		        (ga.approver_type = 'role' AND ga.role_id = ?)
