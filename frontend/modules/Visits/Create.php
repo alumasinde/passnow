@@ -5,8 +5,8 @@ Auth::requireLogin();
 $errors=[];$types=[];$departments=[];$visitors=[];$employees=[];
 try{$p=Auth::api(App::api(),'GET','/api/v1/visit-types');$types=apiRows($p);}catch(Throwable $e){$errors[]='Unable to load visit types.';}
 try{$p=Auth::api(App::api(),'GET','/api/v1/departments');$departments=apiRows($p);}catch(Throwable){}
-try{$p=Auth::api(App::api(),'GET','/api/v1/visitors?per_page=100');$visitors=apiRows($p);}catch(Throwable){}
-try{$p=Auth::api(App::api(),'GET','/api/v1/employees?per_page=100');$employees=apiRows($p);}catch(Throwable){}
+try{$p=Auth::api(App::api(),'GET','/api/v1/visitors?limit=100');$visitors=apiRows($p);}catch(Throwable){}
+try{$p=Auth::api(App::api(),'GET','/api/v1/employees?limit=100');$employees=apiRows($p);}catch(Throwable){}
 
 $nullableInt=static fn($value): ?int => ((int)$value)>0?(int)$value:null;
 $nullableString=static fn($value): ?string => (($v=trim((string)$value))==='')?null:$v;
