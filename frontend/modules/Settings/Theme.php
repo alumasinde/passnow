@@ -31,6 +31,23 @@ if (requestMethod() === 'POST') {
     ];
 
     try {
+    foreach (['logo_file' => 'logo_url', 'favicon_file' => 'favicon_url'] as $input => $target) {
+        if (isset($_FILES[$input]) && (int)($_FILES[$input]['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            if ((int)($_FILES[$input]['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+                throw new RuntimeException('Unable to receive the selected media file.');
+            }
+            $uploaded = Auth::apiMultipart(App::api(), 'POST', '/api/v1/media', ['purpose' => 'branding'], [$input === 'logo_file' ? 'file' : 'file' => (string)$_FILES[$input]['tmp_name']]);
+            if (!empty($uploaded['public_url'])) $payload[$target] = (string)$uploaded['public_url'];
+        }
+    }
+    } catch (Throwable $uploadError) {
+        $errors[] = $uploadError->getMessage();
+        $data = array_merge($data, $payload);
+        App::render('admin/theme-settings', compact('data', 'errors'));
+        return;
+    }
+
+    try {
         $data = Auth::api(App::api(), 'PUT', '/api/v1/theme', $payload);
         Theme::forget();
         flash('success', 'Tenant theme updated successfully.');
