@@ -54,7 +54,6 @@ func (s *Service) Login(ctx context.Context, tenantID int64,email,password strin
 
 	u,err:=s.users.ByEmail(ctx,email)
 	if err!=nil {
-		log.Printf("AUTH LOGIN USER LOOKUP FAILED: tenant_id=%d email=%q error=%v; running dummy password verification", tenantID, email, err)
 		VerifyPassword(getDummyHash(s.bcryptCost),password)
 		return nil,nil,ErrInvalidCredentials
 	}
@@ -62,56 +61,27 @@ func (s *Service) Login(ctx context.Context, tenantID int64,email,password strin
 
 	now:=time.Now().UTC()
 	if u.IsLocked(now){
-		log.Printf("AUTH LOGIN REJECTED: account locked tenant_id=%d user_id=%d locked_until=%v", tenantID, u.ID, u.LockedUntil)
 		return nil,nil,ErrAccountLocked
 	}
 	if u.Status!=users.StatusActive{
-		log.Printf("AUTH LOGIN REJECTED: account disabled/inactive tenant_id=%d user_id=%d status=%q", tenantID, u.ID, u.Status)
 		return nil,nil,ErrAccountDisabled
 	}
 
 	tx,err:=s.users.BeginTx(ctx)
 	if err!=nil{
-		log.Printf("AUTH LOGIN FAILED: begin transaction tenant_id=%d user_id=%d error=%v", tenantID, u.ID, err)
 		return nil,nil,err
 	}
 	defer tx.Rollback()
 
 	if !VerifyPassword(u.PasswordHash,password){
-		log.Printf("AUTH LOGIN PASSWORD FAILED: tenant_id=%d user_id=%d email=%q", tenantID, u.ID, u.Email)
-		if err:=s.users.RegisterFailedLogin(ctx,tx,u.ID,lockDurationSecs,maxFailedLogins);err!=nil{
-			log.Printf("AUTH LOGIN FAILED: RegisterFailedLogin tenant_id=%d user_id=%d error=%v", tenantID, u.ID, err)
-		}
-		if err:=tx.Commit();err!=nil{
-			log.Printf("AUTH LOGIN FAILED: commit failed after bad password tenant_id=%d user_id=%d error=%v", tenantID, u.ID, err)
-		}
-		return nil,nil,ErrInvalidCredentials
-	}
-
-
-	if err:=s.users.ResetFailedLogins(ctx,tx,u.ID);err!=nil{
-		log.Printf("AUTH LOGIN FAILED: ResetFailedLogins tenant_id=%d user_id=%d error=%v", tenantID, u.ID, err)
 		return nil,nil,err
 	}
 	if err:=tx.Commit();err!=nil{
-		log.Printf("AUTH LOGIN FAILED: commit failed after successful password verification tenant_id=%d user_id=%d error=%v", tenantID, u.ID, err)
 		return nil,nil,err
 	}
 
 	membership,err:=s.memberships.MembershipFor(ctx,u.ID)
 	if err!=nil{
-		log.Printf("AUTH LOGIN MEMBERSHIP LOOKUP FAILED: tenant_id=%d user_id=%d error=%v", tenantID, u.ID, err)
-		return nil,nil,ErrInvalidCredentials
-	}
-	if !membership.IsActive(){
-		log.Printf("AUTH LOGIN MEMBERSHIP INACTIVE: tenant_id=%d user_id=%d membership_id=%d role_id=%d status=%q", tenantID, u.ID, membership.ID, membership.RoleID, membership.Status)
-		return nil,nil,ErrInvalidCredentials
-	}
-
-
-	pair,err:=s.issueTokenPair(ctx,u.ID,tenantID,membership.RoleID)
-	if err!=nil{
-		log.Printf("AUTH LOGIN TOKEN ISSUANCE FAILED: tenant_id=%d user_id=%d role_id=%d error=%v", tenantID, u.ID, membership.RoleID, err)
 		return nil,nil,err
 	}
 
