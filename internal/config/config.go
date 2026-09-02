@@ -50,6 +50,10 @@ type Config struct {
 
 	GatepassWorkerInterval time.Duration
 	ApprovedGatepassTTL    time.Duration
+
+	MediaStoragePath   string
+	MediaPublicBaseURL string
+	MediaMaxUploadBytes int64
 }
 
 func Load() (*Config, error) {
@@ -96,6 +100,10 @@ func Load() (*Config, error) {
 
 		GatepassWorkerInterval: getDuration("GATEPASS_WORKER_INTERVAL", time.Minute),
 		ApprovedGatepassTTL:    getDuration("APPROVED_GATEPASS_TTL", 24*time.Hour),
+
+		MediaStoragePath:   getEnv("MEDIA_STORAGE_PATH", "storage/media"),
+		MediaPublicBaseURL: getEnv("MEDIA_PUBLIC_BASE_URL", ""),
+		MediaMaxUploadBytes: int64(getInt("MEDIA_MAX_UPLOAD_MB", 5)) * 1024 * 1024,
 	}
 
 	if cfg.DBUser == "" || cfg.DBPassword == "" {
