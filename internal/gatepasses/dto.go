@@ -6,6 +6,11 @@ type DTO struct {
 	ID                 int64             `json:"id"`
 	GatepassTypeID     int64             `json:"gatepass_type_id"`
 	PassNumber         string            `json:"pass_number"`
+	GatepassTypeName   string            `json:"gatepass_type_name,omitempty"`
+	Direction          string            `json:"direction,omitempty"`
+	DepartmentName     string            `json:"department_name,omitempty"`
+	RequesterName      string            `json:"requester_name,omitempty"`
+	SubjectName        string            `json:"subject_name,omitempty"`
 	DepartmentID       *int64            `json:"department_id"`
 	RequesterType      string            `json:"requester_type"`
 	RequesterUserID    *int64            `json:"requester_user_id,omitempty"`
@@ -17,6 +22,7 @@ type DTO struct {
 	RequiresApproval   bool              `json:"requires_approval"`
 	WorkflowID         *int64            `json:"workflow_id,omitempty"`
 	Status             string            `json:"status"`
+	QRToken            string            `json:"qr_token,omitempty"`
 	CheckedOutAt       *time.Time        `json:"checked_out_at"`
 	CheckedInAt        *time.Time        `json:"checked_in_at"`
 	CancelReason       *string           `json:"cancel_reason,omitempty"`
@@ -33,7 +39,7 @@ func ToDTO(g *Gatepass) DTO {
 		VisitID: g.VisitID, Purpose: g.Purpose, IsReturnable: g.IsReturnable,
 		ExpectedReturnAt: g.ExpectedReturnAt, RequiresApproval: g.RequiresApproval,
 		WorkflowID: g.WorkflowID, Status: string(g.Status), CheckedOutAt: g.CheckedOutAt, CheckedInAt: g.CheckedInAt,
-		CancelReason: g.CancelReason,
+		CancelReason: g.CancelReason, QRToken: g.QRToken,
 	}
 }
 
