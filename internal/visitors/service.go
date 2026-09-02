@@ -34,7 +34,7 @@ func (s *Service) Create(ctx context.Context,tenantID int64,in CreateInput,actor
 	if in.WantsPreRegistration{if !s.settingsRepo.GetBool(ctx,settings.KeyVisitorsAllowPreRegistration,false){return nil,ErrPreRegistrationDisabled};source=SourcePreRegistered}
 	v:=&Visitor{FirstName:in.FirstName,LastName:in.LastName,IDTypeID:in.IDTypeID,IDNumber:in.IDNumber,CompanyID:in.CompanyID,Phone:in.Phone,Email:in.Email,Notes:in.Notes,Source:source,CreatedBy:&actorUserID}
 	id,err:=s.repo.Create(ctx,v);if err!=nil{return nil,err};v.ID=id
-	_ = s.auditRepo.Record(ctx,s.auditRepo.DB(),audit.Entry{TenantID:&tenantID,ActorUserID:&actorUserID,Action:audit.ActionVisitorCreated,EntityType:"visitor",EntityID:&id,Metadata:map[string]any{"source":string(source)}})
+	_ = s.auditRepo.Record(ctx,s.auditRepo.DB(),audit.Entry{ActorUserID:&actorUserID,Action:audit.ActionVisitorCreated,EntityType:"visitor",EntityID:&id,Metadata:map[string]any{"source":string(source)}})
 	return v,nil
 }
 
@@ -42,7 +42,7 @@ func (s *Service) Update(ctx context.Context,tenantID,id int64,in UpdateInput,ac
 	if in.IDTypeID!=nil{idType,err:=s.idTypes.ByID(ctx,*in.IDTypeID);if err!=nil||!idType.Active{return nil,ErrInvalidIDType}}
 	if in.CompanyID!=nil{c,err:=s.companies.ByID(ctx,*in.CompanyID);if err!=nil||!c.Active{return nil,ErrInvalidCompany}}
 	v,err:=s.repo.Update(ctx,id,in,actorUserID);if err!=nil{return nil,err}
-	_ = s.auditRepo.Record(ctx,s.auditRepo.DB(),audit.Entry{TenantID:&tenantID,ActorUserID:&actorUserID,Action:audit.ActionVisitorUpdated,EntityType:"visitor",EntityID:&id})
+	_ = s.auditRepo.Record(ctx,s.auditRepo.DB(),audit.Entry{ActorUserID:&actorUserID,Action:audit.ActionVisitorUpdated,EntityType:"visitor",EntityID:&id})
 	return v,nil
 }
 
