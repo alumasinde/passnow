@@ -19,6 +19,7 @@ type User struct {
 	FirstName        string
 	LastName         string
 	Status           Status
+	MustChangePassword bool
 	FailedLoginCount int
 	LockedUntil      *time.Time
 	CreatedAt        time.Time
