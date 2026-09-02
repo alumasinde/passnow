@@ -169,7 +169,7 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapR
 		Email: in.AdminEmail, PasswordHash: hash, FirstName: in.AdminFirstName, LastName: in.AdminLastName,
 	})
 	if err != nil { return nil, err }
-	if _, err := tenantRoleRepo.CreateMembershipTx(ctx, tenantTx, tenantID, userID, roleID, roles.MembershipActive); err != nil {
+	if _, err := tenantRoleRepo.CreateMembershipTx(ctx, tenantTx, userID, roleID, roles.MembershipActive); err != nil {
 		return nil, err
 	}
 	if err := tenantTx.Commit(); err != nil { return nil, fmt.Errorf("create tenant administrator: %w", err) }
