@@ -45,7 +45,7 @@ func (r *Repository) List(ctx context.Context,f ListFilter,p httpx.Pagination)([
 }
 
 func (r *Repository) Create(ctx context.Context,v *Visitor)(int64,error){
-	res,err:=r.db.ExecContext(ctx,`INSERT INTO visitors (first_name,last_name,id_type_id,id_number,company_id,phone,email,notes,source,status,created_by,updated_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,'active',?,?,NOW(),NOW())`,v.FirstName,v.LastName,v.IDTypeID,v.IDNumber,v.CompanyID,v.Phone,v.Email,v.Notes,v.Source,v.CreatedBy,v.CreatedBy)
+	res,err:=r.db.ExecContext(ctx,`INSERT INTO visitors (first_name,last_name,id_type_id,id_number,company_id,phone,email,photo_ref,notes,source,status,created_by,updated_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,'active',?,?,NOW(),NOW())`,v.FirstName,v.LastName,v.IDTypeID,v.IDNumber,v.CompanyID,v.Phone,v.Email,v.PhotoRef,v.Notes,v.Source,v.CreatedBy,v.CreatedBy)
 	if err!=nil{if database.IsDuplicateKeyErr(err){return 0,ErrDuplicateIDNumber};return 0,err};return res.LastInsertId()
 }
 
