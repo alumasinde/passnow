@@ -64,7 +64,7 @@ $data = array_merge($defaults, is_array($data ?? null) ? $data : []);
             <small class="field-help">Uploading a file replaces the corresponding URL when the theme is saved.</small>
         </div>
         <div class="field-full">
-            <a class="btn btn-secondary" href="<?= e(url('media')) ?>"><i class="fa-solid fa-photo-film"></i> Open media library</a>
+            <a class="btn btn-secondary" data-back href="<?= e(url('media')) ?>"><i class="fa-solid fa-photo-film"></i> Open media library</a>
         </div>
 
         <div class="theme-section-title field-full"><strong>Application colors</strong><small>All colors are stored as tenant configuration and exposed through CSS variables.</small></div>
