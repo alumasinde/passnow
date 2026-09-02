@@ -28,12 +28,13 @@ func (r *Repository) ByID(ctx context.Context,id int64)(*Visitor,error){
 	return r.scan(r.db.QueryRowContext(ctx,"SELECT "+selectCols+" FROM visitors WHERE id=? AND deleted_at IS NULL LIMIT 1",id))
 }
 
-type ListFilter struct{Status *Status;CompanyID *int64;Blacklisted *bool;Search string}
+type ListFilter struct{Status *Status;CompanyID *int64;Blacklisted *bool;Search string;CreatedBy *int64}
 
 func (r *Repository) List(ctx context.Context,f ListFilter,p httpx.Pagination)([]Visitor,int,error){
 	where:="WHERE deleted_at IS NULL";args:=[]any{}
 	if f.Status!=nil{where+=" AND status=?";args=append(args,*f.Status)}
 	if f.CompanyID!=nil{where+=" AND company_id=?";args=append(args,*f.CompanyID)}
+	if f.CreatedBy!=nil{where+=" AND created_by=?";args=append(args,*f.CreatedBy)}
 	if f.Blacklisted!=nil{if *f.Blacklisted{where+=" AND status=?";args=append(args,StatusBlacklisted)}else{where+=" AND status<>?";args=append(args,StatusBlacklisted)}}
 	if f.Search!=""{where+=" AND (id_number=? OR first_name LIKE ? OR last_name LIKE ? OR phone LIKE ? OR email LIKE ?)";like:=f.Search+"%";args=append(args,f.Search,like,like,like,like)}
 	var total int;if err:=r.db.QueryRowContext(ctx,"SELECT COUNT(*) FROM visitors "+where,args...).Scan(&total);err!=nil{return nil,0,err}
