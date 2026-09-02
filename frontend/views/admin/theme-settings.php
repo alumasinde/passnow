@@ -27,7 +27,7 @@ $data = array_merge($defaults, is_array($data ?? null) ? $data : []);
     <div class="alert alert-danger"><div><?php foreach ($errors as $error): ?><div><?= e($error) ?></div><?php endforeach; ?></div></div>
 <?php endif; ?>
 
-<form method="post" class="content-card form-card" data-loading-form>
+<form method="post" enctype="multipart/form-data" class="content-card form-card" data-loading-form>
     <input type="hidden" name="_csrf" value="<?= e(Csrf::token()) ?>">
     <div class="form-grid theme-form-grid">
         <div class="theme-section-title field-full"><strong>Brand identity</strong><small>Used across the login page, sidebar, top bar and browser tab.</small></div>
@@ -47,11 +47,24 @@ $data = array_merge($defaults, is_array($data ?? null) ? $data : []);
         <div class="field">
             <label for="logo_url">Logo URL</label>
             <input id="logo_url" name="logo_url" value="<?= e((string)$data['logo_url']) ?>" placeholder="https://example.com/logo.png">
-            <small class="field-help">HTTPS URL or root-relative path. Upload management can be connected later.</small>
+            <small class="field-help">HTTPS URL or root-relative path. You can also upload a logo below.</small>
         </div>
         <div class="field">
             <label for="favicon_url">Favicon URL</label>
             <input id="favicon_url" name="favicon_url" value="<?= e((string)$data['favicon_url']) ?>" placeholder="https://example.com/favicon.png">
+        </div>
+        <div class="field">
+            <label for="logo_file">Upload logo</label>
+            <input id="logo_file" name="logo_file" type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.ico,image/png,image/jpeg,image/gif,image/webp,image/x-icon">
+            <small class="field-help">PNG, JPEG, GIF, WebP or ICO. Maximum size is controlled by the tenant media service.</small>
+        </div>
+        <div class="field">
+            <label for="favicon_file">Upload favicon</label>
+            <input id="favicon_file" name="favicon_file" type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.ico,image/png,image/jpeg,image/gif,image/webp,image/x-icon">
+            <small class="field-help">Uploading a file replaces the corresponding URL when the theme is saved.</small>
+        </div>
+        <div class="field-full">
+            <a class="btn btn-secondary" href="<?= e(url('media')) ?>"><i class="fa-solid fa-photo-film"></i> Open media library</a>
         </div>
 
         <div class="theme-section-title field-full"><strong>Application colors</strong><small>All colors are stored as tenant configuration and exposed through CSS variables.</small></div>
