@@ -5,12 +5,12 @@
 <div class="form-grid">
   <div class="field">
     <label for="number_prefix">Pass number prefix <span class="required">*</span></label>
-    <input id="number_prefix" name="number_prefix" type="text" maxlength="32" required value="<?=e((string)($data['number_prefix']??'GP'))?>" placeholder="e.g. GP">
+    <input id="number_prefix" name="number_prefix" type="text" maxlength="32" required value="<?=e((string)($data['number_prefix']??''))?>" placeholder="e.g. GP">
     <small class="field-help">A short tenant-specific prefix placed before every generated gatepass number.</small>
   </div>
   <div class="field field-full">
     <label class="checkbox-row" for="number_use_year">
-      <input id="number_use_year" name="number_use_year" type="checkbox" value="1" <?=!array_key_exists('number_use_year',$data)||!empty($data['number_use_year'])?'checked':''?>>
+      <input id="number_use_year" name="number_use_year" type="checkbox" value="1" <?=!empty($data['number_use_year'])?'checked':''?>>
       <span><strong>Include year in pass number</strong><br><small>Example: GP-2026-000001. When disabled, numbering is formatted without the year.</small></span>
     </label>
   </div>
