@@ -12,8 +12,8 @@ final class ApiClient
         $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
         $segments = array_values(array_filter(explode('/', trim($currentPath, '/'))));
         $reserved = ['login', 'logout', 'dashboard', 'platform', 'assets', 'api'];
-        $localTenantSlug = '';
-        if ($segments !== [] && !in_array(strtolower($segments[0]), $reserved, true) && !str_ends_with(strtolower($segments[0]), '.php')) {
+        $localTenantSlug = strtolower(trim((string)($_SESSION['tenant_slug'] ?? '')));
+        if ($localTenantSlug === '' && $segments !== [] && !in_array(strtolower($segments[0]), $reserved, true) && !str_ends_with(strtolower($segments[0]), '.php')) {
             $localTenantSlug = strtolower($segments[0]);
         }
 
@@ -65,8 +65,8 @@ final class ApiClient
         $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
         $segments = array_values(array_filter(explode('/', trim($currentPath, '/'))));
         $reserved = ['login', 'logout', 'dashboard', 'platform', 'assets', 'api'];
-        $localTenantSlug = '';
-        if ($segments !== [] && !in_array(strtolower($segments[0]), $reserved, true) && !str_ends_with(strtolower($segments[0]), '.php')) {
+        $localTenantSlug = strtolower(trim((string)($_SESSION['tenant_slug'] ?? '')));
+        if ($localTenantSlug === '' && $segments !== [] && !in_array(strtolower($segments[0]), $reserved, true) && !str_ends_with(strtolower($segments[0]), '.php')) {
             $localTenantSlug = strtolower($segments[0]);
         }
         if ($localTenantSlug !== '' && ($baseDomain === '' || stripos($tenantHost, $baseDomain) === false)) $tenantHost = '';
