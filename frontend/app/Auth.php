@@ -15,6 +15,7 @@ final class Auth
         $_SESSION['user'] = $r['user'] ?? [];
         $_SESSION['tenant_slug'] = strtolower(trim((string)($r['tenant_slug'] ?? localTenantSlug())));
         $_SESSION['authenticated_at'] = time();
+        $_SESSION['must_change_password'] = !empty($r['must_change_password']);
     }
 
     public static function platformLogin(ApiClient $api, string $email, string $password): void
@@ -29,7 +30,7 @@ final class Auth
 
     public static function check(): bool { return !empty($_SESSION['access_token']); }
     public static function platformCheck(): bool { return !empty($_SESSION['platform_access_token']); }
-    public static function requireLogin(): void { if (!self::check()) redirect('login'); }
+    public static function requireLogin(): void { if (!self::check()) redirect('login'); if (!empty($_SESSION['must_change_password'])) { $path=parse_url($_SERVER['REQUEST_URI']??'',PHP_URL_PATH)?:''; if (!str_contains($path,'change-password')) redirect('change-password'); } }
     public static function requirePlatform(): void { if (!self::platformCheck()) redirect('platform/login'); }
     public static function user(): array { return is_array($_SESSION['user'] ?? null) ? $_SESSION['user'] : []; }
     public static function platformToken(): ?string { return $_SESSION['platform_access_token'] ?? null; }
@@ -86,6 +87,6 @@ final class Auth
 
     private static function clearTenantSession(): void
     {
-        unset($_SESSION['access_token'], $_SESSION['refresh_token'], $_SESSION['user'], $_SESSION['tenant_slug'], $_SESSION['authenticated_at']);
+        unset($_SESSION['access_token'], $_SESSION['refresh_token'], $_SESSION['user'], $_SESSION['tenant_slug'], $_SESSION['authenticated_at'], $_SESSION['must_change_password']);
     }
 }
