@@ -1,6 +1,7 @@
 package gatepasses
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 
 	"gatepass/internal/httpx"
 	"gatepass/internal/reqctx"
+	"gatepass/internal/rbac"
 )
 
 type Handler struct {
@@ -168,6 +170,8 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
+	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w, httpx.ErrAuthRequired); return }
+	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) { httpx.WriteError(w, httpx.ErrForbidden); return }
 	g, err := h.svc.Get(r.Context(), tenant.ID, id)
 	if err != nil {
 		writeServiceError(w, err)
@@ -252,6 +256,8 @@ func (h *Handler) CheckOut(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
+	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w, httpx.ErrAuthRequired); return }
+	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) { httpx.WriteError(w, httpx.ErrForbidden); return }
 	var in MovementInput
 	if !httpx.DecodeJSON(w, r, &in) {
 		return
@@ -280,6 +286,8 @@ func (h *Handler) CheckIn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
+	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w, httpx.ErrAuthRequired); return }
+	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) { httpx.WriteError(w, httpx.ErrForbidden); return }
 	var in MovementInput
 	if !httpx.DecodeJSON(w, r, &in) {
 		return
@@ -303,6 +311,8 @@ func (h *Handler) Movements(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
+	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w, httpx.ErrAuthRequired); return }
+	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) { httpx.WriteError(w, httpx.ErrForbidden); return }
 	items, err := h.svc.Movements(r.Context(), tenant.ID, id)
 	if err != nil {
 		writeServiceError(w, err)
@@ -327,6 +337,8 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
+	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w, httpx.ErrAuthRequired); return }
+	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) { httpx.WriteError(w, httpx.ErrForbidden); return }
 	var in CancelInput
 	if !httpx.DecodeJSON(w, r, &in) {
 		return
@@ -386,6 +398,8 @@ func (h *Handler) QRImage(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
+	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w, httpx.ErrAuthRequired); return }
+	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) { httpx.WriteError(w, httpx.ErrForbidden); return }
 	token, err := h.svc.QRToken(r.Context(), tenant.ID, id)
 	if err != nil {
 		httpx.WriteError(w, httpx.ErrNotFound)
@@ -474,4 +488,17 @@ func writeMovementError(w http.ResponseWriter, err error) {
 
 func withDetails(r *http.Request, svc *Service, tenantID int64, g *Gatepass) DTO {
 	return svc.Details(r.Context(), tenantID, g)
+}
+
+
+func (h *Handler) canAccessGatepass(ctx context.Context, actorID, tenantID, gatepassID int64) bool {
+	d, ok := rbac.DecisionFromContext(ctx)
+	if !ok || d.Scope == rbac.ScopeNone || d.Scope == rbac.ScopeAll { return true }
+	g, err := h.svc.Get(ctx, tenantID, gatepassID)
+	if err != nil { return false }
+	dept, err := h.svc.UserDepartment(ctx, actorID)
+	if err != nil { return false }
+	createdBy := int64(0)
+	if g.CreatedBy != nil { createdBy = *g.CreatedBy }
+	return rbac.AllowsDepartment(d.Scope, actorID, dept, g.DepartmentID, createdBy)
 }
