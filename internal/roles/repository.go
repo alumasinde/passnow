@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 )
 
 var ErrNotFound = errors.New("roles: not found")
@@ -209,14 +210,19 @@ type MembershipView struct {
 	RoleID       int64
 	RoleName     string
 	DepartmentID *int64
+	DepartmentName *string
+	MustChangePassword bool
+	CreatedAt time.Time
+	UpdatedAt time.Time
 	Status       MembershipStatus
 }
 
 func (r *Repository) ListMemberships(ctx context.Context) ([]MembershipView, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT tm.id, u.id, u.email, u.first_name, u.last_name, u.department_id, r.id, r.name, tm.status
+		SELECT tm.id, u.id, u.email, u.first_name, u.last_name, u.department_id, d.name, u.must_change_password, tm.created_at, tm.updated_at, r.id, r.name, tm.status
 		FROM tenant_memberships tm
 		JOIN users u ON u.id = tm.user_id
+		LEFT JOIN departments d ON d.id = u.department_id
 		JOIN roles r ON r.id = tm.role_id
 		ORDER BY u.last_name, u.first_name`)
 	if err != nil {
@@ -227,7 +233,7 @@ func (r *Repository) ListMemberships(ctx context.Context) ([]MembershipView, err
 	var out []MembershipView
 	for rows.Next() {
 		var m MembershipView
-		if err := rows.Scan(&m.MembershipID, &m.UserID, &m.Email, &m.FirstName, &m.LastName, &m.DepartmentID, &m.RoleID, &m.RoleName, &m.Status); err != nil {
+		if err := rows.Scan(&m.MembershipID, &m.UserID, &m.Email, &m.FirstName, &m.LastName, &m.DepartmentID, &m.DepartmentName, &m.MustChangePassword, &m.CreatedAt, &m.UpdatedAt, &m.RoleID, &m.RoleName, &m.Status); err != nil {
 			return nil, err
 		}
 		out = append(out, m)
@@ -238,12 +244,13 @@ func (r *Repository) ListMemberships(ctx context.Context) ([]MembershipView, err
 func (r *Repository) MembershipViewByUserID(ctx context.Context, userID int64) (*MembershipView, error) {
 	var m MembershipView
 	err := r.db.QueryRowContext(ctx, `
-		SELECT tm.id, u.id, u.email, u.first_name, u.last_name, u.department_id, r.id, r.name, tm.status
+		SELECT tm.id, u.id, u.email, u.first_name, u.last_name, u.department_id, d.name, u.must_change_password, tm.created_at, tm.updated_at, r.id, r.name, tm.status
 		FROM tenant_memberships tm
 		JOIN users u ON u.id = tm.user_id
+		LEFT JOIN departments d ON d.id = u.department_id
 		JOIN roles r ON r.id = tm.role_id
 		WHERE u.id = ? LIMIT 1`, userID,
-	).Scan(&m.MembershipID, &m.UserID, &m.Email, &m.FirstName, &m.LastName, &m.DepartmentID, &m.RoleID, &m.RoleName, &m.Status)
+	).Scan(&m.MembershipID, &m.UserID, &m.Email, &m.FirstName, &m.LastName, &m.DepartmentID, &m.DepartmentName, &m.MustChangePassword, &m.CreatedAt, &m.UpdatedAt, &m.RoleID, &m.RoleName, &m.Status)
 	if err != nil { if errors.Is(err, sql.ErrNoRows) { return nil, ErrNotFound }; return nil, err }
 	return &m, nil
 }
