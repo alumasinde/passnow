@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <title><?= e(($title ?? 'Application error') . ' · ' . App::config('app.name', 'PassNow')) ?></title>
+    <link rel="stylesheet" href="<?= e((string)App::config('ui.font_awesome_url')) ?>">
     <link rel="stylesheet" href="<?= e(asset('css/variables.css')) ?>">
     <link rel="stylesheet" href="<?= e(asset('css/app.css')) ?>">
     <link rel="stylesheet" href="<?= e(asset('css/components.css')) ?>">
