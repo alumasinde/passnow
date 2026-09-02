@@ -5,6 +5,6 @@
 <?php component('field',['name'=>'first_name','label'=>'First name','required'=>true]);?>
 <?php component('field',['name'=>'last_name','label'=>'Last name','required'=>true]);?>
 <?php component('field',['name'=>'email','label'=>'Email','type'=>'email','required'=>true]);?>
-<?php component('select',['name'=>'role_id','label'=>'Role','options'=>$roles]);?>
+<div class="field"><label for="role_id">Role <span class="required">*</span></label><select id="role_id" name="role_id" required><option value="">Select a role</option><?php foreach($roles as $role):$rid=(int)($role['id']??0);?><option value="<?=e((string)$rid)?>" <?=((int)($_POST['role_id']??0)===$rid)?'selected':''?>><?=e((string)($role['name']??'Role'))?></option><?php endforeach;?></select><?php if(!$roles):?><small class="muted">No roles available. Create a role first.</small><?php endif;?></div>
 </div><div class="form-actions"><a class="btn btn-secondary" href="<?=e(url('users.php'))?>">Cancel</a><button class="btn btn-primary" type="submit" data-loading-label="Sending..."><span data-button-label>Send invitation</span></button></div>
 </form>
