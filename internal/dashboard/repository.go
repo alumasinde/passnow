@@ -40,6 +40,11 @@ func (r *Repository) Summary(ctx context.Context) (*Summary, error) {
 		`SELECT COUNT(*) FROM visits WHERE status = 'checked_in'`); err != nil {
 		return nil, err
 	}
+	if s.CheckedInToday, err = r.count(ctx, `
+		SELECT COUNT(*) FROM visits
+		WHERE checked_in_at IS NOT NULL AND DATE(checked_in_at) = CURDATE()`); err != nil {
+		return nil, err
+	}
 	if s.ExpectedToday, err = r.count(ctx, `
 		SELECT COUNT(*) FROM visits
 		WHERE status IN ('scheduled','expected') AND DATE(expected_time) = CURDATE()`); err != nil {
@@ -99,6 +104,12 @@ func (r *Repository) Summary(ctx context.Context) (*Summary, error) {
 	}
 	s.RecentActivity = activity
 
+	breakdown, err := r.gatepassTypeBreakdown(ctx)
+	if err != nil {
+		return nil, err
+	}
+	s.GatepassTypeBreakdown = breakdown
+
 	return s, nil
 }
 
@@ -118,6 +129,31 @@ func (r *Repository) recentActivity(ctx context.Context, limit int) ([]ActivityE
 			return nil, err
 		}
 		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+
+func (r *Repository) gatepassTypeBreakdown(ctx context.Context) ([]BreakdownEntry, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT requester_type, COUNT(*)
+		FROM gatepasses
+		WHERE DATE(created_at) = CURDATE()
+		GROUP BY requester_type
+		ORDER BY COUNT(*) DESC, requester_type ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []BreakdownEntry
+	for rows.Next() {
+		var entry BreakdownEntry
+		if err := rows.Scan(&entry.Key, &entry.Value); err != nil {
+			return nil, err
+		}
+		entry.Label = entry.Key
+		out = append(out, entry)
 	}
 	return out, rows.Err()
 }
