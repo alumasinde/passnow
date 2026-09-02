@@ -94,7 +94,10 @@ func (h *Handler) SetRolePermissions(w http.ResponseWriter,r *http.Request){
 	var in setPermissionsInput
 	if !httpx.DecodeJSON(w,r,&in){return}
 	if err:=h.repo.SetRolePermissions(r.Context(),roleID,in.PermissionCodes);err!=nil {httpx.WriteError(w,httpx.ErrNotFound);return}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"role_id": roleID,
+		"permission_codes": in.PermissionCodes,
+	})
 }
 
 type membershipDTO struct {
