@@ -19,6 +19,14 @@ func (h *VisitTypeHandler) List(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, dtos)
 }
 
+func (h *VisitTypeHandler) Get(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id < 1 { httpx.WriteError(w, httpx.ErrNotFound); return }
+	t, err := h.repo.ByID(r.Context(), id)
+	if err != nil { httpx.WriteError(w, httpx.ErrNotFound); return }
+	httpx.WriteJSON(w, http.StatusOK, VisitTypeToDTO(t))
+}
+
 func (h *VisitTypeHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var in VisitTypeInput
 	if !httpx.DecodeJSON(w, r, &in) { return }
