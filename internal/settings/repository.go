@@ -9,6 +9,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"strconv"
+	"strings"
 )
 
 var ErrNotFound = errors.New("settings: not found")
@@ -39,26 +41,29 @@ func (r *Repository) Get(ctx context.Context, key string) (json.RawMessage, erro
 
 func (r *Repository) GetBool(ctx context.Context, key string, fallback bool) bool {
 	raw, err := r.Get(ctx, key)
-	if err != nil {
-		return fallback
-	}
+	if err != nil || len(raw) == 0 { return fallback }
 	var v bool
-	if err := json.Unmarshal(raw, &v); err != nil {
-		return fallback
-	}
-	return v
+	if err := json.Unmarshal(raw, &v); err == nil { return v }
+	// Be tolerant of legacy/manual SQL values stored without JSON quoting.
+	s := strings.Trim(strings.TrimSpace(string(raw)), "\\\"")
+	if parsed, err := strconv.ParseBool(s); err == nil { return parsed }
+	if s == "1" { return true }
+	if s == "0" { return false }
+	return fallback
 }
 
 func (r *Repository) GetString(ctx context.Context, key string, fallback string) string {
 	raw, err := r.Get(ctx, key)
-	if err != nil {
-		return fallback
-	}
+	if err != nil || len(raw) == 0 { return fallback }
 	var v string
-	if err := json.Unmarshal(raw, &v); err != nil {
-		return fallback
+	if err := json.Unmarshal(raw, &v); err == nil {
+		v = strings.TrimSpace(v)
+		if v != "" { return v }
 	}
-	return v
+	// Be tolerant of legacy/manual SQL values stored without JSON quoting.
+	v = strings.Trim(strings.TrimSpace(string(raw)), "\\\"")
+	if v != "" && v != "null" { return v }
+	return fallback
 }
 
 // Set upserts a key's value. updatedBy is the acting user's ID.
