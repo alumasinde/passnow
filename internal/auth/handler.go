@@ -149,3 +149,19 @@ func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.WriteJSON(w,http.StatusOK,map[string]any{"message":"Password changed successfully"})
 }
+
+
+type updateProfileRequest struct { FirstName string `json:"first_name"`; LastName string `json:"last_name"` }
+func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
+	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w,httpx.ErrAuthRequired); return }
+	u, err := h.svc.users.ByID(r.Context(),claims.UserID); if err != nil { httpx.WriteError(w,httpx.ErrAuthRequired); return }
+	httpx.WriteJSON(w,http.StatusOK,users.ToDTO(u))
+}
+func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w,httpx.ErrAuthRequired); return }
+	var req updateProfileRequest; if !httpx.DecodeJSON(w,r,&req){return}
+	u, err := h.svc.UpdateProfile(r.Context(),claims.UserID,req.FirstName,req.LastName); if err != nil {
+		httpx.WriteError(w,httpx.ErrValidation.WithMessage("first_name and last_name are required")); return
+	}
+	httpx.WriteJSON(w,http.StatusOK,users.ToDTO(u))
+}
