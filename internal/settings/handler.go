@@ -7,10 +7,6 @@ import (
 	"gatepass/internal/reqctx"
 )
 
-// VisitorSettingsHandler exposes the visitor-related Platform Admin
-// toggles. As more settings are added (per module), follow this same
-// pattern: one small typed request/response struct per settings group,
-// backed by the same generic key/value repository.
 type VisitorSettingsHandler struct {
 	repo *Repository
 }
@@ -24,18 +20,16 @@ type visitorSettingsDTO struct {
 }
 
 func (h *VisitorSettingsHandler) Get(w http.ResponseWriter, r *http.Request) {
-	tenant, ok := reqctx.TenantFromContext(r.Context())
-	if !ok {
+	if _, ok := reqctx.TenantFromContext(r.Context()); !ok {
 		httpx.WriteError(w, httpx.ErrAuthRequired)
 		return
 	}
-	allowed := h.repo.GetBool(r.Context(), tenant.ID, KeyVisitorsAllowPreRegistration, false)
+	allowed := h.repo.GetBool(r.Context(), KeyVisitorsAllowPreRegistration, false)
 	httpx.WriteJSON(w, http.StatusOK, visitorSettingsDTO{AllowPreRegistration: allowed})
 }
 
 func (h *VisitorSettingsHandler) Update(w http.ResponseWriter, r *http.Request) {
-	tenant, ok := reqctx.TenantFromContext(r.Context())
-	if !ok {
+	if _, ok := reqctx.TenantFromContext(r.Context()); !ok {
 		httpx.WriteError(w, httpx.ErrAuthRequired)
 		return
 	}
@@ -50,7 +44,7 @@ func (h *VisitorSettingsHandler) Update(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := h.repo.Set(r.Context(), tenant.ID, KeyVisitorsAllowPreRegistration, in.AllowPreRegistration, claims.UserID); err != nil {
+	if err := h.repo.Set(r.Context(), KeyVisitorsAllowPreRegistration, in.AllowPreRegistration, claims.UserID); err != nil {
 		httpx.WriteError(w, httpx.ErrInternal)
 		return
 	}
