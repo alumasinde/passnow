@@ -103,6 +103,36 @@ func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, ac
 	return s.repo.ByID(ctx, id)
 }
 
+func (s *Service) Details(ctx context.Context, tenantID int64, g *Gatepass) DTO {
+	d := ToDTO(g)
+	if t, err := s.types.ByID(ctx, g.GatepassTypeID); err == nil {
+		d.GatepassTypeName = t.Name
+		d.Direction = string(t.Direction)
+	}
+	if g.DepartmentID != nil {
+		if dept, err := s.deptRepo.ByID(ctx, *g.DepartmentID); err == nil { d.DepartmentName = dept.Name }
+	}
+	if g.RequesterType == RequesterVisitor && g.RequesterVisitorID != nil {
+		if v, err := s.visitorRepo.ByID(ctx, *g.RequesterVisitorID); err == nil {
+			d.RequesterName = v.FullName(); d.SubjectName = d.RequesterName
+		}
+	}
+	if g.RequesterType == RequesterEmployee && g.RequesterUserID != nil {
+		if u, err := s.userRepo.ByID(ctx, *g.RequesterUserID); err == nil {
+			d.RequesterName = u.FullName(); d.SubjectName = d.RequesterName
+		}
+	}
+	if d.SubjectName == "" { d.SubjectName = d.RequesterName }
+	if items, err := s.Items(ctx, tenantID, g.ID); err == nil { d.Items = items }
+	if steps, err := s.ApprovalSteps(ctx, tenantID, g.ID); err == nil {
+		d.Approvals = make([]ApprovalStepDTO, 0, len(steps))
+		for _, step := range steps {
+			d.Approvals = append(d.Approvals, ApprovalStepDTO{StepOrder: step.StepOrder, Label: step.Label, Status: step.Status, ActedBy: step.ActedBy, Comments: step.Comments})
+		}
+	}
+	return d
+}
+
 func (s *Service) Get(ctx context.Context, tenantID, id int64) (*Gatepass, error) { return s.repo.ByID(ctx, id) }
 func (s *Service) List(ctx context.Context, tenantID int64, f ListFilter, p httpx.Pagination) ([]Gatepass, int, error) { return s.repo.List(ctx, f, p) }
 func (s *Service) Items(ctx context.Context, tenantID, gatepassID int64) ([]ItemDTO, error) { return s.repo.items.ListForGatepass(ctx, gatepassID) }
