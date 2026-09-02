@@ -8,7 +8,7 @@ $record=[];$error=null;
 
 if($token!==''){
  try{
-  $payload=Auth::api(App::api(),'GET','/api/v1/gatepasses/qr/'.rawurlencode($token));
+  $payload=Auth::api(App::api(),'GET','/api/v1/gatepasses/qr/token/'.rawurlencode($token));
   $record=apiValue($payload,'gatepass',$payload['data']??$payload);
   if(!is_array($record))$record=[];
  }catch(ApiException $e){$error=$e->getMessage();}
