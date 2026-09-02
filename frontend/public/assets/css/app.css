@@ -120,3 +120,26 @@ body.modal-open{overflow:hidden}
 .theme-preview-sidebar{padding:18px 12px;background:var(--preview-sidebar-bg);color:var(--preview-sidebar-text);display:grid;align-content:start;gap:6px}.theme-preview-brand{font-weight:800;padding:5px 8px 15px;color:var(--preview-sidebar-text)}.theme-preview-sidebar span{padding:9px 10px;border-radius:8px;font-size:12px;font-weight:650}.theme-preview-sidebar span.active{background:var(--preview-active-bg);color:var(--preview-active-text)}
 .theme-preview-main{padding:22px;display:grid;place-items:center}.theme-preview-card{width:min(100%,320px);padding:22px;border-radius:12px;background:#fff;box-shadow:0 8px 22px rgba(16,24,40,.08)}.theme-preview-card small{display:block;color:#667085;margin-bottom:12px}.theme-preview-card button{border:0;border-radius:8px;padding:10px 14px;background:var(--preview-primary);color:#fff;font-weight:750}
 .theme-dark .content-card,.theme-dark .settings-card,.theme-dark .dashboard-widget,.theme-dark .modal,.theme-dark .dropdown{background:var(--color-surface);color:var(--color-text)}.theme-dark .data-table th,.theme-dark .data-table tbody tr:hover,.theme-dark .dashboard-bar-track,.theme-dark .dashboard-progress{background:#1d2939}.theme-dark .settings-card,.theme-dark .permission-item,.theme-dark .dashboard-action{border-color:var(--color-border);background:var(--color-surface)}.theme-dark .dashboard-breakdown-top span,.theme-dark .detail-note p{color:#d0d5dd}.theme-dark .detail-note{background:#1d2939}
+
+
+/* Phase 5 layout: collapsible sidebar and sticky application footer */
+:root{--sidebar-collapsed-width:78px}
+.app-main{min-height:100vh;display:flex;flex-direction:column}
+.page-content{flex:1;width:100%}
+.footer{margin-top:auto;padding:20px 30px;border-top:1px solid var(--color-border);background:var(--color-surface)}
+.topbar-left{display:flex;align-items:center;gap:12px}.sidebar-toggle{width:36px;height:36px;display:inline-grid;place-items:center;border-radius:9px}.sidebar-toggle:hover{background:color-mix(in srgb,var(--color-text) 7%,transparent)}
+.sidebar-backdrop{display:none}
+body.sidebar-collapsed .sidebar{width:var(--sidebar-collapsed-width);padding-left:10px;padding-right:10px}
+body.sidebar-collapsed .app-main{margin-left:var(--sidebar-collapsed-width)}
+body.sidebar-collapsed .brand{justify-content:center;padding-left:0;padding-right:0}
+body.sidebar-collapsed .brand-name,body.sidebar-collapsed .nav-item span,body.sidebar-collapsed .sidebar-status{display:none}
+body.sidebar-collapsed .nav-item{justify-content:center;padding-left:10px;padding-right:10px}
+body.sidebar-collapsed .nav-item i{width:auto}
+
+/* Phase 5 media library */
+.media-upload-card{margin-bottom:18px}.media-library{overflow:hidden}.media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;padding:20px}
+.media-card{border:1px solid var(--color-border);border-radius:12px;overflow:hidden;background:var(--color-surface);display:flex;flex-direction:column;min-width:0}
+.media-thumb{display:grid;place-items:center;height:160px;background:color-mix(in srgb,var(--color-muted) 8%,transparent);overflow:hidden}.media-thumb img{width:100%;height:100%;object-fit:contain}
+.media-meta{padding:12px 13px 8px;display:grid;gap:4px;min-width:0}.media-meta strong{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.media-meta small{font-size:11px;color:var(--color-muted)}
+.media-actions{margin-top:auto;display:flex;gap:8px;padding:10px 12px 12px}.media-actions form{flex:1}.media-actions .btn{width:100%}.btn-sm{padding:8px 10px;font-size:12px}.btn-danger{background:#fef3f2;border-color:#fecdca;color:#b42318}.btn-danger:hover{background:#fee4e2}
+.empty-state{min-height:230px;padding:30px;display:grid;place-items:center;align-content:center;gap:9px;color:var(--color-muted);text-align:center}.empty-state i{font-size:30px;color:var(--color-primary)}.empty-state strong{color:var(--color-text)}
