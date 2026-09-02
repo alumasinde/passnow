@@ -48,6 +48,9 @@ var (
 	ErrNotFound = AppError{
 		Code: "not_found", Message: "resource not found", Status: http.StatusNotFound,
 	}
+	ErrConflict = AppError{
+		Code: "conflict", Message: "request conflicts with the current resource state", Status: http.StatusConflict,
+	}
 	ErrInternal = AppError{
 		Code: "internal_error", Message: "something went wrong, please try again", Status: http.StatusInternalServerError,
 	}
