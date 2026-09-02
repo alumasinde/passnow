@@ -16,6 +16,7 @@ final class Auth
         $_SESSION['tenant_slug'] = strtolower(trim((string)($r['tenant_slug'] ?? localTenantSlug())));
         $_SESSION['authenticated_at'] = time();
         $_SESSION['must_change_password'] = !empty($r['must_change_password']);
+        $_SESSION['must_change_password'] = !empty($r['must_change_password']);
     }
 
     public static function platformLogin(ApiClient $api, string $email, string $password): void
