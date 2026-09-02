@@ -43,16 +43,18 @@ func (r *Repository) ByID(ctx context.Context, id int64) (*Employee, error) {
 }
 
 func (r *Repository) List(ctx context.Context, p httpx.Pagination) ([]Employee, int, error) {
+	return r.ListScoped(ctx, p, nil)
+}
+
+func (r *Repository) ListScoped(ctx context.Context, p httpx.Pagination, departmentID *int64) ([]Employee, int, error) {
 	var total int
 	if err := r.db.QueryRowContext(ctx,
-		"SELECT COUNT(*) FROM employees WHERE deleted_at IS NULL",
-	).Scan(&total); err != nil {
+		"SELECT COUNT(*) FROM employees WHERE deleted_at IS NULL" + func() string { if departmentID != nil { return " AND department_id = ?" }; return "" }(), func() []any { if departmentID != nil { return []any{*departmentID} }; return nil }()...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
 	rows, err := r.db.QueryContext(ctx,
-		"SELECT "+cols+" FROM employees WHERE deleted_at IS NULL ORDER BY employee_number LIMIT ? OFFSET ?",
-		p.Limit, p.Offset)
+		"SELECT "+cols+" FROM employees WHERE deleted_at IS NULL" + func() string { if departmentID != nil { return " AND department_id = ?" }; return "" }() + " ORDER BY employee_number LIMIT ? OFFSET ?", func() []any { if departmentID != nil { return []any{*departmentID,p.Limit,p.Offset} }; return []any{p.Limit,p.Offset} }()...)
 	if err != nil {
 		return nil, 0, err
 	}
