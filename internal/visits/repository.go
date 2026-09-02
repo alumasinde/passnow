@@ -29,7 +29,7 @@ func NewRepository(db *sql.DB) *Repository {
 }
 
 const selectCols = `
-	id, tenant_id, visitor_id, visit_type_id, department_id, host_name,
+	id, visitor_id, visit_type_id, department_id, host_name,
 	purpose, expected_time, status, badge_number, badge_token,
 	checked_in_at, checked_in_by, checked_out_at, checked_out_by,
 	cancelled_at, cancelled_by, cancel_reason,
@@ -39,7 +39,7 @@ const selectCols = `
 func (r *Repository) scan(row interface{ Scan(dest ...any) error }) (*Visit, error) {
 	var v Visit
 	if err := row.Scan(
-		&v.ID, &v.TenantID, &v.VisitorID, &v.VisitTypeID, &v.DepartmentID, &v.HostName,
+		&v.ID, &v.VisitorID, &v.VisitTypeID, &v.DepartmentID, &v.HostName,
 		&v.Purpose, &v.ExpectedTime, &v.Status, &v.BadgeNumber, &v.BadgeToken,
 		&v.CheckedInAt, &v.CheckedInBy, &v.CheckedOutAt, &v.CheckedOutBy,
 		&v.CancelledAt, &v.CancelledBy, &v.CancelReason,
@@ -53,19 +53,13 @@ func (r *Repository) scan(row interface{ Scan(dest ...any) error }) (*Visit, err
 	return &v, nil
 }
 
-func (r *Repository) ByID(ctx context.Context, tenantID, id int64) (*Visit, error) {
+func (r *Repository) ByID(ctx context.Context, id int64) (*Visit, error) {
 	row := r.db.QueryRowContext(ctx,
-		"SELECT "+selectCols+" FROM visits WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL LIMIT 1",
-		id, tenantID)
+		"SELECT "+selectCols+" FROM visits WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+		id)
 	return r.scan(row)
 }
 
-// ByBadgeToken looks up a visit by its opaque badge token — used by the
-// door/security scan endpoint. Deliberately does NOT take tenant_id as a
-// filter parameter from the caller for the lookup itself (the token is
-// globally unique), but the handler still confirms the resolved request
-// tenant matches the visit's tenant before returning anything, so a badge
-// scanned at the wrong tenant's gate is rejected.
 func (r *Repository) ByBadgeToken(ctx context.Context, token string) (*Visit, error) {
 	row := r.db.QueryRowContext(ctx,
 		"SELECT "+selectCols+" FROM visits WHERE badge_token = ? AND deleted_at IS NULL LIMIT 1", token)
@@ -77,9 +71,9 @@ type ListFilter struct {
 	VisitorID *int64
 }
 
-func (r *Repository) List(ctx context.Context, tenantID int64, f ListFilter, p httpx.Pagination) ([]Visit, int, error) {
-	where := "WHERE tenant_id = ? AND deleted_at IS NULL"
-	args := []any{tenantID}
+func (r *Repository) List(ctx context.Context, f ListFilter, p httpx.Pagination) ([]Visit, int, error) {
+	where := "WHERE deleted_at IS NULL"
+	args := []any{}
 	if f.Status != nil {
 		where += " AND status = ?"
 		args = append(args, *f.Status)
@@ -116,10 +110,10 @@ func (r *Repository) List(ctx context.Context, tenantID int64, f ListFilter, p h
 func (r *Repository) Create(ctx context.Context, v *Visit) (int64, error) {
 	res, err := r.db.ExecContext(ctx, `
 		INSERT INTO visits
-			(tenant_id, visitor_id, visit_type_id, department_id, host_name,
+			(visitor_id, visit_type_id, department_id, host_name,
 			 purpose, expected_time, status, created_by, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-		v.TenantID, v.VisitorID, v.VisitTypeID, v.DepartmentID, v.HostName,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+		v.VisitorID, v.VisitTypeID, v.DepartmentID, v.HostName,
 		v.Purpose, v.ExpectedTime, v.Status, v.CreatedBy,
 	)
 	if err != nil {
@@ -128,12 +122,7 @@ func (r *Repository) Create(ctx context.Context, v *Visit) (int64, error) {
 	return res.LastInsertId()
 }
 
-// CheckIn atomically: row-locks the visit, verifies it's still in a
-// checkinable state (guards against a double check-in race — two guards
-// tapping the same visit within milliseconds), generates a badge number +
-// token via the numbering package (itself concurrency-safe), and commits
-// everything together.
-func (r *Repository) CheckIn(ctx context.Context, tenantID, id, actorUserID int64) (*Visit, error) {
+func (r *Repository) CheckIn(ctx context.Context, id, actorUserID int64) (*Visit, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -142,8 +131,8 @@ func (r *Repository) CheckIn(ctx context.Context, tenantID, id, actorUserID int6
 
 	var status Status
 	err = tx.QueryRowContext(ctx,
-		`SELECT status FROM visits WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL FOR UPDATE`,
-		id, tenantID,
+		`SELECT status FROM visits WHERE id = ? AND deleted_at IS NULL FOR UPDATE`,
+		id,
 	).Scan(&status)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -156,7 +145,7 @@ func (r *Repository) CheckIn(ctx context.Context, tenantID, id, actorUserID int6
 	}
 
 	period := time.Now().UTC().Format("2006")
-	seq, err := numbering.Next(ctx, tx, tenantID, badgeSequenceScope, period)
+	seq, err := numbering.Next(ctx, tx, badgeSequenceScope, period)
 	if err != nil {
 		return nil, err
 	}
@@ -169,8 +158,8 @@ func (r *Repository) CheckIn(ctx context.Context, tenantID, id, actorUserID int6
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE visits SET status = 'checked_in', badge_number = ?, badge_token = ?,
 			checked_in_at = NOW(), checked_in_by = ?, updated_at = NOW()
-		WHERE id = ? AND tenant_id = ?`,
-		badgeNumber, badgeToken, actorUserID, id, tenantID,
+		WHERE id = ? AND deleted_at IS NULL`,
+		badgeNumber, badgeToken, actorUserID, id,
 	); err != nil {
 		return nil, err
 	}
@@ -178,10 +167,10 @@ func (r *Repository) CheckIn(ctx context.Context, tenantID, id, actorUserID int6
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	return r.ByID(ctx, tenantID, id)
+	return r.ByID(ctx, id)
 }
 
-func (r *Repository) CheckOut(ctx context.Context, tenantID, id, actorUserID int64) (*Visit, error) {
+func (r *Repository) CheckOut(ctx context.Context, id, actorUserID int64) (*Visit, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -190,8 +179,8 @@ func (r *Repository) CheckOut(ctx context.Context, tenantID, id, actorUserID int
 
 	var status Status
 	err = tx.QueryRowContext(ctx,
-		`SELECT status FROM visits WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL FOR UPDATE`,
-		id, tenantID,
+		`SELECT status FROM visits WHERE id = ? AND deleted_at IS NULL FOR UPDATE`,
+		id,
 	).Scan(&status)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -205,8 +194,8 @@ func (r *Repository) CheckOut(ctx context.Context, tenantID, id, actorUserID int
 
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE visits SET status = 'checked_out', checked_out_at = NOW(), checked_out_by = ?, updated_at = NOW()
-		WHERE id = ? AND tenant_id = ?`,
-		actorUserID, id, tenantID,
+		WHERE id = ? AND deleted_at IS NULL`,
+		actorUserID, id,
 	); err != nil {
 		return nil, err
 	}
@@ -214,10 +203,10 @@ func (r *Repository) CheckOut(ctx context.Context, tenantID, id, actorUserID int
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	return r.ByID(ctx, tenantID, id)
+	return r.ByID(ctx, id)
 }
 
-func (r *Repository) Cancel(ctx context.Context, tenantID, id, actorUserID int64, reason string) (*Visit, error) {
+func (r *Repository) Cancel(ctx context.Context, id, actorUserID int64, reason string) (*Visit, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -226,8 +215,8 @@ func (r *Repository) Cancel(ctx context.Context, tenantID, id, actorUserID int64
 
 	var status Status
 	err = tx.QueryRowContext(ctx,
-		`SELECT status FROM visits WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL FOR UPDATE`,
-		id, tenantID,
+		`SELECT status FROM visits WHERE id = ? AND deleted_at IS NULL FOR UPDATE`,
+		id,
 	).Scan(&status)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -241,8 +230,8 @@ func (r *Repository) Cancel(ctx context.Context, tenantID, id, actorUserID int64
 
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE visits SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = ?, cancel_reason = ?, updated_at = NOW()
-		WHERE id = ? AND tenant_id = ?`,
-		actorUserID, reason, id, tenantID,
+		WHERE id = ? AND deleted_at IS NULL`,
+		actorUserID, reason, id,
 	); err != nil {
 		return nil, err
 	}
@@ -250,7 +239,7 @@ func (r *Repository) Cancel(ctx context.Context, tenantID, id, actorUserID int64
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	return r.ByID(ctx, tenantID, id)
+	return r.ByID(ctx, id)
 }
 
 func randomToken() (string, error) {
