@@ -20,16 +20,15 @@ func NewHandler(svc *Service, types *TypeRepository) *Handler {
 	return &Handler{svc: svc, types: types}
 }
 
-// --- Gatepass types (Platform Admin config) ------------------------------
+// --- Gatepass types (tenant-local configuration) -------------------------
 
 func (h *Handler) ListTypes(w http.ResponseWriter, r *http.Request) {
-	tenant, ok := reqctx.TenantFromContext(r.Context())
-	if !ok {
+	if _, ok := reqctx.TenantFromContext(r.Context()); !ok {
 		httpx.WriteError(w, httpx.ErrAuthRequired)
 		return
 	}
 	activeOnly := r.URL.Query().Get("all") != "true"
-	items, err := h.types.List(r.Context(), tenant.ID, activeOnly)
+	items, err := h.types.List(r.Context(), activeOnly)
 	if err != nil {
 		httpx.WriteError(w, httpx.ErrInternal)
 		return
@@ -42,8 +41,7 @@ func (h *Handler) ListTypes(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateType(w http.ResponseWriter, r *http.Request) {
-	tenant, ok := reqctx.TenantFromContext(r.Context())
-	if !ok {
+	if _, ok := reqctx.TenantFromContext(r.Context()); !ok {
 		httpx.WriteError(w, httpx.ErrAuthRequired)
 		return
 	}
@@ -63,18 +61,21 @@ func (h *Handler) CreateType(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrValidation.WithMessage("workflow_id is required when requires_approval is true"))
 		return
 	}
-	id, err := h.types.Create(r.Context(), tenant.ID, in)
+	id, err := h.types.Create(r.Context(), in)
 	if err != nil {
 		httpx.WriteError(w, httpx.ErrInternal)
 		return
 	}
-	t, _ := h.types.ByID(r.Context(), tenant.ID, id)
+	t, err := h.types.ByID(r.Context(), id)
+	if err != nil {
+		httpx.WriteError(w, httpx.ErrInternal)
+		return
+	}
 	httpx.WriteJSON(w, http.StatusCreated, TypeToDTO(t))
 }
 
 func (h *Handler) UpdateType(w http.ResponseWriter, r *http.Request) {
-	tenant, ok := reqctx.TenantFromContext(r.Context())
-	if !ok {
+	if _, ok := reqctx.TenantFromContext(r.Context()); !ok {
 		httpx.WriteError(w, httpx.ErrAuthRequired)
 		return
 	}
@@ -87,15 +88,17 @@ func (h *Handler) UpdateType(w http.ResponseWriter, r *http.Request) {
 	if !httpx.DecodeJSON(w, r, &in) {
 		return
 	}
-	if err := h.types.Update(r.Context(), tenant.ID, id, in); err != nil {
+	if err := h.types.Update(r.Context(), id, in); err != nil {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
-	t, _ := h.types.ByID(r.Context(), tenant.ID, id)
+	t, err := h.types.ByID(r.Context(), id)
+	if err != nil {
+		httpx.WriteError(w, httpx.ErrInternal)
+		return
+	}
 	httpx.WriteJSON(w, http.StatusOK, TypeToDTO(t))
 }
-
-// --- Gatepasses -----------------------------------------------------------
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	tenant, ok := reqctx.TenantFromContext(r.Context())
@@ -116,7 +119,6 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrValidation.WithMessage("gatepass_type_id and requester_type are required"))
 		return
 	}
-
 	g, err := h.svc.Create(r.Context(), tenant.ID, in, claims.UserID)
 	if err != nil {
 		writeServiceError(w, err)
@@ -196,7 +198,6 @@ func (h *Handler) act(w http.ResponseWriter, r *http.Request, approve bool) {
 	if !httpx.DecodeJSON(w, r, &in) {
 		return
 	}
-
 	g, err := h.svc.Act(r.Context(), tenant.ID, gatepassID, stepID, claims.UserID, approve, in.Comments)
 	if err != nil {
 		writeServiceError(w, err)
@@ -221,12 +222,10 @@ func (h *Handler) CheckOut(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
-
 	var in MovementInput
 	if !httpx.DecodeJSON(w, r, &in) {
 		return
 	}
-
 	g, err := h.svc.CheckOutMovement(r.Context(), tenant.ID, id, claims.UserID, in)
 	if err != nil {
 		writeMovementError(w, err)
@@ -251,12 +250,10 @@ func (h *Handler) CheckIn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
-
 	var in MovementInput
 	if !httpx.DecodeJSON(w, r, &in) {
 		return
 	}
-
 	g, err := h.svc.CheckInMovement(r.Context(), tenant.ID, id, claims.UserID, in)
 	if err != nil {
 		writeMovementError(w, err)
@@ -316,8 +313,6 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, withDetails(r, h.svc, tenant.ID, g))
 }
 
-// --- QR ------------------------------------------------------------------
-
 func (h *Handler) QRLookup(w http.ResponseWriter, r *http.Request) {
 	tenant, ok := reqctx.TenantFromContext(r.Context())
 	if !ok {
@@ -333,8 +328,6 @@ func (h *Handler) QRLookup(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, dto)
 }
 
-// QRImage renders the gatepass's QR code as a PNG, encoding a verification
-// URL/token payload — this is what gets printed on the physical pass.
 func (h *Handler) QRImage(w http.ResponseWriter, r *http.Request) {
 	tenant, ok := reqctx.TenantFromContext(r.Context())
 	if !ok {
@@ -351,18 +344,15 @@ func (h *Handler) QRImage(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
-
 	png, err := qrcode.Encode(token, qrcode.Medium, 320)
 	if err != nil {
 		httpx.WriteError(w, httpx.ErrInternal)
 		return
 	}
 	w.Header().Set("Content-Type", "image/png")
-	w.Header().Set("Cache-Control", "no-store") // token is a bearer-style credential, don't let it linger in caches
+	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write(png)
 }
-
-// --- Approval work queue --------------------------------------------------
 
 type pendingApprovalDTO struct {
 	GatepassID    int64   `json:"gatepass_id"`
@@ -375,10 +365,6 @@ type pendingApprovalDTO struct {
 	CreatedAt     string  `json:"created_at"`
 }
 
-// MyPendingApprovals is the approver's work queue: every gatepass whose
-// current step is theirs to act on right now. This is what makes approval
-// usable day to day — without it, an approver has no way to discover what
-// needs them short of being told a gatepass ID directly.
 func (h *Handler) MyPendingApprovals(w http.ResponseWriter, r *http.Request) {
 	tenant, ok := reqctx.TenantFromContext(r.Context())
 	if !ok {
@@ -406,44 +392,32 @@ func (h *Handler) MyPendingApprovals(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, out)
 }
 
-// --- helpers --------------------------------------------------------------
-
 func parseIDParam(r *http.Request) (int64, error) {
 	return strconv.ParseInt(r.PathValue("id"), 10, 64)
 }
 
-func withDetails(r *http.Request, svc *Service, tenantID int64, g *Gatepass) DTO {
-	dto := ToDTO(g)
-	if items, err := svc.Items(r.Context(), tenantID, g.ID); err == nil {
-		dto.Items = items
+func writeServiceError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, ErrInvalidType), errors.Is(err, ErrInvalidDepartment), errors.Is(err, ErrInvalidVisitor),
+		errors.Is(err, ErrInvalidVisit), errors.Is(err, ErrInvalidRequesterType), errors.Is(err, ErrVisitorIDRequired),
+		errors.Is(err, ErrApprovalMisconfigured), errors.Is(err, ErrItemsRequired), errors.Is(err, ErrReturnDateRequired),
+		errors.Is(err, ErrReturnabilityPolicy), errors.Is(err, ErrInvalidItem), errors.Is(err, ErrItemDirectionMismatch):
+		httpx.WriteError(w, httpx.ErrValidation.WithMessage(err.Error()))
+	case errors.Is(err, ErrNotEligibleApprover):
+		httpx.WriteError(w, httpx.ErrForbidden)
+	case errors.Is(err, ErrNotFound):
+		httpx.WriteError(w, httpx.ErrNotFound)
+	case errors.Is(err, ErrInvalidTransition):
+		httpx.WriteError(w, httpx.ErrConflict.WithMessage(err.Error()))
+	default:
+		httpx.WriteError(w, httpx.ErrInternal)
 	}
-	if steps, err := svc.ApprovalSteps(r.Context(), tenantID, g.ID); err == nil {
-		for _, s := range steps {
-			dto.Approvals = append(dto.Approvals, ApprovalStepDTO{
-				StepOrder: s.StepOrder, Label: s.Label, Status: s.Status, ActedBy: s.ActedBy, Comments: s.Comments,
-			})
-		}
-	}
-	if movements, err := svc.Movements(r.Context(), tenantID, g.ID); err == nil {
-		dto.Movements = movements
-	}
-	return dto
 }
 
 func writeMovementError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, ErrMovementInvalid):
+	case errors.Is(err, ErrMovementInvalid), errors.Is(err, ErrMovementNotAllowed), errors.Is(err, ErrReturnItemInvalid), errors.Is(err, ErrReturnQuantityExceeded):
 		httpx.WriteError(w, httpx.ErrValidation.WithMessage(err.Error()))
-	case errors.Is(err, ErrMovementNotAllowed):
-		httpx.WriteError(w, httpx.AppError{Code: "movement_not_allowed", Message: "this gatepass cannot be moved in its current state", Status: http.StatusConflict})
-	case errors.Is(err, ErrReturnQuantityExceeded):
-		httpx.WriteError(w, httpx.ErrValidation.WithMessage("return quantity exceeds the outstanding quantity"))
-	case errors.Is(err, ErrReturnItemInvalid):
-		httpx.WriteError(w, httpx.ErrValidation.WithMessage("return item does not belong to this gatepass"))
-	case errors.Is(err, ErrFullReturnWithItems):
-		httpx.WriteError(w, httpx.ErrValidation.WithMessage("full_return cannot be combined with item quantities"))
-	case errors.Is(err, ErrInvalidType):
-		httpx.WriteError(w, httpx.ErrValidation.WithMessage("gatepass_type_id is invalid or inactive"))
 	case errors.Is(err, ErrNotFound):
 		httpx.WriteError(w, httpx.ErrNotFound)
 	default:
@@ -451,43 +425,6 @@ func writeMovementError(w http.ResponseWriter, err error) {
 	}
 }
 
-func writeServiceError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, ErrNotFound):
-		httpx.WriteError(w, httpx.ErrNotFound)
-	case errors.Is(err, ErrInvalidType):
-		httpx.WriteError(w, httpx.ErrValidation.WithMessage("gatepass_type_id is invalid or inactive"))
-	case errors.Is(err, ErrInvalidDepartment):
-		httpx.WriteError(w, httpx.ErrValidation.WithMessage("department_id is invalid or inactive"))
-	case errors.Is(err, ErrInvalidVisitor):
-		httpx.WriteError(w, httpx.ErrValidation.WithMessage("requester_visitor_id is invalid"))
-	case errors.Is(err, ErrVisitorBlacklisted):
-		httpx.WriteError(w, httpx.AppError{Code: "visitor_blacklisted", Message: "this visitor is blacklisted", Status: http.StatusForbidden})
-	case errors.Is(err, ErrInvalidVisit):
-		httpx.WriteError(w, httpx.ErrValidation.WithMessage("visit_id is invalid"))
-	case errors.Is(err, ErrInvalidRequesterType):
-		httpx.WriteError(w, httpx.ErrValidation.WithMessage("requester_type must be 'employee' or 'visitor'"))
-	case errors.Is(err, ErrVisitorIDRequired):
-		httpx.WriteError(w, httpx.ErrValidation.WithMessage("requester_visitor_id is required when requester_type is 'visitor'"))
-	case errors.Is(err, ErrApprovalMisconfigured):
-		httpx.WriteError(w, httpx.AppError{Code: "approval_misconfigured", Message: "this gatepass type requires approval but has no workflow configured — contact an admin", Status: http.StatusConflict})
-	case errors.Is(err, ErrItemsRequired):
-		httpx.WriteError(w, httpx.ErrValidation.WithMessage("this gatepass type requires at least one item"))
-	case errors.Is(err, ErrReturnabilityPolicy):
-		httpx.WriteError(w, httpx.ErrValidation.WithMessage("is_returnable conflicts with the gatepass type returnability policy"))
-	case errors.Is(err, ErrInvalidItem):
-		httpx.WriteError(w, httpx.ErrValidation.WithMessage("each item requires a name, quantity greater than zero, and a valid direction"))
-	case errors.Is(err, ErrItemDirectionMismatch):
-		httpx.WriteError(w, httpx.ErrValidation.WithMessage("item direction conflicts with the gatepass type direction"))
-	case errors.Is(err, ErrReturnDateRequired):
-		httpx.WriteError(w, httpx.ErrValidation.WithMessage("expected_return_at is required when is_returnable is set"))
-	case errors.Is(err, ErrNotEligibleApprover):
-		httpx.WriteError(w, httpx.AppError{Code: "not_eligible_approver", Message: "you are not the eligible approver for this step", Status: http.StatusForbidden})
-	case errors.Is(err, ErrInvalidTransition):
-		httpx.WriteError(w, httpx.AppError{Code: "invalid_transition", Message: "this action is not valid for the gatepass's current status", Status: http.StatusConflict})
-	case errors.Is(err, ErrDuplicatePassNumber):
-		httpx.WriteError(w, httpx.ErrInternal)
-	default:
-		httpx.WriteError(w, httpx.ErrInternal)
-	}
+func withDetails(r *http.Request, svc *Service, tenantID int64, g *Gatepass) DTO {
+	return ToDTO(g)
 }
