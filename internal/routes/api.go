@@ -82,7 +82,6 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("POST /api/v1/auth/change-password", middleware.Authenticated(api.JWTSecret, api.AuthHandler.ChangePassword))
 	mux.Handle("GET /api/v1/auth/me", middleware.Authenticated(api.JWTSecret, api.AuthHandler.Me))
 	mux.Handle("PATCH /api/v1/auth/me", middleware.Authenticated(api.JWTSecret, api.AuthHandler.UpdateProfile))
-	mux.Handle("POST /api/v1/auth/change-password", middleware.Authenticated(api.JWTSecret, api.AuthHandler.ChangePassword))
 
 	// --- visitors ---
 	mux.Handle("POST /api/v1/visitors", protected("visitors.create", api.VisitorHandler.Create))
@@ -161,7 +160,6 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("POST /api/v1/roles", protected("settings.roles", api.RoleHandler.CreateRole))
 	mux.Handle("PUT /api/v1/roles/{id}/permissions", protected("settings.permissions", api.RoleHandler.SetRolePermissions))
 	mux.Handle("GET /api/v1/users", protected("settings.users", api.RoleHandler.ListUsers))
-	mux.Handle("POST /api/v1/users", protected("settings.users", api.InviteHandler.CreateUser))
 	mux.Handle("POST /api/v1/users", protected("settings.users", api.InviteHandler.CreateUser))
 	mux.Handle("POST /api/v1/users/invite", protected("settings.users", api.InviteHandler.Invite))
 	mux.Handle("PATCH /api/v1/users/memberships/{id}", protected("settings.users", api.RoleHandler.UpdateUserMembership))
