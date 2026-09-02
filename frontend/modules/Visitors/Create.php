@@ -20,6 +20,7 @@ if(requestMethod()==='POST'){
   'id_type_id'=>(int)($_POST['id_type_id']??0),
   'id_number'=>$nullable((string)($_POST['id_number']??'')),
   'company_id'=>(int)($_POST['company_id']??0)?:null,
+  'company_name'=>trim((string)($_POST['company_name']??'')),
   'phone'=>$nullable((string)($_POST['phone']??'')),
   'email'=>$nullable((string)($_POST['email']??'')),
   'notes'=>$nullable((string)($_POST['notes']??'')),
@@ -29,6 +30,12 @@ if(requestMethod()==='POST'){
  if($payload['last_name']==='')$errors[]='Last name is required.';
  if($payload['id_type_id']<1)$errors[]='ID type is required.';
  if(!$errors)try{
+  if ($payload['company_id'] === null && $payload['company_name'] !== '') {
+   $company=Auth::api(App::api(),'POST','/api/v1/visitor-companies',['name'=>$payload['company_name']]);
+   $payload['company_id']=(int)apiValue($company,'id',0) ?: null;
+   if ($payload['company_id'] === null) throw new RuntimeException('Unable to create visitor company.');
+  }
+  unset($payload['company_name']);
   $created=Auth::api(App::api(),'POST','/api/v1/visitors',$payload);
   $id=apiValue($created,'id');flash('success',$payload['pre_register']?'Visitor pre-registered successfully.':'Visitor created successfully.');
   redirect($id?'visitor.php?id='.rawurlencode((string)$id):'visitors.php');
