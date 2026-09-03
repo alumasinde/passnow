@@ -16,7 +16,7 @@ func NewMovementRepository(db *sql.DB) *MovementRepository {
 
 func (r *MovementRepository) List(ctx context.Context, gatepassID int64) ([]MovementDTO, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, type, actor_user_id, gate_name, notes, occurred_at
+		SELECT id, type, actor_user_id, gate_id, gate_name, notes, occurred_at
 		FROM gatepass_movements
 		WHERE gatepass_id = ?
 		ORDER BY occurred_at, id`, gatepassID)
@@ -28,7 +28,7 @@ func (r *MovementRepository) List(ctx context.Context, gatepassID int64) ([]Move
 	var out []MovementDTO
 	for rows.Next() {
 		var m MovementDTO
-		if err := rows.Scan(&m.ID, &m.Type, &m.ActorUserID, &m.GateName, &m.Notes, &m.OccurredAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.Type, &m.ActorUserID, &m.GateID, &m.GateName, &m.Notes, &m.OccurredAt); err != nil {
 			return nil, err
 		}
 		items, err := r.listItems(ctx, m.ID)
@@ -277,9 +277,9 @@ func (r *MovementRepository) lockGatepassItemsWithQuantities(ctx context.Context
 func (r *MovementRepository) insertMovement(ctx context.Context, tx *sql.Tx, gatepassID int64, typ MovementType, actorUserID int64, in MovementInput) (int64, error) {
 	res, err := tx.ExecContext(ctx, `
 		INSERT INTO gatepass_movements
-			(gatepass_id, type, actor_user_id, gate_name, notes, occurred_at, created_at)
+			(gatepass_id, type, actor_user_id, gate_id, gate_name, notes, occurred_at, created_at)
 		VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
-		gatepassID, typ, actorUserID, nullableString(in.GateName), in.Notes)
+		gatepassID, typ, actorUserID, in.GateID, nullableString(in.GateName), in.Notes)
 	if err != nil {
 		return 0, err
 	}
@@ -303,7 +303,7 @@ func (r *MovementRepository) getGatepass(ctx context.Context, id int64) (*Gatepa
 func scanGatepass(row interface{ Scan(dest ...any) error }) (*Gatepass, error) {
 	var g Gatepass
 	if err := row.Scan(
-		&g.ID, &g.GatepassTypeID, &g.PassNumber, &g.DepartmentID,
+		&g.ID, &g.GatepassTypeID, &g.AssignedGateID, &g.PassNumber, &g.DepartmentID,
 		&g.RequesterType, &g.RequesterUserID, &g.RequesterVisitorID, &g.VisitID,
 		&g.Purpose, &g.IsReturnable, &g.ExpectedReturnAt, &g.RequiresApproval, &g.WorkflowID,
 		&g.Status, &g.QRToken, &g.CheckedOutAt, &g.CheckedOutBy, &g.CheckedInAt, &g.CheckedInBy,
