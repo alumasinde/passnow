@@ -29,3 +29,30 @@ func parseIDParam(r *http.Request)(int64,error){id,err:=strconv.ParseInt(r.PathV
 func writeServiceError(w http.ResponseWriter,err error){switch{case errors.Is(err,ErrNotFound),errors.Is(err,ErrIDTypeNotFound),errors.Is(err,ErrCompanyNotFound):httpx.WriteError(w,httpx.ErrNotFound);case errors.Is(err,ErrInvalidIDType):httpx.WriteError(w,httpx.ErrValidation.WithMessage("id_type_id is invalid or inactive"));case errors.Is(err,ErrInvalidCompany):httpx.WriteError(w,httpx.ErrValidation.WithMessage("company_id is invalid or inactive"));case errors.Is(err,ErrIDNumberRequired):httpx.WriteError(w,httpx.ErrValidation.WithMessage("id_number is required for this id type"));case errors.Is(err,ErrDuplicateIDNumber):httpx.WriteError(w,httpx.AppError{Code:"duplicate_id_number",Message:"this ID document is already registered",Status:http.StatusConflict});case errors.Is(err,ErrPreRegistrationDisabled):httpx.WriteError(w,httpx.AppError{Code:"pre_registration_disabled",Message:"pre-registration is not enabled for this tenant",Status:http.StatusForbidden});case errors.Is(err,ErrCompanyNameTaken):httpx.WriteError(w,httpx.AppError{Code:"company_name_taken",Message:"a company with this name already exists",Status:http.StatusConflict});default:httpx.WriteError(w,httpx.ErrInternal)}}
 func(h *Handler)canAccessVisitor(ctx context.Context,v *Visitor)bool{d,ok:=rbac.DecisionFromContext(ctx);if !ok||d.Scope==rbac.ScopeNone||d.Scope==rbac.ScopeAll{return true};if d.Scope!=rbac.ScopeOwn||v.CreatedBy==nil{return false};claims,ok:=reqctx.ClaimsFromContext(ctx);return ok&&*v.CreatedBy==claims.UserID}
 func(h *Handler)IdentityMatches(w http.ResponseWriter,r *http.Request){tenantID,ok:=tenantRequest(w,r);if !ok{return};q:=r.URL.Query();idTypeID,_:=strconv.ParseInt(q.Get("id_type_id"),10,64);idNumber:=strings.TrimSpace(q.Get("id_number"));phone:=strings.TrimSpace(q.Get("phone"));email:=strings.TrimSpace(q.Get("email"));if idNumber==""&&phone==""&&email==""{httpx.WriteJSON(w,http.StatusOK,map[string]any{"items":[]IdentityMatch{}});return};items,err:=h.svc.IdentityMatches(r.Context(),tenantID,idTypeID,idNumber,phone,email);if err!=nil{httpx.WriteError(w,httpx.ErrInternal);return};out:=make([]IdentityMatch,0,len(items));for i:=range items{d:=h.visitorDTO(r.Context(),&items[i]);out=append(out,IdentityMatch{ID:d.ID,FullName:d.FullName,IDTypeID:d.IDTypeID,IDNumber:d.IDNumber,Phone:d.Phone,Email:d.Email,CompanyName:d.CompanyName,Status:d.Status,Blacklisted:d.Blacklisted})};httpx.WriteJSON(w,http.StatusOK,map[string]any{"items":out})}
+
+func (h *Handler) CreateIDType(w http.ResponseWriter,r *http.Request){
+ if _,ok:=tenantRequest(w,r);!ok{return}
+ var in IDTypeInput;if !httpx.DecodeJSON(w,r,&in){return}
+ in.Name=strings.TrimSpace(in.Name);in.Code=strings.TrimSpace(in.Code)
+ if in.Name==""||in.Code==""{httpx.WriteError(w,httpx.ErrValidation.WithMessage("name and code are required"));return}
+ requires:=false;if in.RequiresNumber!=nil{requires=*in.RequiresNumber};active:=true;if in.Active!=nil{active=*in.Active}
+ id,err:=h.idTypes.Create(r.Context(),in.Name,in.Code,requires,active);if err!=nil{httpx.WriteError(w,httpx.ErrInternal);return}
+ t,err:=h.idTypes.ByID(r.Context(),id);if err!=nil{httpx.WriteError(w,httpx.ErrInternal);return};httpx.WriteJSON(w,http.StatusCreated,IDTypeToDTO(t))
+}
+func (h *Handler) UpdateIDType(w http.ResponseWriter,r *http.Request){
+ if _,ok:=tenantRequest(w,r);!ok{return};id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return}
+ var in IDTypeInput;if !httpx.DecodeJSON(w,r,&in){return};in.Name=strings.TrimSpace(in.Name);in.Code=strings.TrimSpace(in.Code)
+ if err:=h.idTypes.Update(r.Context(),id,in);err!=nil{writeServiceError(w,err);return};t,err:=h.idTypes.ByID(r.Context(),id);if err!=nil{writeServiceError(w,err);return};httpx.WriteJSON(w,http.StatusOK,IDTypeToDTO(t))
+}
+func (h *Handler) ListCompanies(w http.ResponseWriter,r *http.Request){
+ if _,ok:=tenantRequest(w,r);!ok{return};activeOnly:=r.URL.Query().Get("all")!="true";p:=httpx.ParsePagination(r);items,total,err:=h.companies.List(r.Context(),activeOnly,p);if err!=nil{httpx.WriteError(w,httpx.ErrInternal);return};out:=make([]CompanyDTO,0,len(items));for i:=range items{out=append(out,CompanyToDTO(&items[i]))};httpx.WriteJSON(w,http.StatusOK,httpx.ListEnvelope[CompanyDTO]{Items:out,Limit:p.Limit,Offset:p.Offset,Total:total})
+}
+func (h *Handler) GetCompany(w http.ResponseWriter,r *http.Request){
+ if _,ok:=tenantRequest(w,r);!ok{return};id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return};c,err:=h.companies.ByID(r.Context(),id);if err!=nil{writeServiceError(w,err);return};httpx.WriteJSON(w,http.StatusOK,CompanyToDTO(c))
+}
+func (h *Handler) CreateCompany(w http.ResponseWriter,r *http.Request){
+ if _,ok:=tenantRequest(w,r);!ok{return};var in CompanyInput;if !httpx.DecodeJSON(w,r,&in){return};in.Name=strings.TrimSpace(in.Name);if in.Name==""{httpx.WriteError(w,httpx.ErrValidation.WithMessage("name is required"));return};id,err:=h.companies.Create(r.Context(),in);if err!=nil{writeServiceError(w,err);return};c,err:=h.companies.ByID(r.Context(),id);if err!=nil{httpx.WriteError(w,httpx.ErrInternal);return};httpx.WriteJSON(w,http.StatusCreated,CompanyToDTO(c))
+}
+func (h *Handler) UpdateCompany(w http.ResponseWriter,r *http.Request){
+ if _,ok:=tenantRequest(w,r);!ok{return};id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return};var in CompanyInput;if !httpx.DecodeJSON(w,r,&in){return};in.Name=strings.TrimSpace(in.Name);if err:=h.companies.Update(r.Context(),id,in);err!=nil{writeServiceError(w,err);return};c,err:=h.companies.ByID(r.Context(),id);if err!=nil{writeServiceError(w,err);return};httpx.WriteJSON(w,http.StatusOK,CompanyToDTO(c))
+}
