@@ -154,6 +154,8 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("POST /api/v1/gatepasses/{id}/approvals/{stepId}/reject", protected("approval.reject.assigned", api.GatepassHandler.Reject))
 	mux.Handle("POST /api/v1/gatepasses/{id}/check-out", protected("gatepass.check_out", api.GatepassHandler.CheckOut))
 	mux.Handle("POST /api/v1/gatepasses/{id}/check-in", protected("gatepass.verify", api.GatepassHandler.CheckIn))
+	mux.Handle("POST /api/v1/gatepasses/qr/token/{token}/check-out", protected("gatepass.check_out", api.GatepassHandler.QRCheckOut))
+	mux.Handle("POST /api/v1/gatepasses/qr/token/{token}/check-in", protected("gatepass.verify", api.GatepassHandler.QRCheckIn))
 	mux.Handle("GET /api/v1/gatepasses/{id}/movements", protected("gatepass.read.all", api.GatepassHandler.Movements))
 	mux.Handle("GET /api/v1/gatepasses/{id}/qr.png", protected("gatepass.read.all", api.GatepassHandler.QRImage))
 	mux.Handle("GET /api/v1/gatepasses/qr/token/{token}", protected("gatepass.read.all", api.GatepassHandler.QRLookup))
