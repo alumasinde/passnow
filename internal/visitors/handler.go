@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"gatepass/internal/httpx"
 	"gatepass/internal/reqctx"
@@ -159,4 +160,12 @@ func (h *Handler) canAccessVisitor(ctx context.Context, v *Visitor) bool {
 	if !ok || d.Scope == rbac.ScopeNone || d.Scope == rbac.ScopeAll { return true }
 	if d.Scope != rbac.ScopeOwn || v.CreatedBy == nil { return false }
 	claims, ok := reqctx.ClaimsFromContext(ctx); return ok && *v.CreatedBy == claims.UserID
+}
+
+
+func (h *Handler) IdentityMatches(w http.ResponseWriter,r *http.Request){
+ tenantID,ok:=tenantRequest(w,r);if !ok{return};_ = tenantID
+ q:=r.URL.Query();idTypeID,_:=strconv.ParseInt(q.Get("id_type_id"),10,64);idNumber:=strings.TrimSpace(q.Get("id_number"));phone:=strings.TrimSpace(q.Get("phone"));email:=strings.TrimSpace(q.Get("email"))
+ if idNumber==""&&phone==""&&email=="" { httpx.WriteJSON(w,http.StatusOK,map[string]any{"items":[]IdentityMatch{}});return }
+ items,err:=h.svc.IdentityMatches(r.Context(),tenantID,idTypeID,idNumber,phone,email);if err!=nil{httpx.WriteError(w,httpx.ErrInternal);return};out:=make([]IdentityMatch,0,len(items));for i:=range items{d:=h.visitorDTO(r.Context(),&items[i]);out=append(out,IdentityMatch{ID:d.ID,FullName:d.FullName,IDTypeID:d.IDTypeID,IDNumber:d.IDNumber,Phone:d.Phone,Email:d.Email,CompanyName:d.CompanyName,Status:d.Status,Blacklisted:d.Blacklisted})};httpx.WriteJSON(w,http.StatusOK,map[string]any{"items":out})
 }
