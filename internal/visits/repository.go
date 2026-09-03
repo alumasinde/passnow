@@ -1,174 +1,41 @@
 package visits
 
 import (
-	"context"
-	"crypto/rand"
-	"database/sql"
-	"encoding/hex"
-	"errors"
-	"time"
+    "context"
+    "crypto/rand"
+    "database/sql"
+    "encoding/hex"
+    "errors"
+    "time"
 
-	"gatepass/internal/httpx"
-	"gatepass/internal/numbering"
+    "gatepass/internal/httpx"
+    "gatepass/internal/numbering"
 )
 
 var (
-	ErrNotFound          = errors.New("visits: not found")
-	ErrInvalidTransition = errors.New("visits: this action is not valid for the visit's current status")
+    ErrNotFound          = errors.New("visits: not found")
+    ErrInvalidTransition = errors.New("visits: this action is not valid for the visit's current status")
 )
-
 const badgeSequenceScope = "visit_badge"
 const badgePrefix = "VB"
 
-type Repository struct { db *sql.DB }
-func (r *Repository) DB()*sql.DB{return r.db}
-
-func NewRepository(db *sql.DB) *Repository { return &Repository{db: db} }
-
-const selectCols = `
-	id, visitor_id, entry_source, visit_type_id, department_id, host_name,
-	purpose, expected_time, expected_departure_at, arrived_at, status, badge_number, badge_token, qr_token, qr_issued_at, qr_invalidated_at,
-	checked_in_at, checked_in_by, checked_out_at, checked_out_by,
-	cancelled_at, cancelled_by, cancel_reason,
-	created_by, created_at, updated_at, deleted_at
-`
-
-func (r *Repository) scan(row interface{ Scan(dest ...any) error }) (*Visit, error) {
-	var v Visit
-	if err := row.Scan(
-		&v.ID, &v.VisitorID, &v.EntrySource, &v.VisitTypeID, &v.DepartmentID, &v.HostName,
-		&v.Purpose, &v.ExpectedTime, &v.ExpectedDepartureAt, &v.ArrivedAt, &v.Status, &v.BadgeNumber, &v.BadgeToken, &v.QRToken, &v.QRIssuedAt, &v.QRInvalidatedAt,
-		&v.CheckedInAt, &v.CheckedInBy, &v.CheckedOutAt, &v.CheckedOutBy,
-		&v.CancelledAt, &v.CancelledBy, &v.CancelReason,
-		&v.CreatedBy, &v.CreatedAt, &v.UpdatedAt, &v.DeletedAt,
-	); err != nil {
-		if errors.Is(err, sql.ErrNoRows) { return nil, ErrNotFound }
-		return nil, err
-	}
-	return &v, nil
-}
-
-func (r *Repository) ByID(ctx context.Context, id int64) (*Visit, error) {
-	row := r.db.QueryRowContext(ctx,
-		"SELECT "+selectCols+" FROM visits WHERE id = ? AND deleted_at IS NULL LIMIT 1", id)
-	return r.scan(row)
-}
-
-func (r *Repository) ByQRToken(ctx context.Context, token string) (*Visit, error) { row:=r.db.QueryRowContext(ctx,"SELECT "+selectCols+" FROM visits WHERE qr_token=? AND qr_invalidated_at IS NULL AND deleted_at IS NULL LIMIT 1",token); return r.scan(row) }
-
-func (r *Repository) IssueQR(ctx context.Context,id int64,token string) error { _,err:=r.db.ExecContext(ctx,"UPDATE visits SET qr_token=?, qr_issued_at=NOW(), qr_invalidated_at=NULL, updated_at=NOW() WHERE id=? AND deleted_at IS NULL",token,id);return err }
-func (r *Repository) InvalidateQR(ctx context.Context,id int64) error { _,err:=r.db.ExecContext(ctx,"UPDATE visits SET qr_invalidated_at=NOW(), updated_at=NOW() WHERE id=? AND deleted_at IS NULL AND qr_token IS NOT NULL",id);return err }
-
-func (r *Repository) ByBadgeToken(ctx context.Context, token string) (*Visit, error) {
-	row := r.db.QueryRowContext(ctx,
-		"SELECT "+selectCols+" FROM visits WHERE badge_token = ? AND deleted_at IS NULL LIMIT 1", token)
-	return r.scan(row)
-}
-
-type ListFilter struct { Status *Status; VisitorID *int64; Search string; Date string; CreatedBy *int64; DepartmentID *int64 }
-
-func (r *Repository) List(ctx context.Context, f ListFilter, p httpx.Pagination) ([]Visit, int, error) {
-	where := "WHERE deleted_at IS NULL"
-	args := []any{}
-	if f.Status != nil { where += " AND status = ?"; args = append(args, *f.Status) }
-	if f.VisitorID != nil { where += " AND visitor_id = ?"; args = append(args, *f.VisitorID) }
-	if f.CreatedBy != nil { where += " AND created_by = ?"; args = append(args, *f.CreatedBy) }
-	if f.DepartmentID != nil { where += " AND department_id = ?"; args = append(args, *f.DepartmentID) }
-	if f.Date != "" { where += " AND DATE(COALESCE(expected_time, created_at)) = ?"; args = append(args, f.Date) }
-	if f.Search != "" { where += " AND (badge_number LIKE ? OR host_name LIKE ? OR purpose LIKE ? OR visitor_id IN (SELECT id FROM visitors WHERE first_name LIKE ? OR last_name LIKE ?))"; like := "%"+f.Search+"%"; args=append(args,like,like,like,like,like) }
-
-	var total int
-	if err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM visits "+where, args...).Scan(&total); err != nil { return nil, 0, err }
-	rows, err := r.db.QueryContext(ctx,
-		"SELECT "+selectCols+" FROM visits "+where+" ORDER BY COALESCE(expected_time, created_at) DESC, created_at DESC LIMIT ? OFFSET ?",
-		append(args, p.Limit, p.Offset)...)
-	if err != nil { return nil, 0, err }
-	defer rows.Close()
-	var out []Visit
-	for rows.Next() {
-		v, err := r.scan(rows); if err != nil { return nil, 0, err }
-		out = append(out, *v)
-	}
-	return out, total, rows.Err()
-}
-
-func (r *Repository) Create(ctx context.Context, v *Visit) (int64, error) {
-	res, err := r.db.ExecContext(ctx, `
-		INSERT INTO visits
-			(visitor_id, entry_source, visit_type_id, department_id, host_name,
-			 purpose, expected_time, expected_departure_at, status, created_by, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-		v.VisitorID, v.EntrySource, v.VisitTypeID, v.DepartmentID, v.HostName,
-		v.Purpose, v.ExpectedTime, v.ExpectedDepartureAt, v.Status, v.CreatedBy)
-	if err != nil { return 0, err }
-	return res.LastInsertId()
-}
-
-func (r *Repository) CheckIn(ctx context.Context, id, actorUserID int64) (*Visit, error) {
-	tx, err := r.db.BeginTx(ctx, nil); if err != nil { return nil, err }
-	defer tx.Rollback()
-	var status Status
-	err = tx.QueryRowContext(ctx,
-		`SELECT status FROM visits WHERE id = ? AND deleted_at IS NULL FOR UPDATE`, id).Scan(&status)
-	if err != nil { if errors.Is(err, sql.ErrNoRows) { return nil, ErrNotFound }; return nil, err }
-	if status != StatusScheduled && status != StatusExpected { return nil, ErrInvalidTransition }
-	period := time.Now().UTC().Format("2006")
-	seq, err := numbering.Next(ctx, tx, badgeSequenceScope, period); if err != nil { return nil, err }
-	badgeNumber := numbering.Format(badgePrefix, period, seq)
-	badgeToken, err := randomToken(); if err != nil { return nil, err }
-	qrToken, err := randomToken(); if err != nil { return nil, err }
-	if _, err := tx.ExecContext(ctx, `
-		UPDATE visits SET status = 'checked_in', arrived_at = NOW(), badge_number = ?, badge_token = ?, qr_token = COALESCE(qr_token, ?), qr_issued_at = COALESCE(qr_issued_at, NOW()), qr_invalidated_at = NULL,
-			checked_in_at = NOW(), checked_in_by = ?, updated_at = NOW()
-		WHERE id = ? AND deleted_at IS NULL`, badgeNumber, badgeToken, qrToken, actorUserID, id); err != nil { return nil, err }
-	if err := tx.Commit(); err != nil { return nil, err }
-	return r.ByID(ctx, id)
-}
-
-func (r *Repository) CheckOut(ctx context.Context, id, actorUserID int64) (*Visit, error) {
-	tx, err := r.db.BeginTx(ctx, nil); if err != nil { return nil, err }
-	defer tx.Rollback()
-	var status Status
-	err = tx.QueryRowContext(ctx,
-		`SELECT status FROM visits WHERE id = ? AND deleted_at IS NULL FOR UPDATE`, id).Scan(&status)
-	if err != nil { if errors.Is(err, sql.ErrNoRows) { return nil, ErrNotFound }; return nil, err }
-	if status != StatusCheckedIn { return nil, ErrInvalidTransition }
-	if _, err := tx.ExecContext(ctx, `
-		UPDATE visits SET status = 'checked_out', checked_out_at = NOW(), checked_out_by = ?, updated_at = NOW()
-		WHERE id = ? AND deleted_at IS NULL`, actorUserID, id); err != nil { return nil, err }
-	if err := tx.Commit(); err != nil { return nil, err }
-	return r.ByID(ctx, id)
-}
-
-func (r *Repository) Cancel(ctx context.Context, id, actorUserID int64, reason string) (*Visit, error) {
-	tx, err := r.db.BeginTx(ctx, nil); if err != nil { return nil, err }
-	defer tx.Rollback()
-	var status Status
-	err = tx.QueryRowContext(ctx,
-		`SELECT status FROM visits WHERE id = ? AND deleted_at IS NULL FOR UPDATE`, id).Scan(&status)
-	if err != nil { if errors.Is(err, sql.ErrNoRows) { return nil, ErrNotFound }; return nil, err }
-	if status != StatusScheduled && status != StatusExpected { return nil, ErrInvalidTransition }
-	if _, err := tx.ExecContext(ctx, `
-		UPDATE visits SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = ?, cancel_reason = ?, updated_at = NOW()
-		WHERE id = ? AND deleted_at IS NULL`, actorUserID, reason, id); err != nil { return nil, err }
-	if err := tx.Commit(); err != nil { return nil, err }
-	return r.ByID(ctx, id)
-}
-
-func randomToken() (string, error) {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil { return "", err }
-	return hex.EncodeToString(b), nil
-}
-
-
-func (r *Repository) UserDepartment(ctx context.Context, userID int64) (*int64, error) {
-	var departmentID *int64
-	err := r.db.QueryRowContext(ctx, "SELECT department_id FROM tenant_memberships WHERE user_id = ? AND status = 'active' LIMIT 1", userID).Scan(&departmentID)
-	if err != nil { return nil, err }
-	return departmentID, nil
-}
-
-
-func (r *Repository) RecordMovement(ctx context.Context, visitID int64, typ MovementType, actorUserID int64, in MovementInput) error { _,err:=r.db.ExecContext(ctx,`INSERT INTO visit_movements(visit_id,movement_type,gate_id,device_id,actor_user_id,notes,occurred_at,created_at) VALUES(?,?,?,?,?,?,NOW(),NOW())`,visitID,typ,in.GateID,in.DeviceID,actorUserID,in.Notes);return err }
-func (r *Repository) Movements(ctx context.Context, visitID int64)([]Movement,error){rows,err:=r.db.QueryContext(ctx,`SELECT m.id,m.visit_id,m.movement_type,m.gate_id,g.name,m.device_id,m.actor_user_id,m.notes,m.occurred_at FROM visit_movements m JOIN gates g ON g.id=m.gate_id WHERE m.visit_id=? ORDER BY m.occurred_at DESC,m.id DESC`,visitID);if err!=nil{return nil,err};defer rows.Close();out:=[]Movement{};for rows.Next(){var m Movement;if err:=rows.Scan(&m.ID,&m.VisitID,&m.Type,&m.GateID,&m.GateName,&m.DeviceID,&m.ActorUserID,&m.Notes,&m.OccurredAt);err!=nil{return nil,err};out=append(out,m)};return out,rows.Err()}
+type Repository struct{db *sql.DB}
+func(r *Repository)DB()*sql.DB{return r.db}
+func NewRepository(db *sql.DB)*Repository{return &Repository{db:db}}
+const selectCols=`id, visitor_id, entry_source, visit_type_id, department_id, host_name, purpose, expected_time, expected_departure_at, arrived_at, status, badge_number, badge_token, qr_token, qr_issued_at, qr_invalidated_at, checked_in_at, checked_in_by, checked_out_at, checked_out_by, cancelled_at, cancelled_by, cancel_reason, created_by, created_at, updated_at, deleted_at`
+func(r *Repository)scan(row interface{Scan(...any)error})(*Visit,error){var v Visit;if err:=row.Scan(&v.ID,&v.VisitorID,&v.EntrySource,&v.VisitTypeID,&v.DepartmentID,&v.HostName,&v.Purpose,&v.ExpectedTime,&v.ExpectedDepartureAt,&v.ArrivedAt,&v.Status,&v.BadgeNumber,&v.BadgeToken,&v.QRToken,&v.QRIssuedAt,&v.QRInvalidatedAt,&v.CheckedInAt,&v.CheckedInBy,&v.CheckedOutAt,&v.CheckedOutBy,&v.CancelledAt,&v.CancelledBy,&v.CancelReason,&v.CreatedBy,&v.CreatedAt,&v.UpdatedAt,&v.DeletedAt);err!=nil{if errors.Is(err,sql.ErrNoRows){return nil,ErrNotFound};return nil,err};return &v,nil}
+func(r *Repository)ByID(ctx context.Context,id int64)(*Visit,error){return r.scan(r.db.QueryRowContext(ctx,"SELECT "+selectCols+" FROM visits WHERE id=? AND deleted_at IS NULL LIMIT 1",id))}
+func(r *Repository)ByQRToken(ctx context.Context,token string)(*Visit,error){return r.scan(r.db.QueryRowContext(ctx,"SELECT "+selectCols+" FROM visits WHERE qr_token=? AND qr_invalidated_at IS NULL AND deleted_at IS NULL LIMIT 1",token))}
+func(r *Repository)IssueQR(ctx context.Context,id int64,token string)error{_,err:=r.db.ExecContext(ctx,"UPDATE visits SET qr_token=?, qr_issued_at=NOW(), qr_invalidated_at=NULL, updated_at=NOW() WHERE id=? AND deleted_at IS NULL",token,id);return err}
+func(r *Repository)InvalidateQR(ctx context.Context,id int64)error{_,err:=r.db.ExecContext(ctx,"UPDATE visits SET qr_invalidated_at=NOW(), updated_at=NOW() WHERE id=? AND deleted_at IS NULL AND qr_token IS NOT NULL",id);return err}
+func(r *Repository)ByBadgeToken(ctx context.Context,token string)(*Visit,error){return r.scan(r.db.QueryRowContext(ctx,"SELECT "+selectCols+" FROM visits WHERE badge_token=? AND deleted_at IS NULL LIMIT 1",token))}
+type ListFilter struct{Status *Status;VisitorID *int64;Search string;Date string;CreatedBy *int64;DepartmentID *int64}
+func(r *Repository)List(ctx context.Context,f ListFilter,p httpx.Pagination)([]Visit,int,error){where:="WHERE deleted_at IS NULL";args:=[]any{};if f.Status!=nil{where+=" AND status=?";args=append(args,*f.Status)};if f.VisitorID!=nil{where+=" AND visitor_id=?";args=append(args,*f.VisitorID)};if f.CreatedBy!=nil{where+=" AND created_by=?";args=append(args,*f.CreatedBy)};if f.DepartmentID!=nil{where+=" AND department_id=?";args=append(args,*f.DepartmentID)};if f.Date!=""{where+=" AND DATE(COALESCE(expected_time,created_at))=?";args=append(args,f.Date)};if f.Search!=""{where+=" AND (badge_number LIKE ? OR host_name LIKE ? OR purpose LIKE ? OR visitor_id IN (SELECT id FROM visitors WHERE first_name LIKE ? OR last_name LIKE ?))";like:="%"+f.Search+"%";args=append(args,like,like,like,like,like)};var total int;if err:=r.db.QueryRowContext(ctx,"SELECT COUNT(*) FROM visits "+where,args...).Scan(&total);err!=nil{return nil,0,err};selectArgs:=append([]any{},args...);if f.Search!=""{whereOrder:="ORDER BY (badge_number=?) DESC, COALESCE(expected_time,created_at) DESC, created_at DESC";selectArgs=append(selectArgs,f.Search);selectArgs=append(selectArgs,p.Limit,p.Offset);rows,err:=r.db.QueryContext(ctx,"SELECT "+selectCols+" FROM visits "+where+" "+whereOrder+" LIMIT ? OFFSET ?",selectArgs...);if err!=nil{return nil,0,err};defer rows.Close();out:=[]Visit{};for rows.Next(){v,e:=r.scan(rows);if e!=nil{return nil,0,e};out=append(out,*v)};return out,total,rows.Err()};selectArgs=append(selectArgs,p.Limit,p.Offset);rows,err:=r.db.QueryContext(ctx,"SELECT "+selectCols+" FROM visits "+where+" ORDER BY COALESCE(expected_time,created_at) DESC, created_at DESC LIMIT ? OFFSET ?",selectArgs...);if err!=nil{return nil,0,err};defer rows.Close();out:=[]Visit{};for rows.Next(){v,e:=r.scan(rows);if e!=nil{return nil,0,e};out=append(out,*v)};return out,total,rows.Err()}
+func(r *Repository)Create(ctx context.Context,v *Visit)(int64,error){res,err:=r.db.ExecContext(ctx,`INSERT INTO visits(visitor_id,entry_source,visit_type_id,department_id,host_name,purpose,expected_time,expected_departure_at,status,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,NOW(),NOW())`,v.VisitorID,v.EntrySource,v.VisitTypeID,v.DepartmentID,v.HostName,v.Purpose,v.ExpectedTime,v.ExpectedDepartureAt,v.Status,v.CreatedBy);if err!=nil{return 0,err};return res.LastInsertId()}
+func(r *Repository)CheckIn(ctx context.Context,id,actorUserID int64)(*Visit,error){tx,err:=r.db.BeginTx(ctx,nil);if err!=nil{return nil,err};defer tx.Rollback();var status Status;if err=tx.QueryRowContext(ctx,`SELECT status FROM visits WHERE id=? AND deleted_at IS NULL FOR UPDATE`,id).Scan(&status);err!=nil{if errors.Is(err,sql.ErrNoRows){return nil,ErrNotFound};return nil,err};if status!=StatusScheduled&&status!=StatusExpected{return nil,ErrInvalidTransition};period:=time.Now().UTC().Format("2006");seq,err:=numbering.Next(ctx,tx,badgeSequenceScope,period);if err!=nil{return nil,err};badgeNumber:=numbering.Format(badgePrefix,period,seq);badgeToken,err:=randomToken();if err!=nil{return nil,err};qrToken,err:=randomToken();if err!=nil{return nil,err};if _,err:=tx.ExecContext(ctx,`UPDATE visits SET status='checked_in', arrived_at=NOW(), badge_number=?, badge_token=?, qr_token=COALESCE(qr_token,?), qr_issued_at=COALESCE(qr_issued_at,NOW()), qr_invalidated_at=NULL, checked_in_at=NOW(), checked_in_by=?, updated_at=NOW() WHERE id=? AND deleted_at IS NULL`,badgeNumber,badgeToken,qrToken,actorUserID,id);err!=nil{return nil,err};if err:=tx.Commit();err!=nil{return nil,err};return r.ByID(ctx,id)}
+func(r *Repository)CheckOut(ctx context.Context,id,actorUserID int64)(*Visit,error){tx,err:=r.db.BeginTx(ctx,nil);if err!=nil{return nil,err};defer tx.Rollback();var status Status;if err=tx.QueryRowContext(ctx,`SELECT status FROM visits WHERE id=? AND deleted_at IS NULL FOR UPDATE`,id).Scan(&status);err!=nil{if errors.Is(err,sql.ErrNoRows){return nil,ErrNotFound};return nil,err};if status!=StatusCheckedIn{return nil,ErrInvalidTransition};if _,err:=tx.ExecContext(ctx,`UPDATE visits SET status='checked_out', checked_out_at=NOW(), checked_out_by=?, updated_at=NOW() WHERE id=? AND deleted_at IS NULL`,actorUserID,id);err!=nil{return nil,err};if err:=tx.Commit();err!=nil{return nil,err};return r.ByID(ctx,id)}
+func(r *Repository)Cancel(ctx context.Context,id,actorUserID int64,reason string)(*Visit,error){tx,err:=r.db.BeginTx(ctx,nil);if err!=nil{return nil,err};defer tx.Rollback();var status Status;if err=tx.QueryRowContext(ctx,`SELECT status FROM visits WHERE id=? AND deleted_at IS NULL FOR UPDATE`,id).Scan(&status);err!=nil{if errors.Is(err,sql.ErrNoRows){return nil,ErrNotFound};return nil,err};if status!=StatusScheduled&&status!=StatusExpected{return nil,ErrInvalidTransition};if _,err:=tx.ExecContext(ctx,`UPDATE visits SET status='cancelled', cancelled_at=NOW(), cancelled_by=?, cancel_reason=?, updated_at=NOW() WHERE id=? AND deleted_at IS NULL`,actorUserID,reason,id);err!=nil{return nil,err};if err:=tx.Commit();err!=nil{return nil,err};return r.ByID(ctx,id)}
+func randomToken()(string,error){b:=make([]byte,16);if _,err:=rand.Read(b);err!=nil{return "",err};return hex.EncodeToString(b),nil}
+func(r *Repository)UserDepartment(ctx context.Context,userID int64)(*int64,error){var d *int64;err:=r.db.QueryRowContext(ctx,"SELECT department_id FROM tenant_memberships WHERE user_id=? AND status='active' LIMIT 1",userID).Scan(&d);return d,err}
+func(r *Repository)RecordMovement(ctx context.Context,visitID int64,typ MovementType,actorUserID int64,in MovementInput)error{_,err:=r.db.ExecContext(ctx,`INSERT INTO visit_movements(visit_id,movement_type,gate_id,device_id,actor_user_id,notes,occurred_at,created_at) VALUES(?,?,?,?,?,?,NOW(),NOW())`,visitID,typ,in.GateID,in.DeviceID,actorUserID,in.Notes);return err}
+func(r *Repository)Movements(ctx context.Context,visitID int64)([]Movement,error){rows,err:=r.db.QueryContext(ctx,`SELECT m.id,m.visit_id,m.movement_type,m.gate_id,g.name,m.device_id,m.actor_user_id,m.notes,m.occurred_at FROM visit_movements m JOIN gates g ON g.id=m.gate_id WHERE m.visit_id=? ORDER BY m.occurred_at DESC,m.id DESC`,visitID);if err!=nil{return nil,err};defer rows.Close();out:=[]Movement{};for rows.Next(){var m Movement;if err:=rows.Scan(&m.ID,&m.VisitID,&m.Type,&m.GateID,&m.GateName,&m.DeviceID,&m.ActorUserID,&m.Notes,&m.OccurredAt);err!=nil{return nil,err};out=append(out,m)};return out,rows.Err()}
