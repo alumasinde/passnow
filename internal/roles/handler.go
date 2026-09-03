@@ -165,3 +165,19 @@ func (h *Handler) CloneRole(w http.ResponseWriter, r *http.Request) {
 	role, err := h.repo.RoleByID(r.Context(), newID); if err != nil { httpx.WriteError(w, httpx.ErrInternal); return }
 	httpx.WriteJSON(w, http.StatusCreated, roleDTO{ID:role.ID, Name:role.Name, IsSystem:role.IsSystem})
 }
+
+
+func (h *Handler) CompareRoles(w http.ResponseWriter, r *http.Request) {
+	if !requireTenant(w,r){return}
+	values:=r.URL.Query()["id"]; ids:=make([]int64,0,len(values))
+	for _,v:=range values{ id,err:=strconv.ParseInt(v,10,64);if err!=nil||id<1{httpx.WriteError(w,httpx.ErrValidation.WithMessage("invalid role id"));return};ids=append(ids,id)}
+	items,err:=h.repo.CompareRoles(r.Context(),ids);if err!=nil{httpx.WriteError(w,httpx.ErrValidation.WithMessage(err.Error()));return}
+	httpx.WriteJSON(w,http.StatusOK,items)
+}
+
+func (h *Handler) DeleteRole(w http.ResponseWriter,r *http.Request){
+	if !requireTenant(w,r){return}
+	id,err:=strconv.ParseInt(r.PathValue("id"),10,64);if err!=nil||id<1{httpx.WriteError(w,httpx.ErrNotFound);return}
+	if err:=h.repo.DeleteRole(r.Context(),id);err!=nil{httpx.WriteError(w,httpx.ErrValidation.WithMessage(err.Error()));return}
+	w.WriteHeader(http.StatusNoContent)
+}
