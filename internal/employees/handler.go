@@ -32,7 +32,6 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := httpx.ParsePagination(r)
-	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w,httpx.ErrAuthRequired); return }
 	var departmentID *int64
 	if d, ok := rbac.DecisionFromContext(r.Context()); ok && d.Scope == rbac.ScopeDepartment {
 		var err error
