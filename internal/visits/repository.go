@@ -115,10 +115,11 @@ func (r *Repository) CheckIn(ctx context.Context, id, actorUserID int64) (*Visit
 	seq, err := numbering.Next(ctx, tx, badgeSequenceScope, period); if err != nil { return nil, err }
 	badgeNumber := numbering.Format(badgePrefix, period, seq)
 	badgeToken, err := randomToken(); if err != nil { return nil, err }
+	qrToken, err := randomToken(); if err != nil { return nil, err }
 	if _, err := tx.ExecContext(ctx, `
-		UPDATE visits SET status = 'checked_in', arrived_at = NOW(), badge_number = ?, badge_token = ?,
+		UPDATE visits SET status = 'checked_in', arrived_at = NOW(), badge_number = ?, badge_token = ?, qr_token = COALESCE(qr_token, ?), qr_issued_at = COALESCE(qr_issued_at, NOW()), qr_invalidated_at = NULL,
 			checked_in_at = NOW(), checked_in_by = ?, updated_at = NOW()
-		WHERE id = ? AND deleted_at IS NULL`, badgeNumber, badgeToken, actorUserID, id); err != nil { return nil, err }
+		WHERE id = ? AND deleted_at IS NULL`, badgeNumber, badgeToken, qrToken, actorUserID, id); err != nil { return nil, err }
 	if err := tx.Commit(); err != nil { return nil, err }
 	return r.ByID(ctx, id)
 }
