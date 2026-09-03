@@ -96,6 +96,7 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	// --- visitors ---
 	mux.Handle("POST /api/v1/visitors", protected("visitor.create", api.VisitorHandler.Create))
 	mux.Handle("GET /api/v1/visitors", protected("visitor.read", api.VisitorHandler.List))
+	mux.Handle("GET /api/v1/visitors/identity-matches", protected("visitor.create", api.VisitorHandler.IdentityMatches))
 	mux.Handle("GET /api/v1/visitors/{id}", protected("visitor.read", api.VisitorHandler.Get))
 	mux.Handle("PATCH /api/v1/visitors/{id}", protected("visitor.update", api.VisitorHandler.Update))
 	mux.Handle("POST /api/v1/visitors/{id}/blacklist", protected("visitor.update", api.VisitorHandler.SetBlacklist))
