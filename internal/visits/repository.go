@@ -21,6 +21,7 @@ const badgeSequenceScope = "visit_badge"
 const badgePrefix = "VB"
 
 type Repository struct { db *sql.DB }
+func (r *Repository) DB()*sql.DB{return r.db}
 
 func NewRepository(db *sql.DB) *Repository { return &Repository{db: db} }
 
@@ -167,3 +168,7 @@ func (r *Repository) UserDepartment(ctx context.Context, userID int64) (*int64, 
 	if err != nil { return nil, err }
 	return departmentID, nil
 }
+
+
+func (r *Repository) RecordMovement(ctx context.Context, visitID int64, typ MovementType, actorUserID int64, in MovementInput) error { _,err:=r.db.ExecContext(ctx,`INSERT INTO visit_movements(visit_id,movement_type,gate_id,device_id,actor_user_id,notes,occurred_at,created_at) VALUES(?,?,?,?,?,?,NOW(),NOW())`,visitID,typ,in.GateID,in.DeviceID,actorUserID,in.Notes);return err }
+func (r *Repository) Movements(ctx context.Context, visitID int64)([]Movement,error){rows,err:=r.db.QueryContext(ctx,`SELECT m.id,m.visit_id,m.movement_type,m.gate_id,g.name,m.device_id,m.actor_user_id,m.notes,m.occurred_at FROM visit_movements m JOIN gates g ON g.id=m.gate_id WHERE m.visit_id=? ORDER BY m.occurred_at DESC,m.id DESC`,visitID);if err!=nil{return nil,err};defer rows.Close();out:=[]Movement{};for rows.Next(){var m Movement;if err:=rows.Scan(&m.ID,&m.VisitID,&m.Type,&m.GateID,&m.GateName,&m.DeviceID,&m.ActorUserID,&m.Notes,&m.OccurredAt);err!=nil{return nil,err};out=append(out,m)};return out,rows.Err()}
