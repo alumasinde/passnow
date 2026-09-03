@@ -51,7 +51,7 @@ $stepId=(int)($approval['pending_step_id']??$approval['step_id']??0);
  </article>
 </section>
 
-<?php if($stepId>0): ?>
+<?php if($stepId>0 && Auth::can(['approval.approve.assigned','approval.reject.assigned'])): ?>
 <section class="content-card approval-decision">
  <div class="card-header"><h2>Your decision</h2><p>Approval authorization is enforced by the Go API.</p></div>
  <form method="post" action="<?=e(url('approval-decision.php'))?>" data-loading-form>
@@ -62,8 +62,8 @@ $stepId=(int)($approval['pending_step_id']??$approval['step_id']??0);
    <div class="field field-full"><label for="comment">Comment</label><textarea id="comment" name="comment" maxlength="1000" placeholder="Optional approval/rejection comment"></textarea></div>
   </div>
   <div class="form-actions">
-   <button class="btn btn-danger" type="submit" name="decision" value="reject" data-loading-label="Rejecting..."><span data-button-label>Reject</span></button>
-   <button class="btn btn-primary" type="submit" name="decision" value="approve" data-loading-label="Approving..."><span data-button-label>Approve</span></button>
+   <?php if(Auth::can('approval.reject.assigned')): ?><button class="btn btn-danger" type="submit" name="decision" value="reject" data-loading-label="Rejecting..."><span data-button-label>Reject</span></button><?php endif; ?>
+   <?php if(Auth::can('approval.approve.assigned')): ?><button class="btn btn-primary" type="submit" name="decision" value="approve" data-loading-label="Approving..."><span data-button-label>Approve</span></button><?php endif; ?>
   </div>
  </form>
 </section>
