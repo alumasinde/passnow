@@ -116,6 +116,6 @@ final class Auth
 
     private static function clearTenantSession(): void
     {
-        unset($_SESSION['access_token'], $_SESSION['refresh_token'], $_SESSION['user'], $_SESSION['tenant_slug'], $_SESSION['authenticated_at'], $_SESSION['must_change_password']);
+        unset($_SESSION['access_token'], $_SESSION['refresh_token'], $_SESSION['user'], $_SESSION['tenant_slug'], $_SESSION['authenticated_at'], $_SESSION['must_change_password'], $_SESSION['permissions']);
     }
 }
