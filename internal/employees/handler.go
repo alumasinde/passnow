@@ -142,6 +142,7 @@ func writeServiceError(w http.ResponseWriter, err error) {
 
 func (h *Handler) canAccessEmployee(ctx context.Context, e *Employee) bool {
 	d, ok := rbac.DecisionFromContext(ctx); if !ok || d.Scope == rbac.ScopeNone || d.Scope == rbac.ScopeAll { return true }
+	if d.Scope == rbac.ScopeOwn { return false }
 	if d.Scope != rbac.ScopeDepartment || e.DepartmentID == nil { return false }
 	claims, ok := reqctx.ClaimsFromContext(ctx); if !ok { return false }
 	dept, err := h.svc.UserDepartment(ctx, claims.UserID)
