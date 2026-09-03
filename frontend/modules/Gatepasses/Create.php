@@ -3,8 +3,9 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../app/App.php';
 Auth::requireLogin();
 
-$errors=[]; $types=[]; $visitors=[]; $departments=[]; $currentDepartmentID=null;
+$errors=[]; $types=[]; $gates=[]; $visitors=[]; $departments=[]; $currentDepartmentID=null;
 try { $types=apiRows(Auth::api(App::api(),'GET','/api/v1/gatepass-types')); } catch(Throwable){ $errors[]='Unable to load gatepass types.'; }
+try { $gates=apiRows(Auth::api(App::api(),'GET','/api/v1/gates')); } catch(Throwable){ $errors[]='Unable to load gates.'; }
 try { $visitors=apiRows(Auth::api(App::api(),'GET','/api/v1/visitors?limit=200')); } catch(Throwable){}
 try { $departments=apiRows(Auth::api(App::api(),'GET','/api/v1/departments?limit=200')); } catch(Throwable){}
 try { $me=Auth::api(App::api(),'GET','/api/v1/auth/me'); $me=apiValue($me,'user',$me['data']??$me); $currentDepartmentID=is_array($me)&&isset($me['department_id'])?(int)$me['department_id']:null; } catch(Throwable){}
@@ -37,6 +38,7 @@ if(requestMethod()==='POST'){
     $returnable=isset($_POST['is_returnable']);
     $payload=[
         'gatepass_type_id'=>(int)($_POST['gatepass_type_id']??0),
+        'assigned_gate_id'=>$nullableInt($_POST['assigned_gate_id']??0),
         'department_id'=>$nullableInt($_POST['department_id']??0),
         'requester_type'=>trim((string)($_POST['requester_type']??'employee')),
         'requester_visitor_id'=>$nullableInt($_POST['requester_visitor_id']??0),
@@ -61,4 +63,4 @@ if(requestMethod()==='POST'){
         }catch(ApiException $e){$errors[]=$e->getMessage();}catch(Throwable){$errors[]='Unable to create the gatepass right now.';}
     }
 }
-App::render('gatepasses/create',compact('errors','types','visitors','departments','currentDepartmentID'));
+App::render('gatepasses/create',compact('errors','types','gates','visitors','departments','currentDepartmentID'));
