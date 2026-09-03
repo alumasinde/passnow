@@ -10,6 +10,7 @@ import (
 	"gatepass/internal/departments"
 	"gatepass/internal/employees"
 	"gatepass/internal/gatepasses"
+	"gatepass/internal/gates"
 	"gatepass/internal/invite"
 	"gatepass/internal/media"
 	"gatepass/internal/middleware"
@@ -41,6 +42,7 @@ type API struct {
 	VisitHandler            *visits.Handler
 	WorkflowHandler         *approvals.Handler
 	GatepassHandler         *gatepasses.Handler
+	GateHandler             *gates.Handler
 	EmployeeHandler         *employees.Handler
 	RoleHandler             *roles.Handler
 	InviteHandler           *invite.Handler
@@ -130,6 +132,12 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("GET /api/v1/approval-workflows/{id}", protected("workflow.read", api.WorkflowHandler.Get))
 	mux.Handle("POST /api/v1/approval-workflows", protected("workflow.read", api.WorkflowHandler.Create))
 	mux.Handle("PATCH /api/v1/approval-workflows/{id}", protected("workflow.read", api.WorkflowHandler.Update))
+
+	// --- gates ---
+	mux.Handle("GET /api/v1/gates", protected("gate.read", api.GateHandler.List))
+	mux.Handle("GET /api/v1/gates/{id}", protected("gate.read", api.GateHandler.Get))
+	mux.Handle("POST /api/v1/gates", protected("gate.create", api.GateHandler.Create))
+	mux.Handle("PATCH /api/v1/gates/{id}", protected("gate.update", api.GateHandler.Update))
 
 	// --- gatepass types and operations ---
 	// Opaque QR token is a high-entropy capability generated per gatepass.
