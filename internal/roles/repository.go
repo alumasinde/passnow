@@ -312,17 +312,17 @@ func (r *Repository) CloneRole(ctx context.Context, sourceID int64, name string)
 
 
 type UserAccess struct {
-	UserID int64
-	MembershipID int64
-	Email string
-	FirstName string
-	LastName string
-	RoleID int64
-	RoleName string
-	DepartmentID *int64
-	DepartmentName *string
-	Status MembershipStatus
-	PermissionCodes []string
+	UserID int64 `json:"user_id"`
+	MembershipID int64 `json:"membership_id"`
+	Email string `json:"email"`
+	FirstName string `json:"first_name"`
+	LastName string `json:"last_name"`
+	RoleID int64 `json:"role_id"`
+	RoleName string `json:"role_name"`
+	DepartmentID *int64 `json:"department_id,omitempty"`
+	DepartmentName *string `json:"department_name,omitempty"`
+	Status MembershipStatus `json:"status"`
+	PermissionCodes []string `json:"permission_codes"`
 }
 
 func (r *Repository) UserAccessByUserID(ctx context.Context, userID int64) (*UserAccess, error) {
@@ -337,12 +337,12 @@ func (r *Repository) UserAccessByUserID(ctx context.Context, userID int64) (*Use
 }
 
 type RoleComparison struct {
-	ID int64
-	Name string
-	IsSystem bool
-	PermissionCount int
-	UserCount int
-	PermissionCodes []string
+	ID int64 `json:"id"`
+	Name string `json:"name"`
+	IsSystem bool `json:"is_system"`
+	PermissionCount int `json:"permission_count"`
+	UserCount int `json:"user_count"`
+	PermissionCodes []string `json:"permission_codes"`
 }
 
 func (r *Repository) CompareRoles(ctx context.Context, ids []int64) ([]RoleComparison, error) {
