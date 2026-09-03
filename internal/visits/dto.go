@@ -37,7 +37,7 @@ func ToDTO(v *Visit) DTO {
 		BadgeNumber:v.BadgeNumber,QRToken:v.QRToken,QRActive:v.QRToken!=nil && v.QRInvalidatedAt==nil,CheckedInAt:v.CheckedInAt,CheckedOutAt:v.CheckedOutAt,
 		CancelReason:v.CancelReason,CreatedAt:v.CreatedAt,
 		CanCheckIn:v.CanCheckIn(),CanCheckOut:v.CanCheckOut(),CanCancel:v.CanCancel(),
-		Overstayed: v.Status==StatusCheckedIn && v.ExpectedTime!=nil && v.ExpectedTime.Before(time.Now().UTC()),
+		Overstayed: v.Status==StatusCheckedIn && v.ExpectedDepartureAt!=nil && v.ExpectedDepartureAt.Before(time.Now().UTC()),
 	}
 }
 
