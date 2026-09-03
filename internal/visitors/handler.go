@@ -48,6 +48,7 @@ func (h *Handler) Get(w http.ResponseWriter,r *http.Request){
 	tenantID,ok:=tenantRequest(w,r);if !ok{return};_ = tenantID
 	id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return}
 	v,err:=h.svc.Get(r.Context(),tenantID,id);if err!=nil{writeServiceError(w,err);return}
+	if !h.canAccessVisitor(r.Context(), v) { httpx.WriteError(w,httpx.ErrForbidden); return }
 	httpx.WriteJSON(w,http.StatusOK,h.visitorDTO(r.Context(),v))
 }
 
@@ -73,6 +74,7 @@ func (h *Handler) Update(w http.ResponseWriter,r *http.Request){
 	tenantID,ok:=tenantRequest(w,r);if !ok{return}
 	claims,ok:=reqctx.ClaimsFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return}
 	id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return}
+	existing,err:=h.svc.Get(r.Context(),tenantID,id);if err!=nil{writeServiceError(w,err);return};if !h.canAccessVisitor(r.Context(),existing){httpx.WriteError(w,httpx.ErrForbidden);return}
 	var in UpdateInput;if !httpx.DecodeJSON(w,r,&in){return}
 	v,err:=h.svc.Update(r.Context(),tenantID,id,in,claims.UserID);if err!=nil{writeServiceError(w,err);return}
 	httpx.WriteJSON(w,http.StatusOK,h.visitorDTO(r.Context(),v))
@@ -82,6 +84,7 @@ func (h *Handler) SetBlacklist(w http.ResponseWriter,r *http.Request){
 	tenantID,ok:=tenantRequest(w,r);if !ok{return}
 	claims,ok:=reqctx.ClaimsFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return}
 	id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return}
+	v,err:=h.svc.Get(r.Context(),tenantID,id);if err!=nil{writeServiceError(w,err);return};if !h.canAccessVisitor(r.Context(),v){httpx.WriteError(w,httpx.ErrForbidden);return}
 	var in BlacklistInput;if !httpx.DecodeJSON(w,r,&in){return}
 	if in.Blacklisted&&(in.Reason==nil||*in.Reason==""){httpx.WriteError(w,httpx.ErrValidation.WithMessage("reason is required when blacklisting a visitor"));return}
 	if err:=h.svc.SetBlacklist(r.Context(),tenantID,id,in,claims.UserID);err!=nil{writeServiceError(w,err);return}
@@ -148,4 +151,12 @@ func writeServiceError(w http.ResponseWriter,err error){
 	case errors.Is(err,ErrCompanyNameTaken):httpx.WriteError(w,httpx.AppError{Code:"company_name_taken",Message:"a company with this name already exists",Status:http.StatusConflict})
 	default:httpx.WriteError(w,httpx.ErrInternal)
 	}
+}
+
+
+func (h *Handler) canAccessVisitor(ctx context.Context, v *Visitor) bool {
+	d, ok := rbac.DecisionFromContext(ctx)
+	if !ok || d.Scope == rbac.ScopeNone || d.Scope == rbac.ScopeAll { return true }
+	if d.Scope != rbac.ScopeOwn || v.CreatedBy == nil { return false }
+	claims, ok := reqctx.ClaimsFromContext(ctx); return ok && *v.CreatedBy == claims.UserID
 }
