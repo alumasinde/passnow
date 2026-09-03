@@ -136,7 +136,7 @@ func (h *Handler) CheckIn(w http.ResponseWriter, r *http.Request) {
 	target, err := h.svc.Get(r.Context(), tenant.ID, id)
 	if err != nil { writeServiceError(w, err); return }
 	if !h.canAccess(r.Context(), claims.UserID, target) { httpx.WriteError(w, httpx.ErrForbidden); return }
-	var in MovementInput;if err:=httpx.DecodeJSON(r,&in);err!=nil{httpx.WriteError(w,httpx.ErrBadRequest);return};v, err := h.svc.CheckInAtGate(r.Context(), tenant.ID, id, claims.UserID,in)
+	var in MovementInput;if !httpx.DecodeJSON(w,r,&in){return};v, err := h.svc.CheckInAtGate(r.Context(), tenant.ID, id, claims.UserID,in)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -163,7 +163,7 @@ func (h *Handler) CheckOut(w http.ResponseWriter, r *http.Request) {
 	target, err := h.svc.Get(r.Context(), tenant.ID, id)
 	if err != nil { writeServiceError(w, err); return }
 	if !h.canAccess(r.Context(), claims.UserID, target) { httpx.WriteError(w, httpx.ErrForbidden); return }
-	var in MovementInput;if err:=httpx.DecodeJSON(r,&in);err!=nil{httpx.WriteError(w,httpx.ErrBadRequest);return};v, err := h.svc.CheckOutAtGate(r.Context(), tenant.ID, id, claims.UserID,in)
+	var in MovementInput;if !httpx.DecodeJSON(w,r,&in){return};v, err := h.svc.CheckOutAtGate(r.Context(), tenant.ID, id, claims.UserID,in)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -259,6 +259,12 @@ func writeServiceError(w http.ResponseWriter, err error) {
 		httpx.WriteError(w, httpx.ErrValidation.WithMessage("visit_type_id is invalid or inactive"))
 	case errors.Is(err, ErrInvalidDepartment):
 		httpx.WriteError(w, httpx.ErrValidation.WithMessage("department_id is invalid or inactive"))
+	case errors.Is(err, ErrMovementGateRequired):
+		httpx.WriteError(w, httpx.ErrValidation.WithMessage("gate_id is required"))
+	case errors.Is(err, ErrMovementGateInvalid):
+		httpx.WriteError(w, httpx.ErrValidation.WithMessage("gate_id is invalid or inactive"))
+	case errors.Is(err, ErrMovementGateDirection):
+		httpx.WriteError(w, httpx.AppError{Code:"gate_direction_not_allowed",Message:"selected gate does not allow this movement direction",Status:http.StatusConflict})
 	case errors.Is(err, ErrInvalidTransition):
 		httpx.WriteError(w, httpx.AppError{Code: "invalid_transition", Message: "this action is not valid for the visit's current status", Status: http.StatusConflict})
 	case errors.Is(err, visitors.ErrNotFound):
