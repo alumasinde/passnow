@@ -4,7 +4,7 @@
         <h1>Gatepasses</h1>
         <p>Search, filter and manage gatepass records.</p>
     </div>
-    <a class="btn btn-primary" href="<?= e(url('gatepass-create.php')) ?>">
+    <?php if (Auth::can('gatepass.create')): ?><a class="btn btn-primary" href="<?= e(url('gatepass-create.php')) ?>"><i class="fa-solid fa-plus"></i> New gatepass</a><?php endif; ?>
         <i class="fa-solid fa-plus"></i>
         New gatepass
     </a>
