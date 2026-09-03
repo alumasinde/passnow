@@ -6,6 +6,7 @@ type DTO struct {
 	ID                 int64             `json:"id"`
 	GatepassTypeID     int64             `json:"gatepass_type_id"`
 	AssignedGateID      *int64            `json:"assigned_gate_id,omitempty"`
+	AssignedGateName    string            `json:"assigned_gate_name,omitempty"`
 	PassNumber         string            `json:"pass_number"`
 	GatepassTypeName   string            `json:"gatepass_type_name,omitempty"`
 	Direction          string            `json:"direction,omitempty"`
