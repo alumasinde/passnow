@@ -268,6 +268,19 @@
     });
   }
 
+  function initPermissionUI() {
+    $('[data-requires-permission]').forEach(node => {
+      const granted = (document.body.dataset.permissions || '').split(',').map(x=>x.trim()).filter(Boolean);
+      const required = (node.dataset.requiresPermission || '').split(',').map(x=>x.trim()).filter(Boolean);
+      if (!required.length || required.some(p => granted.includes(p))) return;
+      if (node.dataset.permissionMode === 'disable') {
+        node.setAttribute('aria-disabled','true');
+        node.classList.add('is-permission-disabled');
+        if ('disabled' in node) node.disabled = true;
+      } else node.remove();
+    });
+  }
+
   function init() {
     initForms();
     initUserMenu();
@@ -277,10 +290,11 @@
     initSidebar();
     initTableFilters();
     initExports();
+    initPermissionUI();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 
-  window.PassNowUI = {openModal, closeModal, setLoading, showToast, applyTheme};
+  window.PassNowUI = {openModal, closeModal, setLoading, showToast, applyTheme, initPermissionUI};
 })();
