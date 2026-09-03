@@ -8,7 +8,7 @@
 </article>
 <article class="content-card">
 <div class="card-header"><div><h2>Find gatepass</h2><p>Scan the QR token or enter it manually.</p></div></div>
-<form data-token-form class="form-grid"><div class="field field-full"><label for="gatepassToken">QR token</label><div class="input-action"><input id="gatepassToken" autocomplete="off" placeholder="Scan or enter QR token" data-token-input><button class="btn btn-primary" type="submit">Find</button></div></div></form>
+<div class="form-actions"><button class="btn btn-secondary" type="button" data-camera-start>Scan with camera</button><button class="btn btn-secondary" type="button" data-camera-stop hidden>Stop camera</button></div><div data-camera-panel hidden><video data-camera-video autoplay playsinline style="width:100%;max-height:360px"></video><small class="field-help">Point the camera at a Gatepass QR code. Camera access is processed locally by the browser.</small></div><form data-token-form class="form-grid"><div class="field field-full"><label for="gatepassToken">QR token</label><div class="input-action"><input id="gatepassToken" autocomplete="off" placeholder="Scan or enter QR token" data-token-input><button class="btn btn-primary" type="submit">Find</button></div></div></form>
 <div data-operation-message></div>
 </article>
 <article class="content-card" data-record-card hidden>
@@ -20,7 +20,10 @@
 <script>
 (()=>{
 const gate=document.querySelector('[data-operation-gate]'),form=document.querySelector('[data-token-form]'),input=document.querySelector('[data-token-input]'),card=document.querySelector('[data-record-card]'),msg=document.querySelector('[data-operation-message]'),number=document.querySelector('[data-record-number]'),status=document.querySelector('[data-record-status]'),badge=document.querySelector('[data-record-badge]'),details=document.querySelector('[data-record-details]');
-let record=null;
+let record=null,stream=null,scanTimer=null;const startCam=document.querySelector('[data-camera-start]'),stopCam=document.querySelector('[data-camera-stop]'),panel=document.querySelector('[data-camera-panel]'),video=document.querySelector('[data-camera-video]');
+const stopCamera=()=>{if(scanTimer)clearInterval(scanTimer);scanTimer=null;if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;panel.hidden=true;startCam.hidden=false;stopCam.hidden=true;};
+startCam?.addEventListener('click',async()=>{try{if(!('BarcodeDetector'in window))throw new Error('Camera QR scanning is not supported by this browser. Use a hardware scanner or manual token entry.');stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});video.srcObject=stream;panel.hidden=false;startCam.hidden=true;stopCam.hidden=false;const detector=new BarcodeDetector({formats:['qr_code']});scanTimer=setInterval(async()=>{if(video.readyState<2)return;try{const codes=await detector.detect(video);if(codes[0]?.rawValue){input.value=codes[0].rawValue;stopCamera();form.requestSubmit();}}catch(_){ }},350);}catch(e){show(e.message,'error');stopCamera();}});
+stopCam?.addEventListener('click',stopCamera);window.addEventListener('pagehide',stopCamera);
 const key='passnow.operation.gate';
 const saved=localStorage.getItem(key);if(saved)gate.value=saved;
 gate.addEventListener('change',()=>localStorage.setItem(key,gate.value));
