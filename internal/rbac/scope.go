@@ -3,8 +3,6 @@ package rbac
 import (
     "context"
     "errors"
-
-    "gatepass/internal/roles"
 )
 
 var ErrScopeDenied = errors.New("rbac: scope denied")
