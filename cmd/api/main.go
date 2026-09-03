@@ -172,6 +172,7 @@ func buildTenantAPI(db *sql.DB, cfg *config.Config) *routes.API {
 	gpTypeRepo := gatepasses.NewTypeRepository(db)
 	gpItemRepo := gatepasses.NewItemRepository(db)
 	gpRepo := gatepasses.NewRepository(db, gpItemRepo)
+	gateRepo := gates.NewRepository(db)
 	employeeRepo := employees.NewRepository(db)
 
 	authSvc := auth.NewService(userRepo, roleRepo, refreshRepo, jwtSecret, cfg.BcryptCost, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
@@ -193,6 +194,7 @@ func buildTenantAPI(db *sql.DB, cfg *config.Config) *routes.API {
 	api.VisitHandler = visits.NewHandler(visitSvc)
 	api.WorkflowHandler = approvals.NewHandler(workflowRepo)
 	api.GatepassHandler = gatepasses.NewHandler(gpSvc, gpTypeRepo)
+	api.GateHandler = gates.NewHandler(gateRepo)
 	api.EmployeeHandler = employees.NewHandler(employeeSvc)
 	api.RoleHandler = roles.NewHandler(roleRepo)
 	api.InviteHandler = invite.NewHandler(inviteSvc)
