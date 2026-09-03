@@ -7,7 +7,7 @@ try{$p=Auth::api(App::api(),'GET','/api/v1/permissions');$permissions=apiRows($p
 if(requestMethod()==='POST'){
  Csrf::requireValid($_POST['_csrf']??null);
  $codes=[];foreach((array)($_POST['permissions']??[]) as $v){$v=trim((string)$v);if($v!=='')$codes[]=$v;}
- try{$saved=Auth::api(App::api(),'PUT','/api/v1/roles/'.$id.'/permissions',['permission_codes'=>array_values(array_unique($codes))]);flash('success','Role permissions updated successfully.');redirect('role-permissions.php?id='.$id);}catch(ApiException $e){$error=$e->getMessage();}catch(Throwable){$error='Unable to update role permissions.';}
+ try{$saved=Auth::api(App::api(),'PUT','/api/v1/roles/'.$id.'/permissions',['permission_codes'=>array_values(array_unique($codes))]);if(strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH']??''))==='xmlhttprequest'){header('Content-Type: application/json');echo json_encode(['ok'=>true,'message'=>'Permissions saved successfully.','permission_codes'=>$codes]);exit;}flash('success','Role permissions updated successfully.');redirect('role-permissions.php?id='.$id);}catch(ApiException $e){$error=$e->getMessage();}catch(Throwable){$error='Unable to update role permissions.';}
 }
 $selected=array_values(array_filter((array)($role['permission_codes']??[]),'is_string'));
 App::render('admin/role-permissions',compact('id','role','permissions','selected','error'));
