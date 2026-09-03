@@ -8,6 +8,7 @@ import (
 	"gatepass/internal/approvals"
 	"gatepass/internal/audit"
 	"gatepass/internal/departments"
+	"gatepass/internal/gates"
 	"gatepass/internal/httpx"
 	"gatepass/internal/roles"
 	"gatepass/internal/settings"
@@ -17,6 +18,8 @@ import (
 )
 
 var (
+	ErrInvalidAssignedGate = errors.New("gatepasses: assigned gate is invalid, inactive, or not allowed for this gatepass type")
+	ErrAssignedGateRequired = errors.New("gatepasses: this gatepass type requires an assigned gate")
 	ErrInvalidType = errors.New("gatepasses: gatepass_type_id not found or inactive")
 	ErrInvalidDepartment = errors.New("gatepasses: department_id not found or inactive")
 	ErrInvalidVisitor = errors.New("gatepasses: requester_visitor_id not found")
@@ -49,6 +52,7 @@ type Service struct {
 	repo *Repository
 	movements *MovementRepository
 	types *TypeRepository
+	gateRepo *gates.Repository
 	deptRepo *departments.Repository
 	visitorRepo *visitors.Repository
 	visitRepo *visits.Repository
@@ -59,13 +63,15 @@ type Service struct {
 	userRepo *users.Repository
 }
 
-func NewService(repo *Repository, types *TypeRepository, deptRepo *departments.Repository, visitorRepo *visitors.Repository, visitRepo *visits.Repository, workflowRepo *approvals.Repository, roleRepo *roles.Repository, settingsRepo *settings.Repository, auditRepo *audit.Repository, userRepo *users.Repository) *Service {
-	return &Service{repo: repo, movements: NewMovementRepository(repo.db), types: types, deptRepo: deptRepo, visitorRepo: visitorRepo, visitRepo: visitRepo, workflowRepo: workflowRepo, roleRepo: roleRepo, settingsRepo: settingsRepo, auditRepo: auditRepo, userRepo: userRepo}
+func NewService(repo *Repository, types *TypeRepository, gateRepo *gates.Repository, deptRepo *departments.Repository, visitorRepo *visitors.Repository, visitRepo *visits.Repository, workflowRepo *approvals.Repository, roleRepo *roles.Repository, settingsRepo *settings.Repository, auditRepo *audit.Repository, userRepo *users.Repository) *Service {
+	return &Service{repo: repo, movements: NewMovementRepository(repo.db), types: types, gateRepo: gateRepo, deptRepo: deptRepo, visitorRepo: visitorRepo, visitRepo: visitRepo, workflowRepo: workflowRepo, roleRepo: roleRepo, settingsRepo: settingsRepo, auditRepo: auditRepo, userRepo: userRepo}
 }
 
 func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, actorUserID int64) (*Gatepass, error) {
 	gtype, err := s.types.ByID(ctx, in.GatepassTypeID)
 	if err != nil || !gtype.Active { return nil, ErrInvalidType }
+	if gtype.GateAssignmentRequired && in.AssignedGateID == nil { return nil, ErrAssignedGateRequired }
+	if in.AssignedGateID != nil { gate, e := s.gateRepo.ByID(ctx,*in.AssignedGateID); if e != nil || !gate.Active { return nil, ErrInvalidAssignedGate }; if len(gtype.AllowedGateIDs)>0 { allowed:=false;for _,id:=range gtype.AllowedGateIDs{if id==*in.AssignedGateID{allowed=true;break}};if !allowed{return nil,ErrInvalidAssignedGate} } }
 	if in.DepartmentID != nil { d, err := s.deptRepo.ByID(ctx, *in.DepartmentID); if err != nil || !d.Active { return nil, ErrInvalidDepartment } }
 	var requesterUserID, requesterVisitorID *int64
 	switch RequesterType(in.RequesterType) {
@@ -94,7 +100,7 @@ func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, ac
 		_, tmplSteps, err := s.workflowRepo.ByID(ctx, tenantID, *gtype.WorkflowID); if err != nil { return nil, ErrApprovalMisconfigured }
 		for _, ts := range tmplSteps { steps = append(steps, WorkflowStepSnapshot{StepOrder: ts.StepOrder, Label: ts.Label, ApproverType: string(ts.ApproverType), RoleID: ts.RoleID, UserID: ts.UserID, Required: ts.Required}) }
 	}
-	g := &Gatepass{GatepassTypeID: in.GatepassTypeID, DepartmentID: in.DepartmentID, RequesterType: RequesterType(in.RequesterType), RequesterUserID: requesterUserID, RequesterVisitorID: requesterVisitorID, VisitID: in.VisitID, Purpose: in.Purpose, IsReturnable: isReturnable, ExpectedReturnAt: in.ExpectedReturnAt, RequiresApproval: requiresApproval, WorkflowID: gtype.WorkflowID, CreatedBy: &actorUserID}
+	g := &Gatepass{GatepassTypeID: in.GatepassTypeID, AssignedGateID: in.AssignedGateID, DepartmentID: in.DepartmentID, RequesterType: RequesterType(in.RequesterType), RequesterUserID: requesterUserID, RequesterVisitorID: requesterVisitorID, VisitID: in.VisitID, Purpose: in.Purpose, IsReturnable: isReturnable, ExpectedReturnAt: in.ExpectedReturnAt, RequiresApproval: requiresApproval, WorkflowID: gtype.WorkflowID, CreatedBy: &actorUserID}
 	prefix := s.settingsRepo.GetString(ctx, settings.KeyGatepassNumberPrefix, "GP")
 	useYear := s.settingsRepo.GetBool(ctx, settings.KeyGatepassNumberUseYear, true)
 	period := ""; if useYear { period = time.Now().UTC().Format("2006") }
