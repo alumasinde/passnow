@@ -9,6 +9,6 @@ $q=new ListQuery([]);$r=ResourcePage::list('/api/v1/roles',$q,[],static function
  unset($row);return $rows;
 });
 $columns=[['key'=>'name','label'=>'Role'],['key'=>'description','label'=>'Type'],['key'=>'user_count','label'=>'Users']];
-$canCreate=Auth::can('role.create');
+$canCreate=Auth::can('role.create');$canDelete=Auth::can('role.delete');$canCompare=Auth::can('role.read');
 $actions=[['label'=>'Edit role','icon'=>'fa-pen','class'=>'btn-secondary','href'=>fn($row)=>url('roles-edit.php?id='.rawurlencode((string)($row['id']??'')))],['label'=>'Permissions','icon'=>'fa-key','class'=>'btn-secondary','href'=>fn($row)=>url('role-permissions.php?id='.rawurlencode((string)($row['id']??''))) ]];
-App::render('admin/roles',compact('q','r','columns','actions','canCreate'));
+App::render('admin/roles',compact('q','r','columns','actions','canCreate','canDelete','canCompare'));
