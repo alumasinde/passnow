@@ -14,6 +14,7 @@ type Status string
 type Gatepass struct {
 	ID             int64
 	GatepassTypeID int64
+	AssignedGateID *int64
 	PassNumber     string
 
 	DepartmentID *int64
