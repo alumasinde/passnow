@@ -310,6 +310,17 @@ func (h *Handler) CheckIn(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, withDetails(r, h.svc, tenant.ID, g))
 }
 
+func (h *Handler) QRCheckOut(w http.ResponseWriter, r *http.Request) { h.qrMovement(w,r,true) }
+func (h *Handler) QRCheckIn(w http.ResponseWriter, r *http.Request) { h.qrMovement(w,r,false) }
+func (h *Handler) qrMovement(w http.ResponseWriter, r *http.Request, checkout bool) {
+ tenant,ok:=reqctx.TenantFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return}
+ claims,ok:=reqctx.ClaimsFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return}
+ token:=r.PathValue("token"); g,err:=h.svc.QRLookup(r.Context(),tenant.ID,token);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return}
+ var in MovementInput;if !httpx.DecodeJSON(w,r,&in){return}
+ if checkout { g,err=h.svc.CheckOutMovement(r.Context(),tenant.ID,g.GatepassID,claims.UserID,in) } else { g,err=h.svc.CheckInMovement(r.Context(),tenant.ID,g.GatepassID,claims.UserID,in) }
+ if err!=nil{writeMovementError(w,err);return};httpx.WriteJSON(w,http.StatusOK,withDetails(r,h.svc,tenant.ID,g))
+}
+
 func (h *Handler) Movements(w http.ResponseWriter, r *http.Request) {
 	tenant, ok := reqctx.TenantFromContext(r.Context())
 	if !ok {
@@ -486,7 +497,7 @@ func writeServiceError(w http.ResponseWriter, err error) {
 
 func writeMovementError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, ErrMovementInvalid), errors.Is(err, ErrMovementNotAllowed), errors.Is(err, ErrReturnItemInvalid), errors.Is(err, ErrReturnQuantityExceeded):
+	case errors.Is(err, ErrMovementInvalid), errors.Is(err, ErrMovementNotAllowed), errors.Is(err, ErrReturnItemInvalid), errors.Is(err, ErrReturnQuantityExceeded), errors.Is(err, ErrMovementGateRequired), errors.Is(err, ErrMovementGateInvalid), errors.Is(err, ErrMovementGateDirection), errors.Is(err, ErrMovementGateMismatch):
 		httpx.WriteError(w, httpx.ErrValidation.WithMessage(err.Error()))
 	case errors.Is(err, ErrNotFound):
 		httpx.WriteError(w, httpx.ErrNotFound)
