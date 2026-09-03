@@ -47,6 +47,7 @@ func NewService(repo *Repository, visitorRepo *visitors.Repository, visitTypes *
 func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, actorUserID int64) (*Visit, error) {
 	if in.EntrySource == "" { in.EntrySource = EntrySourcePreRegistered }
 	if in.EntrySource != EntrySourceWalkIn && in.EntrySource != EntrySourcePreRegistered { return nil, ErrInvalidEntrySource }
+	if in.EntrySource == EntrySourceWalkIn { in.CheckInNow = true }
 	if in.ExpectedTime != nil && in.ExpectedDepartureAt != nil && !in.ExpectedDepartureAt.After(*in.ExpectedTime) { return nil, ErrInvalidExpectedTime }
 	visitor, err := s.visitorRepo.ByID(ctx, in.VisitorID)
 	if err != nil {
