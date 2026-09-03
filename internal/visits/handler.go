@@ -36,6 +36,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if !httpx.DecodeJSON(w, r, &in) {
 		return
 	}
+	if in.EntrySource == "" { in.EntrySource = EntrySourcePreRegistered }
 	if in.VisitorID == 0 {
 		httpx.WriteError(w, httpx.ErrValidation.WithMessage("visitor_id is required"))
 		return
