@@ -35,6 +35,7 @@ var (
 	ErrItemDirectionMismatch = errors.New("gatepasses: item direction conflicts with the gatepass type direction")
 	ErrMovementGateRequired = errors.New("gatepasses: gate_id is required for physical movement")
 	ErrMovementGateInvalid = errors.New("gatepasses: movement gate is invalid, inactive, or not allowed")
+	ErrMovementGateDirection = errors.New("gatepasses: selected gate does not allow this movement direction")
 	ErrMovementGateMismatch = errors.New("gatepasses: movement must use the assigned gate")
 	ErrNotEligibleApprover = errors.New("gatepasses: you are not the eligible approver for this step")
 )
@@ -151,7 +152,7 @@ func (s *Service) CheckOutMovement(ctx context.Context, tenantID, id, actorUserI
 	if err := validateMovementInput(in, false); err != nil { return nil, err }
 	g, err := s.repo.ByID(ctx, id); if err != nil { return nil, err }
 	gtype, err := s.types.ByID(ctx, g.GatepassTypeID); if err != nil || !gtype.Active { return nil, ErrInvalidType }
-	if err:=s.validateMovementGate(ctx,g,gtype,in);err!=nil{return nil,err}
+	if err:=s.validateMovementGate(ctx,g,gtype,in,true);err!=nil{return nil,err}
 	result, err := s.movements.Checkout(ctx, id, actorUserID, string(gtype.Direction), in); if err != nil { return nil, err }
 	s.audit(ctx, tenantID, actorUserID, ActionGatepassIssued, id, map[string]any{"movement":"checkout", "gate":in.GateName}); return result, nil
 }
@@ -159,7 +160,7 @@ func (s *Service) CheckInMovement(ctx context.Context, tenantID, id, actorUserID
 	if err := validateMovementInput(in, true); err != nil { return nil, err }
 	g, err := s.repo.ByID(ctx, id); if err != nil { return nil, err }
 	gtype, err := s.types.ByID(ctx, g.GatepassTypeID); if err != nil || !gtype.Active { return nil, ErrInvalidType }
-	if err:=s.validateMovementGate(ctx,g,gtype,in);err!=nil{return nil,err}
+	if err:=s.validateMovementGate(ctx,g,gtype,in,false);err!=nil{return nil,err}
 	result, err := s.movements.Checkin(ctx, id, actorUserID, string(gtype.Direction), in); if err != nil { return nil, err }
 	s.audit(ctx, tenantID, actorUserID, ActionGatepassVerified, id, map[string]any{"movement":"checkin", "gate":in.GateName, "full_return":in.FullReturn}); return result, nil
 }
@@ -193,11 +194,11 @@ func (s *Service) UserDepartment(ctx context.Context, userID int64) (*int64, err
 }
 
 
-func (s *Service) validateMovementGate(ctx context.Context, g *Gatepass, gt *GatepassType, in MovementInput) error {
+func (s *Service) validateMovementGate(ctx context.Context, g *Gatepass, gt *GatepassType, in MovementInput, checkout bool) error {
 	if in.GateID == nil { return ErrMovementGateRequired }
 	gate, err := s.gateRepo.ByID(ctx, *in.GateID)
 	if err != nil || !gate.Active { return ErrMovementGateInvalid }
-	if !gate.AllowsEntry && !gate.AllowsExit { return ErrMovementGateInvalid }
+	if checkout && !gate.AllowsExit { return ErrMovementGateDirection }; if !checkout && !gate.AllowsEntry { return ErrMovementGateDirection }
 	if len(gt.AllowedGateIDs)>0 { ok:=false;for _,id:=range gt.AllowedGateIDs{if id==*in.GateID{ok=true;break}};if !ok{return ErrMovementGateInvalid} }
 	if g.AssignedGateID != nil && gt.GateAssignmentRequired && *g.AssignedGateID != *in.GateID { return ErrMovementGateMismatch }
 	return nil
