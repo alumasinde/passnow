@@ -1,0 +1,8 @@
+package gatedevices
+import("context";"database/sql";"errors";"strings")
+var ErrNotFound=errors.New("gate device not found")
+type Repository struct{db *sql.DB}
+func NewRepository(db *sql.DB)*Repository{return &Repository{db}}
+func (r *Repository) List(ctx context.Context)([]Device,error){rows,e:=r.db.QueryContext(ctx,"SELECT id,device_key,name,description,gate_id,active FROM gate_devices ORDER BY name");if e!=nil{return nil,e};defer rows.Close();var out []Device;for rows.Next(){var d Device;if e=rows.Scan(&d.ID,&d.DeviceKey,&d.Name,&d.Description,&d.GateID,&d.Active);e!=nil{return nil,e};out=append(out,d)};return out,rows.Err()}
+func (r *Repository) Create(ctx context.Context,in Input)(*Device,error){a:=true;if in.Active!=nil{a=*in.Active};res,e:=r.db.ExecContext(ctx,"INSERT INTO gate_devices(device_key,name,description,gate_id,active) VALUES(?,?,?,?,?)",strings.TrimSpace(in.DeviceKey),strings.TrimSpace(in.Name),in.Description,in.GateID,a);if e!=nil{return nil,e};id,_:=res.LastInsertId();return r.ByID(ctx,id)}
+func(r *Repository)ByID(ctx context.Context,id int64)(*Device,error){d:=&Device{};e:=r.db.QueryRowContext(ctx,"SELECT id,device_key,name,description,gate_id,active FROM gate_devices WHERE id=?",id).Scan(&d.ID,&d.DeviceKey,&d.Name,&d.Description,&d.GateID,&d.Active);if errors.Is(e,sql.ErrNoRows){return nil,ErrNotFound};return d,e}
