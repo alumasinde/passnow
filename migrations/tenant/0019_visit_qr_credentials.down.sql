@@ -1,0 +1,1 @@
+ALTER TABLE visits DROP INDEX uq_visits_qr_token, DROP INDEX idx_visits_qr_invalidated, DROP COLUMN qr_invalidated_at, DROP COLUMN qr_issued_at, DROP COLUMN qr_token;
