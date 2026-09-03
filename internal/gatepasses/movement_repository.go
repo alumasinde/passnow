@@ -278,7 +278,7 @@ func (r *MovementRepository) insertMovement(ctx context.Context, tx *sql.Tx, gat
 	res, err := tx.ExecContext(ctx, `
 		INSERT INTO gatepass_movements
 			(gatepass_id, type, actor_user_id, gate_id, gate_name, notes, occurred_at, created_at)
-		VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
+		VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
 		gatepassID, typ, actorUserID, in.GateID, nullableString(in.GateName), in.Notes)
 	if err != nil {
 		return 0, err
