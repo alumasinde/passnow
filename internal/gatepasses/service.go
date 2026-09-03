@@ -115,6 +115,7 @@ func (s *Service) Details(ctx context.Context, tenantID int64, g *Gatepass) DTO 
 		d.GatepassTypeName = t.Name
 		d.Direction = string(t.Direction)
 	}
+	if g.AssignedGateID != nil { if gate, err := s.gateRepo.ByID(ctx, *g.AssignedGateID); err == nil { d.AssignedGateName = gate.Name } }
 	if g.DepartmentID != nil {
 		if dept, err := s.deptRepo.ByID(ctx, *g.DepartmentID); err == nil { d.DepartmentName = dept.Name }
 	}
