@@ -98,3 +98,6 @@ type CompanyInput struct {
 	Address *string `json:"address"`
 	Active *bool `json:"active"`
 }
+
+
+type IdentityMatch struct { ID int64 `json:"id"`; FullName string `json:"full_name"`; IDTypeID int64 `json:"id_type_id"`; IDNumber *string `json:"id_number"`; Phone *string `json:"phone"`; Email *string `json:"email"`; CompanyName string `json:"company_name,omitempty"`; Status string `json:"status"`; Blacklisted bool `json:"blacklisted"` }
