@@ -17,6 +17,9 @@ var (
 	ErrInvalidDepartment  = errors.New("visits: department not found or inactive")
 	ErrInvalidEntrySource = errors.New("visits: invalid entry source")
 	ErrInvalidExpectedTime = errors.New("visits: expected departure must be after expected arrival")
+	ErrMovementGateRequired = errors.New("visits: gate is required")
+	ErrMovementGateInvalid = errors.New("visits: gate is invalid or inactive")
+	ErrMovementGateDirection = errors.New("visits: gate does not allow this movement direction")
 )
 
 const (
@@ -95,13 +98,18 @@ func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, ac
 	return s.repo.ByID(ctx, id)
 }
 
-func (s *Service) CheckIn(ctx context.Context, tenantID, id, actorUserID int64) (*Visit, error) {
+func (s *Service) CheckIn(ctx context.Context, tenantID, id, actorUserID int64) (*Visit, error) { return s.CheckInAtGate(ctx,tenantID,id,actorUserID,MovementInput{}) }
+func (s *Service) CheckInAtGate(ctx context.Context, tenantID, id, actorUserID int64, in MovementInput) (*Visit, error) {
+	if in.GateID==0 { return nil, ErrMovementGateRequired }
+	var active, allows bool
+	if err:=s.repo.DB().QueryRowContext(ctx,"SELECT active,allows_entry FROM gates WHERE id=? AND deleted_at IS NULL",in.GateID).Scan(&active,&allows);err!=nil||!active{return nil,ErrMovementGateInvalid};if !allows{return nil,ErrMovementGateDirection}
 	current, err := s.repo.ByID(ctx, id)
 	if err != nil { return nil, err }
 	visitor, err := s.visitorRepo.ByID(ctx, current.VisitorID)
 	if err != nil { return nil, ErrVisitorNotFound }
 	if visitor.Status == visitors.StatusBlacklisted { return nil, ErrVisitorBlacklisted }
 	v, err := s.repo.CheckIn(ctx, id, actorUserID)
+	if err==nil { if e:=s.repo.RecordMovement(ctx,id,MovementCheckIn,actorUserID,in);e!=nil{return nil,e} }
 	if err != nil {
 		return nil, err
 	}
@@ -109,8 +117,13 @@ func (s *Service) CheckIn(ctx context.Context, tenantID, id, actorUserID int64) 
 	return v, nil
 }
 
-func (s *Service) CheckOut(ctx context.Context, tenantID, id, actorUserID int64) (*Visit, error) {
+func (s *Service) CheckOut(ctx context.Context, tenantID, id, actorUserID int64) (*Visit, error) { return s.CheckOutAtGate(ctx,tenantID,id,actorUserID,MovementInput{}) }
+func (s *Service) CheckOutAtGate(ctx context.Context, tenantID, id, actorUserID int64, in MovementInput) (*Visit, error) {
+	if in.GateID==0 { return nil, ErrMovementGateRequired }
+	var active, allows bool
+	if err:=s.repo.DB().QueryRowContext(ctx,"SELECT active,allows_exit FROM gates WHERE id=? AND deleted_at IS NULL",in.GateID).Scan(&active,&allows);err!=nil||!active{return nil,ErrMovementGateInvalid};if !allows{return nil,ErrMovementGateDirection}
 	v, err := s.repo.CheckOut(ctx, id, actorUserID)
+	if err==nil { if e:=s.repo.RecordMovement(ctx,id,MovementCheckOut,actorUserID,in);e!=nil{return nil,e} }
 	if err != nil {
 		return nil, err
 	}
@@ -183,3 +196,5 @@ func (s *Service) audit(ctx context.Context, tenantID, actorUserID int64, action
 func (s *Service) UserDepartment(ctx context.Context, userID int64) (*int64, error) {
 	return s.repo.UserDepartment(ctx, userID)
 }
+
+func (s *Service) Movements(ctx context.Context,tenantID,visitID int64)([]Movement,error){return s.repo.Movements(ctx,visitID)}
