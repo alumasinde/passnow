@@ -67,9 +67,7 @@ func (s *Service) ListScoped(ctx context.Context, p httpx.Pagination, department
 }
 
 func (s *Service) UserDepartment(ctx context.Context, userID int64) (*int64, error) {
-	m, err := s.roleRepo.MembershipFor(ctx, userID)
-	if err != nil { return nil, err }
-	return m.DepartmentID, nil
+	return s.repo.UserDepartment(ctx, userID)
 }
 
 func (s *Service) Update(ctx context.Context, id int64, in UpdateInput) (*Employee, error) {
