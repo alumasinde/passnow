@@ -234,6 +234,7 @@ func (h *Handler) act(w http.ResponseWriter, r *http.Request, approve bool) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
+	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, gatepassID) { httpx.WriteError(w, httpx.ErrForbidden); return }
 	stepID, err := strconv.ParseInt(r.PathValue("stepId"), 10, 64)
 	if err != nil {
 		httpx.WriteError(w, httpx.ErrNotFound)
