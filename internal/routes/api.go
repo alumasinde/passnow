@@ -172,10 +172,11 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("DELETE /api/v1/roles/{id}", protected("role.delete", api.RoleHandler.DeleteRole))
 	mux.Handle("PUT /api/v1/roles/{id}/permissions", protected("permission.assign", api.RoleHandler.SetRolePermissions))
 	mux.Handle("GET /api/v1/users", protected("user.read.all", api.RoleHandler.ListUsers))
+	mux.Handle("GET /api/v1/users/{id}/access", protected("user.read.all", api.RoleHandler.GetUserAccess))
 	mux.Handle("GET /api/v1/users/{id}", protected("user.read.all", api.RoleHandler.GetUser))
-	mux.Handle("POST /api/v1/users", protected("user.read.all", api.InviteHandler.CreateUser))
-	mux.Handle("POST /api/v1/users/invite", protected("user.read.all", api.InviteHandler.Invite))
-	mux.Handle("PATCH /api/v1/users/memberships/{id}", protected("user.read.all", api.RoleHandler.UpdateUserMembership))
+	mux.Handle("POST /api/v1/users", protected("user.create", api.InviteHandler.CreateUser))
+	mux.Handle("POST /api/v1/users/invite", protected("user.invite", api.InviteHandler.Invite))
+	mux.Handle("PATCH /api/v1/users/memberships/{id}", protected("user.update", api.RoleHandler.UpdateUserMembership))
 
 	// --- dynamic navigation ---
 	mux.Handle("GET /api/v1/navigation", middleware.Authenticated(api.JWTSecret, api.NavigationHandler.List))
