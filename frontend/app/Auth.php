@@ -62,6 +62,19 @@ final class Auth
         }
         return false;
     }
+
+    public static function canAny(array $permissions, bool $refresh = false): bool
+    {
+        return self::can($permissions, $refresh);
+    }
+
+    public static function canAll(array $permissions, bool $refresh = false): bool
+    {
+        $granted = self::permissions($refresh);
+        foreach ($permissions as $permission) if (!in_array((string)$permission, $granted, true)) return false;
+        return true;
+    }
+
     public static function platformToken(): ?string { return $_SESSION['platform_access_token'] ?? null; }
     public static function accessToken(): ?string { return $_SESSION['access_token'] ?? null; }
 
