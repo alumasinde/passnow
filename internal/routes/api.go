@@ -130,6 +130,7 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("GET /api/v1/visits/qr/token/{token}", protected("visit.read.all", api.VisitHandler.QRLookup))
 	mux.Handle("POST /api/v1/visits/{id}/check-in", protected("visit.check_in", api.VisitHandler.CheckIn))
 	mux.Handle("POST /api/v1/visits/{id}/check-out", protected("visit.check_out", api.VisitHandler.CheckOut))
+	mux.Handle("GET /api/v1/visits/{id}/movements", protected("visit.read.all", api.VisitHandler.Movements))
 	mux.Handle("POST /api/v1/visits/{id}/cancel", protected("visit.cancel.all", api.VisitHandler.Cancel))
 	mux.Handle("GET /api/v1/visits/badge/{token}", protected("visit.read.all", api.VisitHandler.BadgeLookup))
 
