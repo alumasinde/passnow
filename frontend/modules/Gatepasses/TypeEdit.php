@@ -4,8 +4,8 @@ require_once __DIR__.'/../../app/App.php';
 Auth::requireLogin();
 
 $id=filter_input(INPUT_GET,'id',FILTER_VALIDATE_INT);
-$gates=[];try{$gates=apiRows(Auth::api(App::api(),'GET','/api/v1/gates'));}catch(Throwable){$errors=['Unable to load active gates.'];}
-$item=[];$errors=[];$workflows=[];
+$item=[];$errors=[];$workflows=[];$gates=[];
+try{$gates=apiRows(Auth::api(App::api(),'GET','/api/v1/gates'));}catch(Throwable){$errors[]='Unable to load active gates.';}
 
 try{$workflows=apiRows(Auth::api(App::api(),'GET','/api/v1/approval-workflows'));}catch(Throwable){$errors[]='Unable to load approval workflows.';}
 
