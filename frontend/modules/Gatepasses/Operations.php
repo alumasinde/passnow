@@ -2,16 +2,6 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../../app/App.php';
 Auth::requireLogin();
-
-$token=trim((string)($_GET['token']??''));
-$record=[];$error=null;
-
-if($token!==''){
- try{
-  $payload=Auth::api(App::api(),'GET','/api/v1/gatepasses/qr/token/'.rawurlencode($token));
-  $record=apiValue($payload,'gatepass',$payload['data']??$payload);
-  if(!is_array($record))$record=[];
- }catch(ApiException $e){$error=$e->getMessage();}
-  catch(Throwable){$error='Unable to look up the gatepass.';}
-}
-App::render('operations/index',compact('token','record','error'));
+$gates=[];$error=null;
+try{$gates=apiRows(Auth::api(App::api(),'GET','/api/v1/gates'));$gates=array_values(array_filter($gates,fn($g)=>!empty($g['active'])));}catch(Throwable){$error='Unable to load operational gates.';}
+App::render('gatepasses/operations',compact('gates','error'));
