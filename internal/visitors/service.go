@@ -57,3 +57,6 @@ func (s *Service) SetBlacklist(ctx context.Context,tenantID,id int64,in Blacklis
 	_ = s.auditRepo.Record(ctx,s.auditRepo.DB(),audit.Entry{ActorUserID:&actorUserID,Action:"VISITOR_BLACKLIST_UPDATED",EntityType:"visitor",EntityID:&id,Metadata:map[string]any{"blacklisted":in.Blacklisted,"reason":in.Reason}})
 	return nil
 }
+
+
+func (s *Service) IdentityMatches(ctx context.Context, tenantID int64, idTypeID int64, idNumber, phone, email string) ([]Visitor,error) { return s.repo.IdentityMatches(ctx,idTypeID,idNumber,phone,email,10) }
