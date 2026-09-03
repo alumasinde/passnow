@@ -24,6 +24,7 @@ type Movement struct {
 	GatepassID  int64
 	Type        MovementType
 	ActorUserID int64
+	DeviceKey   *string
 	GateID      *int64
 	GateName    *string
 	Notes       *string
