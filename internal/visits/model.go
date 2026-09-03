@@ -38,6 +38,9 @@ type Visit struct {
 
 	BadgeNumber *string
 	BadgeToken  *string
+	QRToken *string
+	QRIssuedAt *time.Time
+	QRInvalidatedAt *time.Time
 
 	CheckedInAt  *time.Time
 	CheckedInBy  *int64
