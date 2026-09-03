@@ -15,6 +15,8 @@ var (
 	ErrVisitorBlacklisted = errors.New("visits: visitor is blacklisted and cannot be scheduled")
 	ErrInvalidVisitType   = errors.New("visits: visit type not found or inactive")
 	ErrInvalidDepartment  = errors.New("visits: department not found or inactive")
+	ErrInvalidEntrySource = errors.New("visits: invalid entry source")
+	ErrInvalidExpectedTime = errors.New("visits: expected departure must be after expected arrival")
 )
 
 const (
@@ -37,6 +39,9 @@ func NewService(repo *Repository, visitorRepo *visitors.Repository, visitTypes *
 }
 
 func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, actorUserID int64) (*Visit, error) {
+	if in.EntrySource == "" { in.EntrySource = EntrySourcePreRegistered }
+	if in.EntrySource != EntrySourceWalkIn && in.EntrySource != EntrySourcePreRegistered { return nil, ErrInvalidEntrySource }
+	if in.ExpectedTime != nil && in.ExpectedDepartureAt != nil && !in.ExpectedDepartureAt.After(*in.ExpectedTime) { return nil, ErrInvalidExpectedTime }
 	visitor, err := s.visitorRepo.ByID(ctx, in.VisitorID)
 	if err != nil {
 		return nil, ErrVisitorNotFound
@@ -60,11 +65,13 @@ func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, ac
 
 	v := &Visit{
 		VisitorID:    in.VisitorID,
+		EntrySource: in.EntrySource,
 		VisitTypeID:  in.VisitTypeID,
 		DepartmentID: in.DepartmentID,
 		HostName:     in.HostName,
 		Purpose:      in.Purpose,
 		ExpectedTime: in.ExpectedTime,
+		ExpectedDepartureAt: in.ExpectedDepartureAt,
 		Status:       StatusScheduled,
 		CreatedBy:    &actorUserID,
 	}
