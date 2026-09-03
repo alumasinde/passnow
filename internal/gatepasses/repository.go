@@ -30,7 +30,7 @@ func NewRepository(db *sql.DB, items *ItemRepository) *Repository {
 }
 
 const gpCols = `
-	id, gatepass_type_id, pass_number, department_id,
+	id, gatepass_type_id, assigned_gate_id, pass_number, department_id,
 	requester_type, requester_user_id, requester_visitor_id, visit_id,
 	purpose, is_returnable, expected_return_at, requires_approval, workflow_id,
 	status, qr_token, checked_out_at, checked_out_by, checked_in_at, checked_in_by,
@@ -41,7 +41,7 @@ const gpCols = `
 func (r *Repository) scan(row interface{ Scan(dest ...any) error }) (*Gatepass, error) {
 	var g Gatepass
 	if err := row.Scan(
-		&g.ID, &g.GatepassTypeID, &g.PassNumber, &g.DepartmentID,
+		&g.ID, &g.GatepassTypeID, &g.AssignedGateID, &g.PassNumber, &g.DepartmentID,
 		&g.RequesterType, &g.RequesterUserID, &g.RequesterVisitorID, &g.VisitID,
 		&g.Purpose, &g.IsReturnable, &g.ExpectedReturnAt, &g.RequiresApproval, &g.WorkflowID,
 		&g.Status, &g.QRToken, &g.CheckedOutAt, &g.CheckedOutBy, &g.CheckedInAt, &g.CheckedInBy,
@@ -217,12 +217,12 @@ func (r *Repository) Create(ctx context.Context, in CreateInputResolved) (id int
 
 	res, err := tx.ExecContext(ctx, `
 		INSERT INTO gatepasses
-			(gatepass_type_id, pass_number, department_id,
+			(gatepass_type_id, assigned_gate_id, pass_number, department_id,
 			 requester_type, requester_user_id, requester_visitor_id, visit_id,
 			 purpose, is_returnable, expected_return_at, requires_approval, workflow_id,
 			 status, qr_token, issued_by, issued_at, created_by, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-		g.GatepassTypeID, passNumber, g.DepartmentID,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+		g.GatepassTypeID, g.AssignedGateID, passNumber, g.DepartmentID,
 		g.RequesterType, g.RequesterUserID, g.RequesterVisitorID, g.VisitID,
 		g.Purpose, g.IsReturnable, g.ExpectedReturnAt, g.RequiresApproval, workflowID,
 		status, token, issuedBy, issuedAt, g.CreatedBy,
