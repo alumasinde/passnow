@@ -24,6 +24,7 @@ type Movement struct {
 	GatepassID  int64
 	Type        MovementType
 	ActorUserID int64
+	GateID      *int64
 	GateName    *string
 	Notes       *string
 	OccurredAt  time.Time
@@ -51,7 +52,8 @@ type MovementItemInput struct {
 }
 
 type MovementInput struct {
-	GateName string              `json:"gate_name"`
+	GateID   *int64             `json:"gate_id"`
+	GateName string              `json:"gate_name,omitempty"`
 	Notes    *string             `json:"notes"`
 	Items    []MovementItemInput `json:"items"`
 	// FullReturn closes all outstanding returnable quantities. If false,
@@ -63,6 +65,7 @@ type MovementDTO struct {
 	ID          int64             `json:"id"`
 	Type        string            `json:"type"`
 	ActorUserID int64             `json:"actor_user_id"`
+	GateID      *int64            `json:"gate_id,omitempty"`
 	GateName    *string           `json:"gate_name,omitempty"`
 	Notes       *string           `json:"notes,omitempty"`
 	OccurredAt  time.Time         `json:"occurred_at"`
