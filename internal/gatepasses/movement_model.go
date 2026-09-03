@@ -53,6 +53,7 @@ type MovementItemInput struct {
 }
 
 type MovementInput struct {
+	DeviceKey *string `json:"device_key,omitempty"`
 	GateID   *int64             `json:"gate_id"`
 	GateName string              `json:"gate_name,omitempty"`
 	Notes    *string             `json:"notes"`
