@@ -62,7 +62,7 @@ func DefaultRegistry() []Definition {
 					"/roles", "/role-permissions", "/id-types", "/invitations",
 					"/invite-user", "/visitor-settings", "/visitor-companies",
 					"/visit-types", "/departments", "/gatepass-settings", "/gatepass-types",
-					"/approval-workflows",
+					"/approval-workflows", "/gates", "/gates.php", "/gates/edit", "/gates-edit.php",
 				},
 				Placement: "bottom", Order: 10,
 			},
@@ -71,6 +71,7 @@ func DefaultRegistry() []Definition {
 				"role.read", "role.create", "role.update", "permission.read", "permission.assign",
 				"department.read", "department.create", "department.update",
 				"workflow.read", "workflow.create", "workflow.update", "workflow.activate",
+				"gate.read", "gate.create", "gate.update",
 			},
 		},
 	}
