@@ -352,6 +352,33 @@
     });
   }
 
+  function initUserAccessInspection() {
+    const checks = $('[data-user-access-check]');
+    const bar = $('[data-user-access-bar]');
+    const modal = $('[data-user-access-modal]');
+    if (!checks.length || !bar) return;
+    const selected = () => checks.find(x => x.checked)?.value || '';
+    const sync = () => { const id = selected(); bar.hidden = !id; const count = $('[data-user-access-count]'); if (count) count.textContent = id ? '1' : '0'; };
+    checks.forEach(x => x.addEventListener('change', sync));
+    $('[data-user-access-clear]')?.addEventListener('click', () => { checks.forEach(x => x.checked=false); sync(); });
+    $('[data-user-access-close]').forEach(x => x.addEventListener('click', () => modal.hidden=true));
+    $('[data-user-access-open]')?.addEventListener('click', async () => {
+      const id = selected(); if (!id) return;
+      const content = $('[data-user-access-content]'); content.innerHTML='<p class="muted">Loading effective access…</p>'; modal.hidden=false;
+      try {
+        const response = await fetch('/api/v1/users/' + encodeURIComponent(id) + '/access', {credentials:'same-origin'});
+        const payload = await response.json(); if (!response.ok) throw new Error(payload.message || 'Unable to inspect access.');
+        const a = payload.data || payload;
+        const fullName = ((a.first_name || '') + ' ' + (a.last_name || '')).trim();
+        const department = a.department_name || 'No department assigned';
+        const permissions = Array.isArray(a.permission_codes) ? a.permission_codes : [];
+        const grouped = {};
+        permissions.forEach(code => { const key = code.split('.')[0] || 'other'; (grouped[key] ||= []).push(code); });
+        content.innerHTML='<div class="rbac-access-summary"><article><span>User</span><strong>'+escapeHTML(fullName || a.email || 'User')+'</strong><small>'+escapeHTML(a.email || '')+'</small></article><article><span>Role</span><strong>'+escapeHTML(a.role_name || 'Unassigned')+'</strong><small>'+Number(permissions.length)+' effective permissions</small></article><article><span>Department</span><strong>'+escapeHTML(department)+'</strong><small>Status: '+escapeHTML(a.status || 'unknown')+'</small></article></div><div class="rbac-access-modules">'+Object.keys(grouped).sort().map(key=>'<section><h3>'+escapeHTML(key.replaceAll('_',' '))+'</h3><div class="rbac-access-codes">'+grouped[key].map(code=>'<code>'+escapeHTML(code)+'</code>').join('')+'</div></section>').join('')+'</div>';
+      } catch (e) { content.innerHTML='<div class="alert alert-danger">'+escapeHTML(e.message)+'</div>'; }
+    });
+  }
+
   function init() {
     initForms();
     initUserMenu();
@@ -364,6 +391,7 @@
     initPermissionUI();
     initRoleWorkspace();
     initRoleComparison();
+    initUserAccessInspection();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
