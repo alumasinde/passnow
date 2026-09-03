@@ -5,6 +5,7 @@ import "time"
 type DTO struct {
 	ID                 int64             `json:"id"`
 	GatepassTypeID     int64             `json:"gatepass_type_id"`
+	AssignedGateID      *int64            `json:"assigned_gate_id,omitempty"`
 	PassNumber         string            `json:"pass_number"`
 	GatepassTypeName   string            `json:"gatepass_type_name,omitempty"`
 	Direction          string            `json:"direction,omitempty"`
@@ -33,7 +34,7 @@ type DTO struct {
 
 func ToDTO(g *Gatepass) DTO {
 	return DTO{
-		ID: g.ID, GatepassTypeID: g.GatepassTypeID, PassNumber: g.PassNumber,
+		ID: g.ID, GatepassTypeID: g.GatepassTypeID, AssignedGateID: g.AssignedGateID, PassNumber: g.PassNumber,
 		DepartmentID: g.DepartmentID, RequesterType: string(g.RequesterType),
 		RequesterUserID: g.RequesterUserID, RequesterVisitorID: g.RequesterVisitorID,
 		VisitID: g.VisitID, Purpose: g.Purpose, IsReturnable: g.IsReturnable,
@@ -52,6 +53,7 @@ func ToDTO(g *Gatepass) DTO {
 // service.go.
 type CreateInput struct {
 	GatepassTypeID     int64       `json:"gatepass_type_id"`
+	AssignedGateID      *int64      `json:"assigned_gate_id"`
 	DepartmentID       *int64      `json:"department_id"`
 	RequesterType      string      `json:"requester_type"`       // "employee" | "visitor"
 	RequesterVisitorID *int64      `json:"requester_visitor_id"` // required if requester_type=visitor
