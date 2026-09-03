@@ -63,25 +63,25 @@ $canCheckin = in_array($status, ['checked_out', 'out'], true);
         <?php endif; ?>
 
         <div class="form-actions detail-actions">
-            <?php if ($canApprove): ?>
+            <?php if ($canApprove && Auth::can('approval.approve.assigned')): ?>
                 <a class="btn btn-primary" href="<?= e(url('gatepass-approvals.php?id=' . $id)) ?>">
                     <i class="fa-solid fa-user-check"></i> Review approval
                 </a>
             <?php endif; ?>
 
-            <?php if ($canCheckout): ?>
+            <?php if ($canCheckout && Auth::can(['gatepass.checkout','gatepass.check-out','gatepass.movement'])): ?>
                 <button class="btn btn-primary" type="button" data-modal-open="checkoutModal">
                     <i class="fa-solid fa-right-from-bracket"></i> Check out
                 </button>
             <?php endif; ?>
 
-            <?php if ($canCheckin): ?>
+            <?php if ($canCheckin && Auth::can(['gatepass.checkin','gatepass.check-in','gatepass.movement'])): ?>
                 <button class="btn btn-primary" type="button" data-modal-open="checkinModal">
                     <i class="fa-solid fa-right-to-bracket"></i> Check in
                 </button>
             <?php endif; ?>
 
-            <?php if(in_array($status,['pending_approval','approved'],true)): ?>
+            <?php if(in_array($status,['pending_approval','approved'],true) && Auth::can(['gatepass.cancel','gatepass.cancel.all'])): ?>
             <form method="post" action="<?=e(url('gatepass-cancel.php'))?>" class="inline-form">
                 <input type="hidden" name="_csrf" value="<?=e(Csrf::token())?>">
                 <input type="hidden" name="id" value="<?=e((string)$id)?>">
