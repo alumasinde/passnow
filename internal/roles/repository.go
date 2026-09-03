@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"time"
+	"sort"
 )
 
 var ErrNotFound = errors.New("roles: not found")
@@ -307,4 +308,42 @@ func (r *Repository) CloneRole(ctx context.Context, sourceID int64, name string)
 		SELECT ?, permission_id FROM role_permissions WHERE role_id = ?`, id, sourceID)
 	if err != nil { return 0, err }
 	return id, tx.Commit()
+}
+
+
+type RoleComparison struct {
+	ID int64
+	Name string
+	IsSystem bool
+	PermissionCount int
+	UserCount int
+	PermissionCodes []string
+}
+
+func (r *Repository) CompareRoles(ctx context.Context, ids []int64) ([]RoleComparison, error) {
+	if len(ids) < 2 || len(ids) > 5 { return nil, errors.New("roles: select between 2 and 5 roles") }
+	seen := map[int64]struct{}{}
+	out := make([]RoleComparison, 0, len(ids))
+	for _, id := range ids {
+		if id < 1 { return nil, errors.New("roles: invalid role") }
+		if _, ok := seen[id]; ok { continue }; seen[id]=struct{}{}
+		role, err := r.RoleByID(ctx,id); if err != nil { return nil, err }
+		codes, err := r.PermissionCodesForRole(ctx,id); if err != nil { return nil, err }
+		var users int
+		if err := r.db.QueryRowContext(ctx,`SELECT COUNT(*) FROM tenant_memberships WHERE role_id = ?`,id).Scan(&users); err != nil { return nil, err }
+		list:=make([]string,0,len(codes));for code:=range codes{list=append(list,code)}
+		sort.Strings(list)
+		out=append(out,RoleComparison{ID:role.ID,Name:role.Name,IsSystem:role.IsSystem,PermissionCount:len(list),UserCount:users,PermissionCodes:list})
+	}
+	return out,nil
+}
+
+func (r *Repository) DeleteRole(ctx context.Context, roleID int64) error {
+	role, err := r.RoleByID(ctx, roleID); if err != nil { return err }
+	if role.IsSystem { return errors.New("system roles cannot be deleted") }
+	var users int
+	if err := r.db.QueryRowContext(ctx,`SELECT COUNT(*) FROM tenant_memberships WHERE role_id = ?`,roleID).Scan(&users); err != nil { return err }
+	if users > 0 { return errors.New("role cannot be deleted while users are assigned to it") }
+	_, err = r.db.ExecContext(ctx,`DELETE FROM roles WHERE id = ?`,roleID)
+	return err
 }
