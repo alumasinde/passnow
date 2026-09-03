@@ -80,6 +80,7 @@
               if (picker && typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) picker.value = value;
             });
           }
+          form.dispatchEvent(new CustomEvent('ajax:success', {detail: payload}));
           showToast(payload.message || 'Saved successfully.', 'success');
         } catch (error) {
           showToast(error?.message || 'Unable to save changes.', 'danger');
@@ -281,6 +282,52 @@
     });
   }
 
+  function initRoleWorkspace() {
+    const modal = $('[data-role-create-modal]');
+    const open = $('[data-role-create-open]');
+    const close = () => { if (modal) modal.hidden = true; };
+    open?.addEventListener('click', () => { modal.hidden = false; $('input[name="name"]', modal)?.focus(); });
+    $('[data-role-create-close]').forEach(button => button.addEventListener('click', close));
+    modal?.addEventListener('click', event => { if (event.target === modal) close(); });
+    $('[data-role-create-form]')?.addEventListener('ajax:success', event => {
+      close();
+      const role = event.detail?.role?.data || event.detail?.role || event.detail?.data?.role || {};
+      const id = role.id;
+      if (id) window.location.assign('role-permissions.php?id=' + encodeURIComponent(id));
+    });
+
+    const form = $('[data-permission-form]');
+    if (!form) return;
+    const boxes = () => $('input[name="permissions[]"]', form);
+    const count = () => {
+      const node = $('[data-permission-selected-count]');
+      if (node) node.textContent = boxes().filter(x => x.checked).length;
+    };
+    const visibleBoxes = () => boxes().filter(x => !x.closest('[hidden]'));
+    $('[data-permission-all]', form)?.addEventListener('click', () => { visibleBoxes().forEach(x => x.checked = true); count(); });
+    $('[data-permission-none]', form)?.addEventListener('click', () => { visibleBoxes().forEach(x => x.checked = false); count(); });
+    $('[data-permission-toggle]', form)?.addEventListener('click', () => { visibleBoxes().forEach(x => x.checked = !x.checked); count(); });
+    boxes().forEach(box => box.addEventListener('change', count));
+
+    let module = 'all';
+    const search = $('[data-permission-search]', form);
+    const filter = () => {
+      const query = (search?.value || '').trim().toLowerCase();
+      $('.permission-item', form).forEach(item => {
+        const matchModule = module === 'all' || item.dataset.permissionModule === module;
+        const text = (item.dataset.permissionCode || '') + ' ' + item.textContent;
+        item.hidden = !matchModule || (query && !text.toLowerCase().includes(query));
+      });
+    };
+    search?.addEventListener('input', filter);
+    $('[data-permission-module]', form).forEach(button => button.addEventListener('click', () => {
+      module = button.dataset.permissionModule || 'all';
+      $('[data-permission-module]', form).forEach(x => x.classList.toggle('is-active', x === button));
+      filter();
+    }));
+    count();
+  }
+
   function init() {
     initForms();
     initUserMenu();
@@ -291,6 +338,7 @@
     initTableFilters();
     initExports();
     initPermissionUI();
+    initRoleWorkspace();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
