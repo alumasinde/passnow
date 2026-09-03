@@ -151,3 +151,17 @@ func (h *Handler) GetUser(w http.ResponseWriter,r *http.Request){
 	m,err:=h.repo.MembershipViewByUserID(r.Context(),userID); if err!=nil {httpx.WriteError(w,httpx.ErrNotFound);return}
 	httpx.WriteJSON(w,http.StatusOK,membershipDTO{MembershipID:m.MembershipID,UserID:m.UserID,Email:m.Email,FirstName:m.FirstName,LastName:m.LastName,RoleID:m.RoleID,RoleName:m.RoleName,DepartmentID:m.DepartmentID,DepartmentName:m.DepartmentName,MustChangePassword:m.MustChangePassword,CreatedAt:m.CreatedAt,UpdatedAt:m.UpdatedAt,Status:string(m.Status)})
 }
+
+
+type cloneRoleInput struct { Name string `json:"name"` }
+
+func (h *Handler) CloneRole(w http.ResponseWriter, r *http.Request) {
+	if !requireTenant(w, r) { return }
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64); if err != nil || id < 1 { httpx.WriteError(w, httpx.ErrNotFound); return }
+	var in cloneRoleInput; if !httpx.DecodeJSON(w, r, &in) { return }
+	if in.Name == "" { httpx.WriteError(w, httpx.ErrValidation.WithMessage("name is required")); return }
+	newID, err := h.repo.CloneRole(r.Context(), id, in.Name)
+	if err != nil { httpx.WriteError(w, httpx.ErrValidation.WithMessage(err.Error())); return }
+	role, err := h.repo.RoleByID(r.Context(), newID); if err != nil { httpx.WriteError(w, httpx.ErrInternal); return }
+	httpx.WriteJSON(w, http.StatusCreated, roleDTO{ID:role.ID, Name:role.Name, IsSystem:role.IsSystem})
+}
