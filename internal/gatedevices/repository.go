@@ -1,5 +1,12 @@
 package gatedevices
-import("context";"database/sql";"errors";"strings";"crypto/sha256";"fmt"
+import (
+	"context"
+	"crypto/sha256"
+	"database/sql"
+	"errors"
+	"fmt"
+	"strings"
+)
 var ErrNotFound=errors.New("gate device not found")
 type Repository struct{db *sql.DB}
 func NewRepository(db *sql.DB)*Repository{return &Repository{db}}
