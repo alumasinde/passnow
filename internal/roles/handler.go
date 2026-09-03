@@ -181,3 +181,13 @@ func (h *Handler) DeleteRole(w http.ResponseWriter,r *http.Request){
 	if err:=h.repo.DeleteRole(r.Context(),id);err!=nil{httpx.WriteError(w,httpx.ErrValidation.WithMessage(err.Error()));return}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+
+func (h *Handler) GetUserAccess(w http.ResponseWriter, r *http.Request) {
+	if !requireTenant(w, r) { return }
+	userID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || userID < 1 { httpx.WriteError(w, httpx.ErrNotFound); return }
+	access, err := h.repo.UserAccessByUserID(r.Context(), userID)
+	if err != nil { httpx.WriteError(w, httpx.ErrNotFound); return }
+	httpx.WriteJSON(w, http.StatusOK, access)
+}
