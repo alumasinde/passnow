@@ -1,7 +1,9 @@
 package employees
 
 import (
+	"context"
 	"errors"
+	"gatepass/internal/rbac"
 	"net/http"
 	"strconv"
 
@@ -30,7 +32,14 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := httpx.ParsePagination(r)
-	items, total, err := h.svc.List(r.Context(), p)
+	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w,httpx.ErrAuthRequired); return }
+	var departmentID *int64
+	if d, ok := rbac.DecisionFromContext(r.Context()); ok && d.Scope == rbac.ScopeDepartment {
+		var err error
+		departmentID, err = h.svc.UserDepartment(r.Context(), claims.UserID)
+		if err != nil || departmentID == nil { httpx.WriteError(w,httpx.ErrForbidden); return }
+	}
+	items, total, err := h.svc.ListScoped(r.Context(), p, departmentID)
 	if err != nil {
 		httpx.WriteError(w, httpx.ErrInternal)
 		return
@@ -56,6 +65,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
+	if !h.canAccessEmployee(r.Context(), e) { httpx.WriteError(w,httpx.ErrForbidden); return }
 	httpx.WriteJSON(w, http.StatusOK, h.svc.ToDTO(r.Context(), e))
 }
 
@@ -94,6 +104,8 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
+	existing, err := h.svc.Get(r.Context(), id); if err != nil { httpx.WriteError(w,httpx.ErrNotFound); return }
+	if !h.canAccessEmployee(r.Context(), existing) { httpx.WriteError(w,httpx.ErrForbidden); return }
 	var body updateRequest
 	if !httpx.DecodeJSON(w, r, &body) {
 		return
@@ -126,4 +138,13 @@ func writeServiceError(w http.ResponseWriter, err error) {
 	default:
 		httpx.WriteError(w, httpx.ErrInternal)
 	}
+}
+
+
+func (h *Handler) canAccessEmployee(ctx context.Context, e *Employee) bool {
+	d, ok := rbac.DecisionFromContext(ctx); if !ok || d.Scope == rbac.ScopeNone || d.Scope == rbac.ScopeAll { return true }
+	if d.Scope != rbac.ScopeDepartment || e.DepartmentID == nil { return false }
+	claims, ok := reqctx.ClaimsFromContext(ctx); if !ok { return false }
+	dept, err := h.svc.UserDepartment(ctx, claims.UserID)
+	return err == nil && dept != nil && *dept == *e.DepartmentID
 }
