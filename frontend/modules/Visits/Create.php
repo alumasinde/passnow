@@ -13,16 +13,22 @@ $nullableInt=static fn($value): ?int => ((int)$value)>0?(int)$value:null;
 $nullableString=static fn($value): ?string => (($v=trim((string)$value))==='')?null:$v;
 if(requestMethod()==='POST'){
  Csrf::requireValid($_POST['_csrf']??null);
+ $entrySource=(string)($_POST['entry_source']??'pre_registered');
  $expected=$nullableString($_POST['expected_time']??'');$expectedValue=null;
- if($expected!==null){try{$expectedValue=(new DateTimeImmutable($expected))->format(DATE_ATOM);}catch(Throwable){$errors[]='Expected time is invalid.';}}
+ $expectedDeparture=$nullableString($_POST['expected_departure_at']??'');$expectedDepartureValue=null;
+ if($expected!==null){try{$expectedValue=(new DateTimeImmutable($expected))->format(DATE_ATOM);}catch(Throwable){$errors[]='Expected arrival is invalid.';}}
+ if($expectedDeparture!==null){try{$expectedDepartureValue=(new DateTimeImmutable($expectedDeparture))->format(DATE_ATOM);}catch(Throwable){$errors[]='Expected departure is invalid.';}}
+ if($expectedValue!==null&&$expectedDepartureValue!==null&&strtotime($expectedDepartureValue)<=strtotime($expectedValue)){$errors[]='Expected departure must be after expected arrival.';}
  $payload=[
   'visitor_id'=>(int)($_POST['visitor_id']??0),
+  'entry_source'=>$entrySource,
   'visit_type_id'=>$nullableInt($_POST['visit_type_id']??0),
   'department_id'=>$nullableInt($_POST['department_id']??0),
   'host_name'=>$nullableString($_POST['host_name']??''),
   'purpose'=>$nullableString($_POST['purpose']??''),
   'expected_time'=>$expectedValue,
-  'check_in_now'=>isset($_POST['check_in_now']),
+  'expected_departure_at'=>$expectedDepartureValue,
+  'check_in_now'=>$entrySource==='walk_in'||isset($_POST['check_in_now']),
  ];
  if($payload['visitor_id']<1)$errors[]='Visitor is required.';
  if(!$payload['visit_type_id'])$errors[]='Visit type is required.';
