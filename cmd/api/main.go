@@ -180,7 +180,7 @@ func buildTenantAPI(db *sql.DB, cfg *config.Config) *routes.API {
 	authSvc := auth.NewService(userRepo, roleRepo, refreshRepo, jwtSecret, cfg.BcryptCost, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
 	visitorSvc := visitors.NewService(visitorRepo, idTypeRepo, companyRepo, settingsRepo, auditRepo)
 	visitSvc := visits.NewService(visitRepo, visitorRepo, visitTypeRepo, deptRepo, auditRepo)
-	gpSvc := gatepasses.NewService(gpRepo, gpTypeRepo, deptRepo, visitorRepo, visitRepo, workflowRepo, roleRepo, settingsRepo, auditRepo, userRepo)
+	gpSvc := gatepasses.NewService(gpRepo, gpTypeRepo, gateRepo, deptRepo, visitorRepo, visitRepo, workflowRepo, roleRepo, settingsRepo, auditRepo, userRepo)
 	inviteSvc := invite.NewService(userRepo, roleRepo, cfg.BcryptCost)
 	employeeSvc := employees.NewService(employeeRepo, userRepo, roleRepo)
 
@@ -197,6 +197,7 @@ func buildTenantAPI(db *sql.DB, cfg *config.Config) *routes.API {
 	api.WorkflowHandler = approvals.NewHandler(workflowRepo)
 	api.GatepassHandler = gatepasses.NewHandler(gpSvc, gpTypeRepo)
 	api.GateHandler = gates.NewHandler(gateRepo)
+	api.GateDeviceHandler = gatedevices.NewHandler(gatedevices.NewRepository(db))
 	api.EmployeeHandler = employees.NewHandler(employeeSvc)
 	api.RoleHandler = roles.NewHandler(roleRepo)
 	api.InviteHandler = invite.NewHandler(inviteSvc)
