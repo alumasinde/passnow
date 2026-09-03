@@ -20,6 +20,7 @@ import (
 	"gatepass/internal/employees"
 	"gatepass/internal/gatepasses"
 	"gatepass/internal/gates"
+	"gatepass/internal/gatedevices"
 	"gatepass/internal/invite"
 	"gatepass/internal/media"
 	"gatepass/internal/navigation"
@@ -145,6 +146,7 @@ func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *rou
 	api.WorkflowHandler = approvals.NewHandler(workflowRepo)
 	api.GatepassHandler = gatepasses.NewHandler(gpSvc, gpTypeRepo)
 	api.GateHandler = gates.NewHandler(gateRepo)
+	api.GateDeviceHandler = gatedevices.NewHandler(gatedevices.NewRepository(db))
 	api.EmployeeHandler = employees.NewHandler(employeeSvc)
 	api.RoleHandler = roles.NewHandler(roleRepo)
 	api.InviteHandler = invite.NewHandler(inviteSvc)
