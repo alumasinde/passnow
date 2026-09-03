@@ -85,6 +85,11 @@ func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, ac
 }
 
 func (s *Service) CheckIn(ctx context.Context, tenantID, id, actorUserID int64) (*Visit, error) {
+	current, err := s.repo.ByID(ctx, id)
+	if err != nil { return nil, err }
+	visitor, err := s.visitorRepo.ByID(ctx, current.VisitorID)
+	if err != nil { return nil, ErrVisitorNotFound }
+	if visitor.Status == visitors.StatusBlacklisted { return nil, ErrVisitorBlacklisted }
 	v, err := s.repo.CheckIn(ctx, id, actorUserID)
 	if err != nil {
 		return nil, err
