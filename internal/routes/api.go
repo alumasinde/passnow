@@ -168,6 +168,8 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("PATCH /api/v1/roles/{id}", protected("role.update", api.RoleHandler.UpdateRole))
 	mux.Handle("POST /api/v1/roles", protected("role.create", api.RoleHandler.CreateRole))
 	mux.Handle("POST /api/v1/roles/{id}/clone", protected("role.create", api.RoleHandler.CloneRole))
+	mux.Handle("GET /api/v1/roles/compare", protected("role.read", api.RoleHandler.CompareRoles))
+	mux.Handle("DELETE /api/v1/roles/{id}", protected("role.delete", api.RoleHandler.DeleteRole))
 	mux.Handle("PUT /api/v1/roles/{id}/permissions", protected("permission.assign", api.RoleHandler.SetRolePermissions))
 	mux.Handle("GET /api/v1/users", protected("user.read.all", api.RoleHandler.ListUsers))
 	mux.Handle("GET /api/v1/users/{id}", protected("user.read.all", api.RoleHandler.GetUser))
