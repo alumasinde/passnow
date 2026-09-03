@@ -142,6 +142,7 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("PATCH /api/v1/gates/{id}", protected("gate.update", api.GateHandler.Update))
 
 	// --- authorized gate devices ---
+	mux.Handle("POST /api/v1/gate-devices/activate", http.HandlerFunc(api.GateDeviceHandler.Activate))
 	mux.Handle("GET /api/v1/gate-devices", protected("gate.read", api.GateDeviceHandler.List))
 	mux.Handle("POST /api/v1/gate-devices", protected("gate.create", api.GateDeviceHandler.Create))
 
