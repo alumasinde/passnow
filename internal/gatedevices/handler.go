@@ -1,0 +1,6 @@
+package gatedevices
+import("net/http";"strings";"gatepass/internal/httpx";"gatepass/internal/reqctx")
+type Handler struct{repo *Repository}
+func NewHandler(r *Repository)*Handler{return &Handler{r}}
+func(h *Handler)List(w http.ResponseWriter,r *http.Request){if _,ok:=reqctx.TenantFromContext(r.Context());!ok{httpx.WriteError(w,httpx.ErrAuthRequired);return};v,e:=h.repo.List(r.Context());if e!=nil{httpx.WriteError(w,httpx.ErrInternal);return};httpx.WriteJSON(w,http.StatusOK,v)}
+func(h *Handler)Create(w http.ResponseWriter,r *http.Request){if _,ok:=reqctx.TenantFromContext(r.Context());!ok{httpx.WriteError(w,httpx.ErrAuthRequired);return};var in Input;if !httpx.DecodeJSON(w,r,&in){return};in.DeviceKey=strings.ToLower(strings.TrimSpace(in.DeviceKey));if len(in.DeviceKey)<24||strings.TrimSpace(in.Name)==""||in.GateID<1{httpx.WriteError(w,httpx.ErrValidation.WithMessage("valid device_key, name and gate_id are required"));return};d,e:=h.repo.Create(r.Context(),in);if e!=nil{httpx.WriteError(w,httpx.ErrValidation.WithMessage(e.Error()));return};httpx.WriteJSON(w,http.StatusCreated,d)}
