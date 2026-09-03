@@ -20,6 +20,7 @@ var (
 	ErrMovementGateRequired = errors.New("visits: gate is required")
 	ErrMovementGateInvalid = errors.New("visits: gate is invalid or inactive")
 	ErrMovementGateDirection = errors.New("visits: gate does not allow this movement direction")
+	ErrMovementDeviceInvalid = errors.New("visits: device is invalid, inactive, or not assigned to the selected gate")
 )
 
 const (
@@ -103,6 +104,7 @@ func (s *Service) CheckInAtGate(ctx context.Context, tenantID, id, actorUserID i
 	if in.GateID==0 { return nil, ErrMovementGateRequired }
 	var active, allows bool
 	if err:=s.repo.DB().QueryRowContext(ctx,"SELECT active,allows_entry FROM gates WHERE id=? AND deleted_at IS NULL",in.GateID).Scan(&active,&allows);err!=nil||!active{return nil,ErrMovementGateInvalid};if !allows{return nil,ErrMovementGateDirection}
+	if err:=s.validateMovementDevice(ctx,in);err!=nil{return nil,err}
 	current, err := s.repo.ByID(ctx, id)
 	if err != nil { return nil, err }
 	visitor, err := s.visitorRepo.ByID(ctx, current.VisitorID)
@@ -122,6 +124,7 @@ func (s *Service) CheckOutAtGate(ctx context.Context, tenantID, id, actorUserID 
 	if in.GateID==0 { return nil, ErrMovementGateRequired }
 	var active, allows bool
 	if err:=s.repo.DB().QueryRowContext(ctx,"SELECT active,allows_exit FROM gates WHERE id=? AND deleted_at IS NULL",in.GateID).Scan(&active,&allows);err!=nil||!active{return nil,ErrMovementGateInvalid};if !allows{return nil,ErrMovementGateDirection}
+	if err:=s.validateMovementDevice(ctx,in);err!=nil{return nil,err}
 	v, err := s.repo.CheckOut(ctx, id, actorUserID)
 	if err==nil { if e:=s.repo.RecordMovement(ctx,id,MovementCheckOut,actorUserID,in);e!=nil{return nil,e} }
 	if err != nil {
@@ -200,3 +203,5 @@ func (s *Service) UserDepartment(ctx context.Context, userID int64) (*int64, err
 func (s *Service) Movements(ctx context.Context,tenantID,visitID int64)([]Movement,error){return s.repo.Movements(ctx,visitID)}
 
 func (s *Service) defaultGateID(ctx context.Context) int64 { var id int64; if err:=s.repo.DB().QueryRowContext(ctx,"SELECT id FROM gates WHERE deleted_at IS NULL AND active=1 AND is_default=1 LIMIT 1").Scan(&id);err!=nil{return 0};return id }
+
+func (s *Service) validateMovementDevice(ctx context.Context,in MovementInput) error { if in.DeviceID==nil{return nil};var active bool;var gateID int64;if err:=s.repo.DB().QueryRowContext(ctx,"SELECT active,gate_id FROM gate_devices WHERE id=? AND deleted_at IS NULL",*in.DeviceID).Scan(&active,&gateID);err!=nil||!active||gateID!=in.GateID{return ErrMovementDeviceInvalid};return nil }
