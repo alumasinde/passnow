@@ -1,15 +1,15 @@
 package visits
 
 import (
-    "context"
-    "errors"
-    "net/http"
-    "strconv"
+	"context"
+	"errors"
+	"net/http"
+	"strconv"
 
-    "gatepass/internal/httpx"
-    "gatepass/internal/reqctx"
-    "gatepass/internal/rbac"
-    "gatepass/internal/visitors"
+	"gatepass/internal/httpx"
+	"gatepass/internal/reqctx"
+	"gatepass/internal/rbac"
+	"gatepass/internal/visitors"
 )
 
 type Handler struct{svc *Service}
@@ -29,8 +29,7 @@ func(h *Handler)canAccess(ctx context.Context,actorID int64,v *Visit)bool{if v==
 func valueID(v *int64)int64{if v==nil{return 0};return *v}
 func rbacSubjectDepartment(ctx context.Context,s *Service,userID int64)(*int64,error){return s.UserDepartment(ctx,userID)}
 func writeServiceError(w http.ResponseWriter,err error){switch{case errors.Is(err,ErrNotFound):httpx.WriteError(w,httpx.ErrNotFound);case errors.Is(err,ErrVisitorNotFound):httpx.WriteError(w,httpx.ErrValidation.WithMessage("visitor_id is invalid"));case errors.Is(err,ErrVisitorBlacklisted):httpx.WriteError(w,httpx.AppError{Code:"visitor_blacklisted",Message:"this visitor is blacklisted and cannot be scheduled",Status:http.StatusForbidden});case errors.Is(err,ErrInvalidVisitType):httpx.WriteError(w,httpx.ErrValidation.WithMessage("visit_type_id is invalid or inactive"));case errors.Is(err,ErrInvalidDepartment):httpx.WriteError(w,httpx.ErrValidation.WithMessage("department_id is invalid or inactive"));case errors.Is(err,ErrInvalidEntrySource):httpx.WriteError(w,httpx.ErrValidation.WithMessage("entry_source is invalid"));case errors.Is(err,ErrInvalidExpectedTime):httpx.WriteError(w,httpx.ErrValidation.WithMessage("expected departure must be after expected arrival"));case errors.Is(err,ErrMovementGateRequired):httpx.WriteError(w,httpx.ErrValidation.WithMessage("gate_id is required"));case errors.Is(err,ErrMovementGateInvalid):httpx.WriteError(w,httpx.ErrValidation.WithMessage("gate_id is invalid or inactive"));case errors.Is(err,ErrMovementDeviceInvalid):httpx.WriteError(w,httpx.ErrValidation.WithMessage("device is invalid, inactive, or not assigned to the selected gate"));case errors.Is(err,ErrMovementGateDirection):httpx.WriteError(w,httpx.AppError{Code:"gate_direction_not_allowed",Message:"selected gate does not allow this movement direction",Status:http.StatusConflict});case errors.Is(err,ErrQRUnavailable):httpx.WriteError(w,httpx.AppError{Code:"qr_unavailable",Message:"QR credential is unavailable for this visit",Status:http.StatusConflict});case errors.Is(err,ErrInvalidTransition):httpx.WriteError(w,httpx.AppError{Code:"invalid_transition",Message:"this action is not valid for the visit's current status",Status:http.StatusConflict});case errors.Is(err,visitors.ErrNotFound):httpx.WriteError(w,httpx.ErrNotFound);default:httpx.WriteError(w,httpx.ErrInternal)}}
-func(h *Handler)IssueQR(w http.ResponseWriter,r *http.Request){tenant,ok:=reqctx.TenantFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return};id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return};if !h.canAccess(r.Context(),claimsUserID(r),mustVisit(h.svc,r.Context(),tenant.ID,id)){httpx.WriteError(w,httpx.ErrForbidden);return};v,err:=h.svc.IssueQR(r.Context(),tenant.ID,id,claimsUserID(r));if err!=nil{writeServiceError(w,err);return};httpx.WriteJSON(w,http.StatusOK,h.svc.ToDTO(r.Context(),v))}
-func(h *Handler)InvalidateQR(w http.ResponseWriter,r *http.Request){tenant,ok:=reqctx.TenantFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return};id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return};target:=mustVisit(h.svc,r.Context(),tenant.ID,id);if target==nil||!h.canAccess(r.Context(),claimsUserID(r),target){httpx.WriteError(w,httpx.ErrForbidden);return};if err:=h.svc.InvalidateQR(r.Context(),tenant.ID,id,claimsUserID(r));err!=nil{writeServiceError(w,err);return};httpx.WriteJSON(w,http.StatusOK,map[string]any{"invalidated":true})}
+func(h *Handler)IssueQR(w http.ResponseWriter,r *http.Request){tenant,ok:=reqctx.TenantFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return};id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return};target,err:=h.svc.Get(r.Context(),tenant.ID,id);if err!=nil{writeServiceError(w,err);return};if !h.canAccess(r.Context(),claimsUserID(r),target){httpx.WriteError(w,httpx.ErrForbidden);return};v,err:=h.svc.IssueQR(r.Context(),tenant.ID,id,claimsUserID(r));if err!=nil{writeServiceError(w,err);return};httpx.WriteJSON(w,http.StatusOK,h.svc.ToDTO(r.Context(),v))}
+func(h *Handler)InvalidateQR(w http.ResponseWriter,r *http.Request){tenant,ok:=reqctx.TenantFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return};id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return};target,err:=h.svc.Get(r.Context(),tenant.ID,id);if err!=nil{writeServiceError(w,err);return};if !h.canAccess(r.Context(),claimsUserID(r),target){httpx.WriteError(w,httpx.ErrForbidden);return};if err=h.svc.InvalidateQR(r.Context(),tenant.ID,id,claimsUserID(r));err!=nil{writeServiceError(w,err);return};httpx.WriteJSON(w,http.StatusOK,map[string]any{"invalidated":true})}
 func(h *Handler)QRLookup(w http.ResponseWriter,r *http.Request){tenant,ok:=reqctx.TenantFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return};token:=r.PathValue("token");if token==""{httpx.WriteError(w,httpx.ErrNotFound);return};v,visitor,err:=h.svc.QRLookup(r.Context(),tenant.ID,token);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return};d:=h.svc.ToDTO(r.Context(),v);d.VisitorName=visitor.FullName();httpx.WriteJSON(w,http.StatusOK,d)}
 func(h *Handler)Movements(w http.ResponseWriter,r *http.Request){tenant,ok:=reqctx.TenantFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return};id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return};target,err:=h.svc.Get(r.Context(),tenant.ID,id);if err!=nil{writeServiceError(w,err);return};if !h.canAccess(r.Context(),claimsUserID(r),target){httpx.WriteError(w,httpx.ErrForbidden);return};items,err:=h.svc.Movements(r.Context(),tenant.ID,id);if err!=nil{writeServiceError(w,err);return};httpx.WriteJSON(w,http.StatusOK,map[string]any{"items":items})}
-func mustVisit(s *Service,ctx context.Context,tenantID,id int64)*Visit{v,err:=s.Get(ctx,tenantID,id);if err!=nil{return nil};return v}
