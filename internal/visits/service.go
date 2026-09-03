@@ -98,7 +98,7 @@ func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, ac
 	return s.repo.ByID(ctx, id)
 }
 
-func (s *Service) CheckIn(ctx context.Context, tenantID, id, actorUserID int64) (*Visit, error) { return s.CheckInAtGate(ctx,tenantID,id,actorUserID,MovementInput{}) }
+func (s *Service) CheckIn(ctx context.Context, tenantID, id, actorUserID int64) (*Visit, error) { return s.CheckInAtGate(ctx,tenantID,id,actorUserID,MovementInput{GateID: s.defaultGateID(ctx)}) }
 func (s *Service) CheckInAtGate(ctx context.Context, tenantID, id, actorUserID int64, in MovementInput) (*Visit, error) {
 	if in.GateID==0 { return nil, ErrMovementGateRequired }
 	var active, allows bool
@@ -117,7 +117,7 @@ func (s *Service) CheckInAtGate(ctx context.Context, tenantID, id, actorUserID i
 	return v, nil
 }
 
-func (s *Service) CheckOut(ctx context.Context, tenantID, id, actorUserID int64) (*Visit, error) { return s.CheckOutAtGate(ctx,tenantID,id,actorUserID,MovementInput{}) }
+func (s *Service) CheckOut(ctx context.Context, tenantID, id, actorUserID int64) (*Visit, error) { return s.CheckOutAtGate(ctx,tenantID,id,actorUserID,MovementInput{GateID: s.defaultGateID(ctx)}) }
 func (s *Service) CheckOutAtGate(ctx context.Context, tenantID, id, actorUserID int64, in MovementInput) (*Visit, error) {
 	if in.GateID==0 { return nil, ErrMovementGateRequired }
 	var active, allows bool
@@ -198,3 +198,5 @@ func (s *Service) UserDepartment(ctx context.Context, userID int64) (*int64, err
 }
 
 func (s *Service) Movements(ctx context.Context,tenantID,visitID int64)([]Movement,error){return s.repo.Movements(ctx,visitID)}
+
+func (s *Service) defaultGateID(ctx context.Context) int64 { var id int64; if err:=s.repo.DB().QueryRowContext(ctx,"SELECT id FROM gates WHERE deleted_at IS NULL AND active=1 AND is_default=1 LIMIT 1").Scan(&id);err!=nil{return 0};return id }
