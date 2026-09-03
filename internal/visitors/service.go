@@ -52,4 +52,8 @@ func (s *Service) Update(ctx context.Context,tenantID,id int64,in UpdateInput,ac
 
 func (s *Service) Get(ctx context.Context,tenantID,id int64)(*Visitor,error){return s.repo.ByID(ctx,id)}
 func (s *Service) List(ctx context.Context,tenantID int64,f ListFilter,p httpx.Pagination)([]Visitor,int,error){return s.repo.List(ctx,f,p)}
-func (s *Service) SetBlacklist(ctx context.Context,tenantID,id int64,in BlacklistInput,actorUserID int64)error{return s.repo.SetBlacklist(ctx,id,in.Blacklisted,in.Reason,actorUserID)}
+func (s *Service) SetBlacklist(ctx context.Context,tenantID,id int64,in BlacklistInput,actorUserID int64)error{
+	if err:=s.repo.SetBlacklist(ctx,id,in.Blacklisted,in.Reason,actorUserID);err!=nil{return err}
+	_ = s.auditRepo.Record(ctx,s.auditRepo.DB(),audit.Entry{ActorUserID:&actorUserID,Action:"VISITOR_BLACKLIST_UPDATED",EntityType:"visitor",EntityID:&id,Metadata:map[string]any{"blacklisted":in.Blacklisted,"reason":in.Reason}})
+	return nil
+}
