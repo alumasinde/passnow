@@ -372,3 +372,48 @@ func (r *Repository) DeleteRole(ctx context.Context, roleID int64) error {
 	_, err = r.db.ExecContext(ctx,`DELETE FROM roles WHERE id = ?`,roleID)
 	return err
 }
+
+
+type RoleImpact struct {
+	ID int64 `json:"id"`
+	Name string `json:"name"`
+	IsSystem bool `json:"is_system"`
+	UserCount int `json:"user_count"`
+	PermissionCount int `json:"permission_count"`
+	SensitivePermissions []string `json:"sensitive_permissions"`
+}
+
+var sensitivePermissionCodes = map[string]struct{}{
+	"role.create": {}, "role.update": {}, "role.delete": {},
+	"permission.assign": {}, "user.create": {}, "user.update.all": {},
+	"workflow.update": {}, "gatepass.update.all": {}, "visitor.update.all": {},
+}
+
+func (r *Repository) RoleImpactByID(ctx context.Context, roleID int64) (*RoleImpact, error) {
+	role, err := r.RoleByID(ctx, roleID)
+	if err != nil { return nil, err }
+	codes, err := r.PermissionCodesForRole(ctx, roleID)
+	if err != nil { return nil, err }
+	var users int
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM tenant_memberships WHERE role_id = ? AND status = 'active'`, roleID).Scan(&users); err != nil { return nil, err }
+	sensitive := make([]string, 0)
+	for code := range codes { if _, ok := sensitivePermissionCodes[code]; ok { sensitive = append(sensitive, code) } }
+	sort.Strings(sensitive)
+	return &RoleImpact{ID:role.ID, Name:role.Name, IsSystem:role.IsSystem, UserCount:users, PermissionCount:len(codes), SensitivePermissions:sensitive}, nil
+}
+
+type AccessGovernanceSummary struct {
+	RoleCount int `json:"role_count"`
+	ActiveUserCount int `json:"active_user_count"`
+	UnassignedDepartmentCount int `json:"unassigned_department_count"`
+	SensitiveRoleCount int `json:"sensitive_role_count"`
+}
+
+func (r *Repository) AccessGovernance(ctx context.Context) (*AccessGovernanceSummary, error) {
+	var out AccessGovernanceSummary
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM roles`).Scan(&out.RoleCount); err != nil { return nil, err }
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM tenant_memberships WHERE status = 'active'`).Scan(&out.ActiveUserCount); err != nil { return nil, err }
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM tenant_memberships tm JOIN users u ON u.id = tm.user_id WHERE tm.status = 'active' AND u.department_id IS NULL`).Scan(&out.UnassignedDepartmentCount); err != nil { return nil, err }
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(DISTINCT rp.role_id) FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id WHERE p.code IN ('role.create','role.update','role.delete','permission.assign','user.create','user.update.all','workflow.update','gatepass.update.all','visitor.update.all')`).Scan(&out.SensitiveRoleCount); err != nil { return nil, err }
+	return &out, nil
+}
