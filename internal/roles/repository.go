@@ -295,3 +295,16 @@ func (r *Repository) membershipByID(ctx context.Context, membershipID int64) (*M
 	}
 	return &m, nil
 }
+
+
+func (r *Repository) CloneRole(ctx context.Context, sourceID int64, name string) (int64, error) {
+	if _, err := r.RoleByID(ctx, sourceID); err != nil { return 0, err }
+	tx, err := r.db.BeginTx(ctx, nil); if err != nil { return 0, err }; defer tx.Rollback()
+	res, err := tx.ExecContext(ctx, `INSERT INTO roles (name, is_system, created_at, updated_at) VALUES (?, 0, NOW(), NOW())`, name)
+	if err != nil { return 0, err }
+	id, err := res.LastInsertId(); if err != nil { return 0, err }
+	_, err = tx.ExecContext(ctx, `INSERT INTO role_permissions (role_id, permission_id)
+		SELECT ?, permission_id FROM role_permissions WHERE role_id = ?`, id, sourceID)
+	if err != nil { return 0, err }
+	return id, tx.Commit()
+}
