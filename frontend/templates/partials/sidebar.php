@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 $navigation = [];
 $navigationError = null;
+$permissions = Auth::permissions();
 
 try {
     $response = Auth::api(App::api(), 'GET', '/api/v1/navigation');
@@ -71,6 +72,13 @@ $bottomNavigation = array_values(array_filter(
             $icon = (string)($item['icon'] ?? 'fa-circle');
             $href = (string)($item['href'] ?? '');
             if ($label === '' || $href === '') continue;
+            $required = $item['permissions'] ?? $item['permission'] ?? [];
+            if (is_string($required)) $required = [$required];
+            if (is_array($required) && $required !== []) {
+                $allowed = false;
+                foreach ($required as $permission) if (in_array((string)$permission, $permissions, true)) { $allowed = true; break; }
+                if (!$allowed) continue;
+            }
             ?>
             <a class="nav-item <?= $isActive($item) ? 'active' : '' ?>" href="<?= e(url($href)) ?>" title="<?= e($label) ?>">
                 <i class="fa-solid <?= e($icon) ?>"></i>
