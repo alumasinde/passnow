@@ -4,6 +4,7 @@ require_once __DIR__.'/../../app/App.php';
 Auth::requireLogin();
 
 $id=filter_input(INPUT_GET,'id',FILTER_VALIDATE_INT);
+$gates=[];try{$gates=apiRows(Auth::api(App::api(),'GET','/api/v1/gates'));}catch(Throwable){$errors=['Unable to load active gates.'];}
 $item=[];$errors=[];$workflows=[];
 
 try{$workflows=apiRows(Auth::api(App::api(),'GET','/api/v1/approval-workflows'));}catch(Throwable){$errors[]='Unable to load approval workflows.';}
@@ -33,6 +34,8 @@ if(requestMethod()==='POST'){
         'requires_items'=>!empty($_POST['requires_items']),
         'requires_approval'=>$requiresApproval,
         'active'=>!empty($_POST['active']),
+        'gate_assignment_required'=>!empty($_POST['gate_assignment_required']),
+        'allowed_gate_ids'=>array_values(array_filter(array_map('intval',$_POST['allowed_gate_ids']??[]),static fn($v)=>$v>0)),
     ];
     if($requiresApproval){
         if($workflowID<1)$errors[]='Select an approval workflow when approval is required.';
@@ -53,4 +56,4 @@ if(requestMethod()==='POST'){
     $item=array_merge($item,$payload);
     $item['workflow_id']=$workflowID?:null;
 }
-App::render('admin/gatepass-types-edit',compact('id','item','errors','workflows'));
+App::render('admin/gatepass-types-edit',compact('id','item','errors','workflows','gates'));
