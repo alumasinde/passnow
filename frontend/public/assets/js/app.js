@@ -352,6 +352,26 @@
     });
   }
 
+  async function initAccessGovernance() {
+    const card = $('[data-access-governance]');
+    const content = $('[data-access-governance-content]');
+    if (!card || !content) return;
+    try {
+      const response = await fetch('/api/v1/access-governance', {credentials:'same-origin'});
+      const payload = await response.json();
+      if (!response.ok) return;
+      const data = payload.data || payload;
+      const items = [
+        ['Active users', data.active_user_count, 'Current tenant memberships'],
+        ['Roles', data.role_count, 'Available access profiles'],
+        ['Sensitive roles', data.sensitive_role_count, 'Roles with high-impact permissions'],
+        ['No department', data.unassigned_department_count, 'Active users needing department scope']
+      ];
+      content.innerHTML = items.map(([label,value,help]) => '<article><strong>'+escapeHTML(String(value ?? 0))+'</strong><span>'+escapeHTML(label)+'</span><small>'+escapeHTML(help)+'</small></article>').join('');
+      card.hidden = false;
+    } catch (_) {}
+  }
+
   function initUserAccessInspection() {
     const checks = $('[data-user-access-check]');
     const bar = $('[data-user-access-bar]');
@@ -392,6 +412,7 @@
     initRoleWorkspace();
     initRoleComparison();
     initUserAccessInspection();
+    initAccessGovernance();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
