@@ -194,6 +194,8 @@ func (s *Service) UserDepartment(ctx context.Context, userID int64) (*int64, err
 }
 
 
+func (s *Service) ResolveDeviceGate(ctx context.Context, key string)(int64,error){var id int64;var active bool;err:=s.repo.db.QueryRowContext(ctx,"SELECT gate_id,active FROM gate_devices WHERE device_key=?",key).Scan(&id,&active);if err!=nil||!active{return 0,ErrMovementGateInvalid};return id,nil}
+
 func (s *Service) validateMovementGate(ctx context.Context, g *Gatepass, gt *GatepassType, in MovementInput, checkout bool) error {
 	if in.GateID == nil { return ErrMovementGateRequired }
 	gate, err := s.gateRepo.ByID(ctx, *in.GateID)
