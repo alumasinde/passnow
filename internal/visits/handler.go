@@ -284,3 +284,8 @@ func valueID(v *int64) int64 { if v == nil { return 0 }; return *v }
 func rbacSubjectDepartment(ctx context.Context, svc *Service, userID int64) (*int64, error) {
 	return svc.UserDepartment(ctx, userID)
 }
+
+
+func (h *Handler) IssueQR(w http.ResponseWriter,r *http.Request){tenant,ok:=reqctx.TenantFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return};id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return};v,err:=h.svc.IssueQR(r.Context(),tenant.ID,id,claimsUserID(r));if err!=nil{writeServiceError(w,err);return};httpx.WriteJSON(w,http.StatusOK,h.svc.ToDTO(r.Context(),v))}
+func (h *Handler) InvalidateQR(w http.ResponseWriter,r *http.Request){tenant,ok:=reqctx.TenantFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return};id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return};if err=h.svc.InvalidateQR(r.Context(),tenant.ID,id,claimsUserID(r));err!=nil{writeServiceError(w,err);return};httpx.WriteJSON(w,http.StatusOK,map[string]any{"invalidated":true})}
+func (h *Handler) QRLookup(w http.ResponseWriter,r *http.Request){tenant,ok:=reqctx.TenantFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return};token:=r.PathValue("token");v,visitor,err:=h.svc.QRLookup(r.Context(),tenant.ID,token);if err!=nil{writeServiceError(w,err);return};d:=h.svc.ToDTO(r.Context(),v);d.VisitorName=visitor.FullName();httpx.WriteJSON(w,http.StatusOK,d)}
