@@ -39,7 +39,11 @@ func (s *Service) Create(ctx context.Context,tenantID int64,in CreateInput,actor
 }
 
 func (s *Service) Update(ctx context.Context,tenantID,id int64,in UpdateInput,actorUserID int64)(*Visitor,error){
-	if in.IDTypeID!=nil{idType,err:=s.idTypes.ByID(ctx,*in.IDTypeID);if err!=nil||!idType.Active{return nil,ErrInvalidIDType}}
+	existing,err:=s.repo.ByID(ctx,id);if err!=nil{return nil,err}
+	effectiveIDTypeID:=existing.IDTypeID;if in.IDTypeID!=nil{effectiveIDTypeID=*in.IDTypeID}
+	idType,err:=s.idTypes.ByID(ctx,effectiveIDTypeID);if err!=nil||!idType.Active{return nil,ErrInvalidIDType}
+	effectiveIDNumber:=existing.IDNumber;if in.IDNumber!=nil{effectiveIDNumber=in.IDNumber}
+	if idType.RequiresNumber&&(effectiveIDNumber==nil||*effectiveIDNumber==""){return nil,ErrIDNumberRequired}
 	if in.CompanyID!=nil{c,err:=s.companies.ByID(ctx,*in.CompanyID);if err!=nil||!c.Active{return nil,ErrInvalidCompany}}
 	v,err:=s.repo.Update(ctx,id,in,actorUserID);if err!=nil{return nil,err}
 	_ = s.auditRepo.Record(ctx,s.auditRepo.DB(),audit.Entry{ActorUserID:&actorUserID,Action:audit.ActionVisitorUpdated,EntityType:"visitor",EntityID:&id})
