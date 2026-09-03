@@ -191,3 +191,20 @@ func (h *Handler) GetUserAccess(w http.ResponseWriter, r *http.Request) {
 	if err != nil { httpx.WriteError(w, httpx.ErrNotFound); return }
 	httpx.WriteJSON(w, http.StatusOK, access)
 }
+
+
+func (h *Handler) GetRoleImpact(w http.ResponseWriter, r *http.Request) {
+	if !requireTenant(w, r) { return }
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id < 1 { httpx.WriteError(w, httpx.ErrNotFound); return }
+	impact, err := h.repo.RoleImpactByID(r.Context(), id)
+	if err != nil { httpx.WriteError(w, httpx.ErrNotFound); return }
+	httpx.WriteJSON(w, http.StatusOK, impact)
+}
+
+func (h *Handler) AccessGovernance(w http.ResponseWriter, r *http.Request) {
+	if !requireTenant(w, r) { return }
+	summary, err := h.repo.AccessGovernance(r.Context())
+	if err != nil { httpx.WriteError(w, httpx.ErrInternal); return }
+	httpx.WriteJSON(w, http.StatusOK, summary)
+}
