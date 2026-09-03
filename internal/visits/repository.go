@@ -25,8 +25,8 @@ type Repository struct { db *sql.DB }
 func NewRepository(db *sql.DB) *Repository { return &Repository{db: db} }
 
 const selectCols = `
-	id, visitor_id, visit_type_id, department_id, host_name,
-	purpose, expected_time, status, badge_number, badge_token,
+	id, visitor_id, entry_source, visit_type_id, department_id, host_name,
+	purpose, expected_time, expected_departure_at, arrived_at, status, badge_number, badge_token,
 	checked_in_at, checked_in_by, checked_out_at, checked_out_by,
 	cancelled_at, cancelled_by, cancel_reason,
 	created_by, created_at, updated_at, deleted_at
@@ -35,8 +35,8 @@ const selectCols = `
 func (r *Repository) scan(row interface{ Scan(dest ...any) error }) (*Visit, error) {
 	var v Visit
 	if err := row.Scan(
-		&v.ID, &v.VisitorID, &v.VisitTypeID, &v.DepartmentID, &v.HostName,
-		&v.Purpose, &v.ExpectedTime, &v.Status, &v.BadgeNumber, &v.BadgeToken,
+		&v.ID, &v.VisitorID, &v.EntrySource, &v.VisitTypeID, &v.DepartmentID, &v.HostName,
+		&v.Purpose, &v.ExpectedTime, &v.ExpectedDepartureAt, &v.ArrivedAt, &v.Status, &v.BadgeNumber, &v.BadgeToken,
 		&v.CheckedInAt, &v.CheckedInBy, &v.CheckedOutAt, &v.CheckedOutBy,
 		&v.CancelledAt, &v.CancelledBy, &v.CancelReason,
 		&v.CreatedBy, &v.CreatedAt, &v.UpdatedAt, &v.DeletedAt,
@@ -89,11 +89,11 @@ func (r *Repository) List(ctx context.Context, f ListFilter, p httpx.Pagination)
 func (r *Repository) Create(ctx context.Context, v *Visit) (int64, error) {
 	res, err := r.db.ExecContext(ctx, `
 		INSERT INTO visits
-			(visitor_id, visit_type_id, department_id, host_name,
-			 purpose, expected_time, status, created_by, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-		v.VisitorID, v.VisitTypeID, v.DepartmentID, v.HostName,
-		v.Purpose, v.ExpectedTime, v.Status, v.CreatedBy)
+			(visitor_id, entry_source, visit_type_id, department_id, host_name,
+			 purpose, expected_time, expected_departure_at, status, created_by, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+		v.VisitorID, v.EntrySource, v.VisitTypeID, v.DepartmentID, v.HostName,
+		v.Purpose, v.ExpectedTime, v.ExpectedDepartureAt, v.Status, v.CreatedBy)
 	if err != nil { return 0, err }
 	return res.LastInsertId()
 }
@@ -111,7 +111,7 @@ func (r *Repository) CheckIn(ctx context.Context, id, actorUserID int64) (*Visit
 	badgeNumber := numbering.Format(badgePrefix, period, seq)
 	badgeToken, err := randomToken(); if err != nil { return nil, err }
 	if _, err := tx.ExecContext(ctx, `
-		UPDATE visits SET status = 'checked_in', badge_number = ?, badge_token = ?,
+		UPDATE visits SET status = 'checked_in', arrived_at = NOW(), badge_number = ?, badge_token = ?,
 			checked_in_at = NOW(), checked_in_by = ?, updated_at = NOW()
 		WHERE id = ? AND deleted_at IS NULL`, badgeNumber, badgeToken, actorUserID, id); err != nil { return nil, err }
 	if err := tx.Commit(); err != nil { return nil, err }
