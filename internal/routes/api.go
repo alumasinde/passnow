@@ -91,8 +91,8 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 
 	// --- visitors ---
 	mux.Handle("POST /api/v1/visitors", protected("visitor.create", api.VisitorHandler.Create))
-	mux.Handle("GET /api/v1/visitors", protected("visitor.read.all", api.VisitorHandler.List))
-	mux.Handle("GET /api/v1/visitors/{id}", protected("visitor.read.all", api.VisitorHandler.Get))
+	mux.Handle("GET /api/v1/visitors", protected("visitor.read", api.VisitorHandler.List))
+	mux.Handle("GET /api/v1/visitors/{id}", protected("visitor.read", api.VisitorHandler.Get))
 	mux.Handle("PATCH /api/v1/visitors/{id}", protected("visitor.update.all", api.VisitorHandler.Update))
 	mux.Handle("POST /api/v1/visitors/{id}/blacklist", protected("visitor.update.all", api.VisitorHandler.SetBlacklist))
 
@@ -118,8 +118,8 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("POST /api/v1/departments", protected("department.update", api.DepartmentHandler.Create))
 	mux.Handle("PATCH /api/v1/departments/{id}", protected("department.update", api.DepartmentHandler.Update))
 	mux.Handle("POST /api/v1/visits", protected("visit.create", api.VisitHandler.Create))
-	mux.Handle("GET /api/v1/visits", protected("visit.read.all", api.VisitHandler.List))
-	mux.Handle("GET /api/v1/visits/{id}", protected("visit.read.all", api.VisitHandler.Get))
+	mux.Handle("GET /api/v1/visits", protected("visit.read", api.VisitHandler.List))
+	mux.Handle("GET /api/v1/visits/{id}", protected("visit.read", api.VisitHandler.Get))
 	mux.Handle("POST /api/v1/visits/{id}/check-in", protected("visit.check_in", api.VisitHandler.CheckIn))
 	mux.Handle("POST /api/v1/visits/{id}/check-out", protected("visit.check_out", api.VisitHandler.CheckOut))
 	mux.Handle("POST /api/v1/visits/{id}/cancel", protected("visit.cancel.all", api.VisitHandler.Cancel))
@@ -139,11 +139,11 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("POST /api/v1/gatepass-types", protected("gatepass.update.all", api.GatepassHandler.CreateType))
 	mux.Handle("PATCH /api/v1/gatepass-types/{id}", protected("gatepass.update.all", api.GatepassHandler.UpdateType))
 	mux.Handle("POST /api/v1/gatepasses", protected("gatepass.create", api.GatepassHandler.Create))
-	mux.Handle("GET /api/v1/gatepasses", protected("gatepass.read.all", api.GatepassHandler.List))
-	mux.Handle("GET /api/v1/gatepasses/{id}", protected("gatepass.read.all", api.GatepassHandler.Get))
-	mux.Handle("POST /api/v1/gatepasses/{id}/cancel", protected("gatepass.cancel.all", api.GatepassHandler.Cancel))
-	mux.Handle("POST /api/v1/gatepasses/{id}/approvals/{stepId}/approve", protected("approval.approve", api.GatepassHandler.Approve))
-	mux.Handle("POST /api/v1/gatepasses/{id}/approvals/{stepId}/reject", protected("approval.reject", api.GatepassHandler.Reject))
+	mux.Handle("GET /api/v1/gatepasses", protected("gatepass.read", api.GatepassHandler.List))
+	mux.Handle("GET /api/v1/gatepasses/{id}", protected("gatepass.read", api.GatepassHandler.Get))
+	mux.Handle("POST /api/v1/gatepasses/{id}/cancel", protected("gatepass.cancel", api.GatepassHandler.Cancel))
+	mux.Handle("POST /api/v1/gatepasses/{id}/approvals/{stepId}/approve", protected("approval.approve.assigned", api.GatepassHandler.Approve))
+	mux.Handle("POST /api/v1/gatepasses/{id}/approvals/{stepId}/reject", protected("approval.reject.assigned", api.GatepassHandler.Reject))
 	mux.Handle("POST /api/v1/gatepasses/{id}/check-out", protected("gatepass.check_out", api.GatepassHandler.CheckOut))
 	mux.Handle("POST /api/v1/gatepasses/{id}/check-in", protected("gatepass.verify", api.GatepassHandler.CheckIn))
 	mux.Handle("GET /api/v1/gatepasses/{id}/movements", protected("gatepass.read.all", api.GatepassHandler.Movements))
@@ -157,7 +157,7 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	// not grant employee-management access; either employees.view OR visits.create
 	// is sufficient for this read-only lookup.
 	mux.Handle("GET /api/v1/employees", protectedAny([]string{"employee.read.all", "employee.read.department", "visit.create"}, api.EmployeeHandler.List))
-	mux.Handle("GET /api/v1/employees/{id}", protected("employee.read.all", api.EmployeeHandler.Get))
+	mux.Handle("GET /api/v1/employees/{id}", protected("employee.read", api.EmployeeHandler.Get))
 	mux.Handle("POST /api/v1/employees", protected("employee.create", api.EmployeeHandler.Create))
 	mux.Handle("PATCH /api/v1/employees/{id}", protected("employee.update.all", api.EmployeeHandler.Update))
 
@@ -180,5 +180,5 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	// --- dashboard and personal approval queue ---
 	mux.Handle("GET /api/v1/dashboard", protected("report.read.own", api.DashboardHandler.Dashboard))
 	mux.Handle("GET /api/v1/dashboard/summary", protected("report.read.own", api.DashboardHandler.Summary))
-	mux.Handle("GET /api/v1/approvals/pending", protected("approval.approve", api.GatepassHandler.MyPendingApprovals))
+	mux.Handle("GET /api/v1/approvals/pending", protectedAny([]string{"approval.approve.assigned", "approval.reject.assigned"}, api.GatepassHandler.MyPendingApprovals))
 }
