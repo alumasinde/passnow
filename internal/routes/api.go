@@ -164,19 +164,19 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	// --- roles, users and invitations ---
 	mux.Handle("GET /api/v1/permissions", protected("role.read", api.RoleHandler.ListPermissions))
 	mux.Handle("GET /api/v1/roles", protected("role.read", api.RoleHandler.ListRoles))
+	mux.Handle("GET /api/v1/roles/compare", protected("role.read", api.RoleHandler.CompareRoles))
 	mux.Handle("GET /api/v1/roles/{id}", protected("role.read", api.RoleHandler.GetRole))
 	mux.Handle("PATCH /api/v1/roles/{id}", protected("role.update", api.RoleHandler.UpdateRole))
 	mux.Handle("POST /api/v1/roles", protected("role.create", api.RoleHandler.CreateRole))
 	mux.Handle("POST /api/v1/roles/{id}/clone", protected("role.create", api.RoleHandler.CloneRole))
-	mux.Handle("GET /api/v1/roles/compare", protected("role.read", api.RoleHandler.CompareRoles))
 	mux.Handle("DELETE /api/v1/roles/{id}", protected("role.delete", api.RoleHandler.DeleteRole))
 	mux.Handle("PUT /api/v1/roles/{id}/permissions", protected("permission.assign", api.RoleHandler.SetRolePermissions))
 	mux.Handle("GET /api/v1/users", protected("user.read.all", api.RoleHandler.ListUsers))
 	mux.Handle("GET /api/v1/users/{id}/access", protected("user.read.all", api.RoleHandler.GetUserAccess))
 	mux.Handle("GET /api/v1/users/{id}", protected("user.read.all", api.RoleHandler.GetUser))
 	mux.Handle("POST /api/v1/users", protected("user.create", api.InviteHandler.CreateUser))
-	mux.Handle("POST /api/v1/users/invite", protected("user.invite", api.InviteHandler.Invite))
-	mux.Handle("PATCH /api/v1/users/memberships/{id}", protected("user.update", api.RoleHandler.UpdateUserMembership))
+	mux.Handle("POST /api/v1/users/invite", protected("user.create", api.InviteHandler.Invite))
+	mux.Handle("PATCH /api/v1/users/memberships/{id}", protected("user.update.all", api.RoleHandler.UpdateUserMembership))
 
 	// --- dynamic navigation ---
 	mux.Handle("GET /api/v1/navigation", middleware.Authenticated(api.JWTSecret, api.NavigationHandler.List))
