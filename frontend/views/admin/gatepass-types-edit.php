@@ -27,6 +27,12 @@ $workflowID=(int)($item['workflow_id']??0);
    </div>
   </div>
  </div>
+ <div class="form-section"><h2>Gate assignment rules</h2><p class="muted">These fields map directly to the backend gate assignment policy for this gatepass type.</p>
+ <div class="form-grid">
+  <div class="field field-full"><label class="checkbox-row"><input type="checkbox" name="gate_assignment_required" value="1" <?=!empty($item['gate_assignment_required'])?'checked':''?> data-gate-required><span><strong>Assigned gate is required</strong><br><small>A gatepass cannot be created without selecting a gate when this is enabled.</small></span></label></div>
+  <div class="field field-full"><label>Allowed gates</label><div class="checkbox-list" data-allowed-gates><?php $selected=array_map('intval',$item['allowed_gate_ids']??[]);foreach($gates as $gate):$gid=(int)($gate['id']??0);?><label class="checkbox-row"><input type="checkbox" name="allowed_gate_ids[]" value="<?=e((string)$gid)?>" <?=in_array($gid,$selected,true)?'checked':''?>><span><strong><?=e((string)($gate['name']??''))?></strong> <small><?=e((string)($gate['code']??''))?><?=!empty($gate['location'])?' · '.e((string)$gate['location']):''?></small></span></label><?php endforeach;if(!$gates):?><small class="field-help">Create an active gate first.</small><?php endif;?></div><small class="field-help">If no allowed gates are selected, any active tenant gate can be assigned. Selecting gates restricts assignment to this list.</small></div>
+ </div>
+</div>
  <div class="form-section"><h2>Operational requirements</h2>
   <div class="form-grid">
    <div class="field field-full"><label class="checkbox-row"><input type="checkbox" name="requires_items" value="1" <?=!empty($item['requires_items'])?'checked':''?>><span><strong>Items are required</strong><br><small>Users must provide item details before this gatepass can be created.</small></span></label></div>
