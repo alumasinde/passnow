@@ -1,8 +1,6 @@
 package employees
 
 import (
-	"context"
-	"errors"
 	"gatepass/internal/rbac"
 	"net/http"
 	"strconv"
