@@ -26,7 +26,7 @@ func NewRepository(db *sql.DB) *Repository { return &Repository{db: db} }
 
 const selectCols = `
 	id, visitor_id, entry_source, visit_type_id, department_id, host_name,
-	purpose, expected_time, expected_departure_at, arrived_at, status, badge_number, badge_token,
+	purpose, expected_time, expected_departure_at, arrived_at, status, badge_number, badge_token, qr_token, qr_issued_at, qr_invalidated_at,
 	checked_in_at, checked_in_by, checked_out_at, checked_out_by,
 	cancelled_at, cancelled_by, cancel_reason,
 	created_by, created_at, updated_at, deleted_at
@@ -36,7 +36,7 @@ func (r *Repository) scan(row interface{ Scan(dest ...any) error }) (*Visit, err
 	var v Visit
 	if err := row.Scan(
 		&v.ID, &v.VisitorID, &v.EntrySource, &v.VisitTypeID, &v.DepartmentID, &v.HostName,
-		&v.Purpose, &v.ExpectedTime, &v.ExpectedDepartureAt, &v.ArrivedAt, &v.Status, &v.BadgeNumber, &v.BadgeToken,
+		&v.Purpose, &v.ExpectedTime, &v.ExpectedDepartureAt, &v.ArrivedAt, &v.Status, &v.BadgeNumber, &v.BadgeToken, &v.QRToken, &v.QRIssuedAt, &v.QRInvalidatedAt,
 		&v.CheckedInAt, &v.CheckedInBy, &v.CheckedOutAt, &v.CheckedOutBy,
 		&v.CancelledAt, &v.CancelledBy, &v.CancelReason,
 		&v.CreatedBy, &v.CreatedAt, &v.UpdatedAt, &v.DeletedAt,
@@ -52,6 +52,11 @@ func (r *Repository) ByID(ctx context.Context, id int64) (*Visit, error) {
 		"SELECT "+selectCols+" FROM visits WHERE id = ? AND deleted_at IS NULL LIMIT 1", id)
 	return r.scan(row)
 }
+
+func (r *Repository) ByQRToken(ctx context.Context, token string) (*Visit, error) { row:=r.db.QueryRowContext(ctx,"SELECT "+selectCols+" FROM visits WHERE qr_token=? AND qr_invalidated_at IS NULL AND deleted_at IS NULL LIMIT 1",token); return r.scan(row) }
+
+func (r *Repository) IssueQR(ctx context.Context,id int64,token string) error { _,err:=r.db.ExecContext(ctx,"UPDATE visits SET qr_token=?, qr_issued_at=NOW(), qr_invalidated_at=NULL, updated_at=NOW() WHERE id=? AND deleted_at IS NULL",token,id);return err }
+func (r *Repository) InvalidateQR(ctx context.Context,id int64) error { _,err:=r.db.ExecContext(ctx,"UPDATE visits SET qr_invalidated_at=NOW(), updated_at=NOW() WHERE id=? AND deleted_at IS NULL AND qr_token IS NOT NULL",id);return err }
 
 func (r *Repository) ByBadgeToken(ctx context.Context, token string) (*Visit, error) {
 	row := r.db.QueryRowContext(ctx,
