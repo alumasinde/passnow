@@ -18,6 +18,8 @@ type DTO struct {
 	ExpectedDepartureAt *time.Time `json:"expected_departure_at"`
 	Status string `json:"status"`
 	BadgeNumber *string `json:"badge_number"`
+	QRToken *string `json:"qr_token,omitempty"`
+	QRActive bool `json:"qr_active"`
 	CheckedInAt *time.Time `json:"checked_in_at"`
 	CheckedOutAt *time.Time `json:"checked_out_at"`
 	CancelReason *string `json:"cancel_reason,omitempty"`
@@ -32,7 +34,7 @@ func ToDTO(v *Visit) DTO {
 	return DTO{
 		ID:v.ID,VisitorID:v.VisitorID,EntrySource:string(v.EntrySource),VisitTypeID:v.VisitTypeID,DepartmentID:v.DepartmentID,
 		HostName:v.HostName,Purpose:v.Purpose,ExpectedTime:v.ExpectedTime,ExpectedDepartureAt:v.ExpectedDepartureAt,Status:string(v.Status),
-		BadgeNumber:v.BadgeNumber,CheckedInAt:v.CheckedInAt,CheckedOutAt:v.CheckedOutAt,
+		BadgeNumber:v.BadgeNumber,QRToken:v.QRToken,QRActive:v.QRToken!=nil && v.QRInvalidatedAt==nil,CheckedInAt:v.CheckedInAt,CheckedOutAt:v.CheckedOutAt,
 		CancelReason:v.CancelReason,CreatedAt:v.CreatedAt,
 		CanCheckIn:v.CanCheckIn(),CanCheckOut:v.CanCheckOut(),CanCancel:v.CanCancel(),
 		Overstayed: v.Status==StatusCheckedIn && v.ExpectedTime!=nil && v.ExpectedTime.Before(time.Now().UTC()),
