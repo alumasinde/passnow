@@ -219,7 +219,7 @@ func (h *Handler) BadgeLookup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, BadgeDTO{
-		VisitID: v.ID, VisitorName: visitor.FullName(), DepartmentID: v.DepartmentID,
+		VisitID: v.ID, VisitorName: visitor.FullName(), CompanyName: nil, DepartmentID: v.DepartmentID,
 		HostName: v.HostName, Status: string(v.Status), CheckedInAt: v.CheckedInAt, BadgeNumber: v.BadgeNumber,
 	})
 }
