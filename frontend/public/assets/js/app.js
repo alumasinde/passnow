@@ -328,6 +328,30 @@
     count();
   }
 
+  function initRoleComparison() {
+    const checks = $('[data-role-compare-check]');
+    const bar = $('[data-role-compare-bar]');
+    const count = $('[data-role-compare-count]');
+    const modal = $('[data-role-compare-modal]');
+    if (!checks.length || !bar) return;
+    const selected = () => checks.filter(x => x.checked).map(x => x.value);
+    const sync = () => { const ids = selected(); bar.hidden = ids.length < 2; if (count) count.textContent = ids.length; };
+    checks.forEach(x => x.addEventListener('change', () => { if (selected().length > 5) { x.checked = false; showToast('Compare up to 5 roles at a time.', 'warning'); } sync(); }));
+    $('[data-role-compare-clear]')?.addEventListener('click', () => { checks.forEach(x => x.checked=false); sync(); });
+    $('[data-role-compare-close]').forEach(x => x.addEventListener('click', () => modal.hidden=true));
+    $('[data-role-compare-open]')?.addEventListener('click', async () => {
+      const ids = selected(); if (ids.length < 2) return;
+      const content = $('[data-role-compare-content]'); content.innerHTML='<p class="muted">Loading comparison…</p>'; modal.hidden=false;
+      try {
+        const response = await fetch('/api/v1/roles/compare?' + ids.map(id=>'id='+encodeURIComponent(id)).join('&'), {credentials:'same-origin'});
+        const payload = await response.json(); if (!response.ok) throw new Error(payload.message || 'Unable to compare roles.');
+        const rows = Array.isArray(payload.data) ? payload.data : (Array.isArray(payload) ? payload : []);
+        const codes = [...new Set(rows.flatMap(r => r.permission_codes || []))].sort();
+        content.innerHTML = '<div class="rbac-compare-summary">' + rows.map(r=>'<article><strong>'+escapeHTML(r.name)+'</strong><span>'+Number(r.permission_count||0)+' permissions</span><span>'+Number(r.user_count||0)+' users</span></article>').join('') + '</div><div class="rbac-compare-table-wrap"><table class="rbac-compare-table"><thead><tr><th>Permission</th>'+rows.map(r=>'<th>'+escapeHTML(r.name)+'</th>').join('')+'</tr></thead><tbody>'+codes.map(code=>'<tr><td>'+escapeHTML(code)+'</td>'+rows.map(r=>'<td>'+(r.permission_codes||[]).includes(code)?'<i class="fa-solid fa-check"></i>':'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+      } catch (e) { content.innerHTML='<div class="alert alert-danger">'+escapeHTML(e.message)+'</div>'; }
+    });
+  }
+
   function init() {
     initForms();
     initUserMenu();
@@ -339,6 +363,7 @@
     initExports();
     initPermissionUI();
     initRoleWorkspace();
+    initRoleComparison();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
