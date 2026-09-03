@@ -131,6 +131,7 @@ func (r *Repository) ByID(ctx context.Context, tenantID, id int64) (*Workflow, [
 }
 
 func (r *Repository) List(ctx context.Context, tenantID int64, activeOnly bool) ([]Workflow, error) {
+	_ = tenantID
 	q := `SELECT w.id, w.name, w.active, COUNT(s.id)
 		FROM approval_workflows w LEFT JOIN approval_workflow_steps s ON s.workflow_id = w.id
 		WHERE w.deleted_at IS NULL`
