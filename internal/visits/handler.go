@@ -136,7 +136,7 @@ func (h *Handler) CheckIn(w http.ResponseWriter, r *http.Request) {
 	target, err := h.svc.Get(r.Context(), tenant.ID, id)
 	if err != nil { writeServiceError(w, err); return }
 	if !h.canAccess(r.Context(), claims.UserID, target) { httpx.WriteError(w, httpx.ErrForbidden); return }
-	v, err := h.svc.CheckIn(r.Context(), tenant.ID, id, claims.UserID)
+	var in MovementInput;if err:=httpx.DecodeJSON(r,&in);err!=nil{httpx.WriteError(w,httpx.ErrBadRequest);return};v, err := h.svc.CheckInAtGate(r.Context(), tenant.ID, id, claims.UserID,in)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -163,7 +163,7 @@ func (h *Handler) CheckOut(w http.ResponseWriter, r *http.Request) {
 	target, err := h.svc.Get(r.Context(), tenant.ID, id)
 	if err != nil { writeServiceError(w, err); return }
 	if !h.canAccess(r.Context(), claims.UserID, target) { httpx.WriteError(w, httpx.ErrForbidden); return }
-	v, err := h.svc.CheckOut(r.Context(), tenant.ID, id, claims.UserID)
+	var in MovementInput;if err:=httpx.DecodeJSON(r,&in);err!=nil{httpx.WriteError(w,httpx.ErrBadRequest);return};v, err := h.svc.CheckOutAtGate(r.Context(), tenant.ID, id, claims.UserID,in)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -289,3 +289,5 @@ func rbacSubjectDepartment(ctx context.Context, svc *Service, userID int64) (*in
 func (h *Handler) IssueQR(w http.ResponseWriter,r *http.Request){tenant,ok:=reqctx.TenantFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return};id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return};v,err:=h.svc.IssueQR(r.Context(),tenant.ID,id,claimsUserID(r));if err!=nil{writeServiceError(w,err);return};httpx.WriteJSON(w,http.StatusOK,h.svc.ToDTO(r.Context(),v))}
 func (h *Handler) InvalidateQR(w http.ResponseWriter,r *http.Request){tenant,ok:=reqctx.TenantFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return};id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return};if err=h.svc.InvalidateQR(r.Context(),tenant.ID,id,claimsUserID(r));err!=nil{writeServiceError(w,err);return};httpx.WriteJSON(w,http.StatusOK,map[string]any{"invalidated":true})}
 func (h *Handler) QRLookup(w http.ResponseWriter,r *http.Request){tenant,ok:=reqctx.TenantFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return};token:=r.PathValue("token");v,visitor,err:=h.svc.QRLookup(r.Context(),tenant.ID,token);if err!=nil{writeServiceError(w,err);return};d:=h.svc.ToDTO(r.Context(),v);d.VisitorName=visitor.FullName();httpx.WriteJSON(w,http.StatusOK,d)}
+
+func (h *Handler) Movements(w http.ResponseWriter,r *http.Request){tenant,ok:=reqctx.TenantFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return};id,err:=parseIDParam(r);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return};items,err:=h.svc.Movements(r.Context(),tenant.ID,id);if err!=nil{writeServiceError(w,err);return};httpx.WriteJSON(w,http.StatusOK,map[string]any{"items":items})}
