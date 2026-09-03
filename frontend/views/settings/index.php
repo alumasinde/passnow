@@ -8,6 +8,7 @@
   ['invitations.php','fa-user-plus','Invitations','Invite users into this tenant.'],
   ['approval-workflows.php','fa-list-check','Approval workflows','Configure multi-step approval workflows.'],
   ['gatepass-types.php','fa-ticket','Gatepass types','Configure the types used by gatepasses.'],
+  ['gates.php','fa-door-open','Gates','Configure operational gates, entry and exit capabilities.'],
   ['visit-types.php','fa-calendar-check','Visit types','Configure visit categories.'],
   ['id-types.php','fa-id-card','ID types','Manage visitor identification types.'],
   ['visitor-companies.php','fa-building','Visitor companies','Manage visitor company records.'],
