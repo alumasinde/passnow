@@ -14,15 +14,25 @@ const (
 	StatusExpired    Status = "expired"
 )
 
+type EntrySource string
+
+const (
+	EntrySourceWalkIn EntrySource = "walk_in"
+	EntrySourcePreRegistered EntrySource = "pre_registered"
+)
+
 type Visit struct {
 	ID           int64
 	VisitorID    int64
+	EntrySource EntrySource
 	VisitTypeID  *int64
 	DepartmentID *int64
 	HostName     *string
 
 	Purpose      *string
 	ExpectedTime *time.Time
+	ExpectedDepartureAt *time.Time
+	ArrivedAt *time.Time
 
 	Status Status
 
