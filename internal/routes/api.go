@@ -164,7 +164,9 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	// --- roles, users and invitations ---
 	mux.Handle("GET /api/v1/permissions", protected("role.read", api.RoleHandler.ListPermissions))
 	mux.Handle("GET /api/v1/roles", protected("role.read", api.RoleHandler.ListRoles))
+	mux.Handle("GET /api/v1/access-governance", protected("role.read", api.RoleHandler.AccessGovernance))
 	mux.Handle("GET /api/v1/roles/compare", protected("role.read", api.RoleHandler.CompareRoles))
+	mux.Handle("GET /api/v1/roles/{id}/impact", protected("role.read", api.RoleHandler.GetRoleImpact))
 	mux.Handle("GET /api/v1/roles/{id}", protected("role.read", api.RoleHandler.GetRole))
 	mux.Handle("PATCH /api/v1/roles/{id}", protected("role.update", api.RoleHandler.UpdateRole))
 	mux.Handle("POST /api/v1/roles", protected("role.create", api.RoleHandler.CreateRole))
