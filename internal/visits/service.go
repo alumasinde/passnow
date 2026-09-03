@@ -24,6 +24,8 @@ const (
 	ActionVisitCheckedIn  = "VISIT_CHECKED_IN"
 	ActionVisitCheckedOut = "VISIT_CHECKED_OUT"
 	ActionVisitCancelled  = "VISIT_CANCELLED"
+	ActionVisitQRIssued = "VISIT_QR_ISSUED"
+	ActionVisitQRInvalidated = "VISIT_QR_INVALIDATED"
 )
 
 type Service struct {
@@ -151,6 +153,10 @@ func (s *Service) Get(ctx context.Context, tenantID, id int64) (*Visit, error) {
 func (s *Service) List(ctx context.Context, tenantID int64, f ListFilter, p httpx.Pagination) ([]Visit, int, error) {
 	return s.repo.List(ctx, f, p)
 }
+
+func (s *Service) IssueQR(ctx context.Context,tenantID,id,actorUserID int64)(*Visit,error){v,err:=s.repo.ByID(ctx,id);if err!=nil{return nil,err};if v.Status==StatusCancelled||v.Status==StatusCheckedOut||v.Status==StatusExpired{return nil,ErrInvalidEntrySource};token,err:=randomToken();if err!=nil{return nil,err};if err=s.repo.IssueQR(ctx,id,token);err!=nil{return nil,err};s.audit(ctx,tenantID,actorUserID,ActionVisitQRIssued,id,nil);return s.repo.ByID(ctx,id)}
+func (s *Service) InvalidateQR(ctx context.Context,tenantID,id,actorUserID int64) error { if _,err:=s.repo.ByID(ctx,id);err!=nil{return err};if err:=s.repo.InvalidateQR(ctx,id);err!=nil{return err};s.audit(ctx,tenantID,actorUserID,ActionVisitQRInvalidated,id,nil);return nil }
+func (s *Service) QRLookup(ctx context.Context,tenantID int64,token string)(*Visit,*visitors.Visitor,error){v,err:=s.repo.ByQRToken(ctx,token);if err!=nil{return nil,nil,err};visitor,err:=s.visitorRepo.ByID(ctx,v.VisitorID);if err!=nil{return nil,nil,err};return v,visitor,nil}
 
 func (s *Service) BadgeByToken(ctx context.Context, tenantID int64, token string) (*Visit, *visitors.Visitor, error) {
 	v, err := s.repo.ByBadgeToken(ctx, token)
