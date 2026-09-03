@@ -89,7 +89,9 @@ func (s *Service) Create(ctx context.Context, tenantID int64, in CreateInput, ac
 	if in.CheckInNow {
 		return s.CheckIn(ctx, tenantID, id, actorUserID)
 	}
-
+	if in.EntrySource == EntrySourcePreRegistered {
+		if _, err := s.IssueQR(ctx, tenantID, id, actorUserID); err != nil { return nil, err }
+	}
 	return s.repo.ByID(ctx, id)
 }
 
