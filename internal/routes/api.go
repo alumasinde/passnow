@@ -93,8 +93,8 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("POST /api/v1/visitors", protected("visitor.create", api.VisitorHandler.Create))
 	mux.Handle("GET /api/v1/visitors", protected("visitor.read", api.VisitorHandler.List))
 	mux.Handle("GET /api/v1/visitors/{id}", protected("visitor.read", api.VisitorHandler.Get))
-	mux.Handle("PATCH /api/v1/visitors/{id}", protected("visitor.update.all", api.VisitorHandler.Update))
-	mux.Handle("POST /api/v1/visitors/{id}/blacklist", protected("visitor.update.all", api.VisitorHandler.SetBlacklist))
+	mux.Handle("PATCH /api/v1/visitors/{id}", protected("visitor.update", api.VisitorHandler.Update))
+	mux.Handle("POST /api/v1/visitors/{id}/blacklist", protected("visitor.update", api.VisitorHandler.SetBlacklist))
 
 	// --- visitor configuration ---
 	mux.Handle("GET /api/v1/id-types", protected("visitor.read.all", api.VisitorHandler.ListIDTypes))
@@ -159,7 +159,7 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("GET /api/v1/employees", protectedAny([]string{"employee.read.all", "employee.read.department", "visit.create"}, api.EmployeeHandler.List))
 	mux.Handle("GET /api/v1/employees/{id}", protected("employee.read", api.EmployeeHandler.Get))
 	mux.Handle("POST /api/v1/employees", protected("employee.create", api.EmployeeHandler.Create))
-	mux.Handle("PATCH /api/v1/employees/{id}", protected("employee.update.all", api.EmployeeHandler.Update))
+	mux.Handle("PATCH /api/v1/employees/{id}", protected("employee.update", api.EmployeeHandler.Update))
 
 	// --- roles, users and invitations ---
 	mux.Handle("GET /api/v1/permissions", protected("role.read", api.RoleHandler.ListPermissions))
