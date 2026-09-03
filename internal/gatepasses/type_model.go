@@ -23,6 +23,8 @@ type GatepassType struct {
 	Code                string
 	Description         *string
 	Direction           Direction
+	GateAssignmentRequired bool
+	AllowedGateIDs       []int64
 	IsReturnableDefault bool
 	ReturnabilityPolicy ReturnabilityPolicy
 	RequiresItems       bool
@@ -37,6 +39,10 @@ type TypeDTO struct {
 	Code                string  `json:"code"`
 	Description         *string `json:"description,omitempty"`
 	Direction           string  `json:"direction"`
+	GateAssignmentRequired *bool `json:"gate_assignment_required"`
+	AllowedGateIDs       []int64 `json:"allowed_gate_ids"`
+	GateAssignmentRequired bool `json:"gate_assignment_required"`
+	AllowedGateIDs       []int64 `json:"allowed_gate_ids"`
 	IsReturnableDefault bool    `json:"is_returnable_default"`
 	ReturnabilityPolicy string  `json:"returnability_policy"`
 	RequiresItems       bool    `json:"requires_items"`
@@ -47,7 +53,7 @@ type TypeDTO struct {
 
 func TypeToDTO(t *GatepassType) TypeDTO {
 	return TypeDTO{
-		ID:t.ID, Name:t.Name, Code:t.Code, Description:t.Description, Direction:string(t.Direction),
+		ID:t.ID, Name:t.Name, Code:t.Code, Description:t.Description, Direction:string(t.Direction), GateAssignmentRequired:t.GateAssignmentRequired, AllowedGateIDs:t.AllowedGateIDs,
 		IsReturnableDefault:t.IsReturnableDefault, ReturnabilityPolicy:string(t.ReturnabilityPolicy),
 		RequiresItems:t.RequiresItems, RequiresApproval:t.RequiresApproval, WorkflowID:t.WorkflowID, Active:t.Active,
 	}
@@ -58,6 +64,8 @@ type TypeInput struct {
 	Code                string  `json:"code"`
 	Description         *string `json:"description"`
 	Direction           string  `json:"direction"`
+	GateAssignmentRequired *bool `json:"gate_assignment_required"`
+	AllowedGateIDs       []int64 `json:"allowed_gate_ids"`
 	IsReturnableDefault *bool   `json:"is_returnable_default"`
 	ReturnabilityPolicy *string `json:"returnability_policy"`
 	RequiresItems       *bool   `json:"requires_items"`
