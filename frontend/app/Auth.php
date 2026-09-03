@@ -15,7 +15,9 @@ final class Auth
         $_SESSION['user'] = $r['user'] ?? [];
         $_SESSION['tenant_slug'] = strtolower(trim((string)($r['tenant_slug'] ?? localTenantSlug())));
         $_SESSION['authenticated_at'] = time();
-        $_SESSION['must_change_password'] = !empty($r['must_change_password']);
+        $_SESSION['must_change_password'] = !empty($r['must_change_password'], $_SESSION['permissions']);
+        $permissions = $r['permissions'] ?? (($r['user'] ?? [])['permissions'] ?? []);
+        $_SESSION['permissions'] = is_array($permissions) ? array_values(array_unique(array_map('strval', $permissions))) : [];
     }
 
     public static function platformLogin(ApiClient $api, string $email, string $password): void
@@ -33,6 +35,33 @@ final class Auth
     public static function requireLogin(): void { if (!self::check()) redirect('login'); if (!empty($_SESSION['must_change_password'])) { $path=parse_url($_SERVER['REQUEST_URI']??'',PHP_URL_PATH)?:''; if (!str_contains($path,'change-password')) redirect('change-password'); } }
     public static function requirePlatform(): void { if (!self::platformCheck()) redirect('platform/login'); }
     public static function user(): array { return is_array($_SESSION['user'] ?? null) ? $_SESSION['user'] : []; }
+
+    public static function permissions(bool $refresh = false): array
+    {
+        $cached = $_SESSION['permissions'] ?? null;
+        if (!$refresh && is_array($cached)) return $cached;
+        try {
+            $payload = self::api(App::api(), 'GET', '/api/v1/auth/me');
+            $user = is_array($payload['user'] ?? null) ? $payload['user'] : $payload;
+            if (is_array($user)) $_SESSION['user'] = $user;
+            $permissions = $user['permissions'] ?? $payload['permissions'] ?? [];
+            if (!is_array($permissions)) $permissions = [];
+            $_SESSION['permissions'] = array_values(array_unique(array_map('strval', $permissions)));
+            return $_SESSION['permissions'];
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    public static function can(string|array $permission, bool $refresh = false): bool
+    {
+        $permissions = self::permissions($refresh);
+        $required = is_array($permission) ? $permission : [$permission];
+        foreach ($required as $item) {
+            if (in_array((string)$item, $permissions, true)) return true;
+        }
+        return false;
+    }
     public static function platformToken(): ?string { return $_SESSION['platform_access_token'] ?? null; }
     public static function accessToken(): ?string { return $_SESSION['access_token'] ?? null; }
 
