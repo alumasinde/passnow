@@ -311,6 +311,31 @@ func (r *Repository) CloneRole(ctx context.Context, sourceID int64, name string)
 }
 
 
+type UserAccess struct {
+	UserID int64
+	MembershipID int64
+	Email string
+	FirstName string
+	LastName string
+	RoleID int64
+	RoleName string
+	DepartmentID *int64
+	DepartmentName *string
+	Status MembershipStatus
+	PermissionCodes []string
+}
+
+func (r *Repository) UserAccessByUserID(ctx context.Context, userID int64) (*UserAccess, error) {
+	m, err := r.MembershipViewByUserID(ctx, userID)
+	if err != nil { return nil, err }
+	codes, err := r.PermissionCodesForRole(ctx, m.RoleID)
+	if err != nil { return nil, err }
+	list := make([]string, 0, len(codes))
+	for code := range codes { list = append(list, code) }
+	sort.Strings(list)
+	return &UserAccess{UserID:m.UserID, MembershipID:m.MembershipID, Email:m.Email, FirstName:m.FirstName, LastName:m.LastName, RoleID:m.RoleID, RoleName:m.RoleName, DepartmentID:m.DepartmentID, DepartmentName:m.DepartmentName, Status:m.Status, PermissionCodes:list}, nil
+}
+
 type RoleComparison struct {
 	ID int64
 	Name string
