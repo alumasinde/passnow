@@ -263,6 +263,8 @@ func writeServiceError(w http.ResponseWriter, err error) {
 		httpx.WriteError(w, httpx.ErrValidation.WithMessage("gate_id is required"))
 	case errors.Is(err, ErrMovementGateInvalid):
 		httpx.WriteError(w, httpx.ErrValidation.WithMessage("gate_id is invalid or inactive"))
+	case errors.Is(err, ErrMovementDeviceInvalid):
+		httpx.WriteError(w, httpx.ErrValidation.WithMessage("device is invalid, inactive, or not assigned to the selected gate"))
 	case errors.Is(err, ErrMovementGateDirection):
 		httpx.WriteError(w, httpx.AppError{Code:"gate_direction_not_allowed",Message:"selected gate does not allow this movement direction",Status:http.StatusConflict})
 	case errors.Is(err, ErrInvalidTransition):
