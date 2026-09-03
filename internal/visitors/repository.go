@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 
 	"gatepass/internal/database"
 	"gatepass/internal/httpx"
@@ -60,4 +61,14 @@ func (r *Repository) Update(ctx context.Context,id int64,in UpdateInput,updatedB
 func (r *Repository) SetBlacklist(ctx context.Context,id int64,blacklisted bool,reason *string,updatedBy int64)error{
 	status:=StatusActive;if blacklisted{status=StatusBlacklisted}else{reason=nil}
 	res,err:=r.db.ExecContext(ctx,`UPDATE visitors SET status=?,blacklist_reason=?,updated_by=?,updated_at=NOW() WHERE id=? AND deleted_at IS NULL`,status,reason,updatedBy,id);if err!=nil{return err};n,_:=res.RowsAffected();if n==0{return ErrNotFound};return nil
+}
+
+
+func (r *Repository) IdentityMatches(ctx context.Context, idTypeID int64, idNumber, phone, email string, limit int) ([]Visitor,error) {
+ if limit<1||limit>20 { limit=10 }; where:="WHERE deleted_at IS NULL AND ("; args:=[]any{}; parts:=[]string{}
+ if idNumber!="" { parts=append(parts,"(id_type_id=? AND id_number=?)"); args=append(args,idTypeID,idNumber) }
+ if phone!="" { parts=append(parts,"phone=?"); args=append(args,phone) }
+ if email!="" { parts=append(parts,"LOWER(email)=LOWER(?)"); args=append(args,email) }
+ if len(parts)==0 { return []Visitor{},nil }; where+=strings.Join(parts," OR ")+")"; args=append(args,limit)
+ rows,err:=r.db.QueryContext(ctx,"SELECT "+selectCols+" FROM visitors "+where+" ORDER BY created_at DESC LIMIT ?",args...);if err!=nil{return nil,err};defer rows.Close();out:=[]Visitor{};for rows.Next(){v,e:=r.scan(rows);if e!=nil{return nil,e};out=append(out,*v)};return out,rows.Err()
 }
