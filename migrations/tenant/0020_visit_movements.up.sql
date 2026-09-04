@@ -10,8 +10,8 @@ CREATE TABLE visit_movements (
  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
  CONSTRAINT fk_visit_movements_visit FOREIGN KEY (visit_id) REFERENCES visits(id),
  CONSTRAINT fk_visit_movements_gate FOREIGN KEY (gate_id) REFERENCES gates(id),
- CONSTRAINT fk_visit_movements_device FOREIGN KEY (device_id) REFERENCES gate_devices(id),
  KEY idx_visit_movements_visit (visit_id),
  KEY idx_visit_movements_gate (gate_id),
+ KEY idx_visit_movements_device (device_id),
  KEY idx_visit_movements_occurred (occurred_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
