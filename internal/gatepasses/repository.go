@@ -221,7 +221,7 @@ func (r *Repository) Create(ctx context.Context, in CreateInputResolved) (id int
 			 requester_type, requester_user_id, requester_visitor_id, visit_id,
 			 purpose, is_returnable, expected_return_at, requires_approval, workflow_id,
 			 status, qr_token, issued_by, issued_at, created_by, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
 		g.GatepassTypeID, g.AssignedGateID, passNumber, g.DepartmentID,
 		g.RequesterType, g.RequesterUserID, g.RequesterVisitorID, g.VisitID,
 		g.Purpose, g.IsReturnable, g.ExpectedReturnAt, g.RequiresApproval, workflowID,
