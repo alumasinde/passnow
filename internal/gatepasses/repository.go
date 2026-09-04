@@ -443,15 +443,17 @@ func (r *Repository) transitionGate(ctx context.Context, id, actorUserID int64, 
 	}
 
 	if checkOut {
+		next := g.NextCheckOutStatus()
 		if _, err := tx.ExecContext(ctx, `
-			UPDATE gatepasses SET status = 'checked_out', checked_out_at = NOW(), checked_out_by = ?, updated_at = NOW()
-			WHERE id = ?`, actorUserID, id); err != nil {
+			UPDATE gatepasses SET status = ?, checked_out_at = NOW(), checked_out_by = ?, updated_at = NOW()
+			WHERE id = ?`, next, actorUserID, id); err != nil {
 			return nil, err
 		}
 	} else {
+		next := g.NextCheckInStatus(dir)
 		if _, err := tx.ExecContext(ctx, `
-			UPDATE gatepasses SET status = 'checked_in', checked_in_at = NOW(), checked_in_by = ?, updated_at = NOW()
-			WHERE id = ?`, actorUserID, id); err != nil {
+			UPDATE gatepasses SET status = ?, checked_in_at = NOW(), checked_in_by = ?, updated_at = NOW()
+			WHERE id = ?`, next, actorUserID, id); err != nil {
 			return nil, err
 		}
 	}
