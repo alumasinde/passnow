@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -35,7 +36,16 @@ func TestAccessTokenRejectsWrongSecretAndTampering(t *testing.T) {
 		t.Fatalf("wrong secret error = %v, want invalid token", err)
 	}
 
-	tampered := token[:len(token)-1] + "x"
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 || len(parts[1]) == 0 {
+		t.Fatalf("unexpected JWT format")
+	}
+	replacement := byte('A')
+	if parts[1][0] == replacement {
+		replacement = 'B'
+	}
+	parts[1] = string(replacement) + parts[1][1:]
+	tampered := strings.Join(parts, ".")
 	if _, err := VerifyAccessToken(secret, tampered); !errors.Is(err, ErrTokenInvalid) {
 		t.Fatalf("tampered token error = %v, want invalid token", err)
 	}
