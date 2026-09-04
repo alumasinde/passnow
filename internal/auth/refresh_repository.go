@@ -42,10 +42,13 @@ func hashToken(raw string) string {
 // Refresh tokens are tenant-bound by the database connection. Tenant databases
 // intentionally do not contain a tenant_id column.
 func (r *RefreshTokenRepository) Store(ctx context.Context, userID int64, tokenHash string, ttl time.Duration) error {
+	// Calculate the absolute expiry in Go. This avoids MySQL DATETIME/second
+	// rounding making very short-lived or negative-TTL test cases ambiguous.
+	expiresAt := time.Now().UTC().Add(ttl)
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO refresh_tokens (user_id, token_hash, expires_at, created_at)
-		VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? SECOND), NOW())`,
-		userID, tokenHash, int(ttl.Seconds()))
+		VALUES (?, ?, ?, NOW())`,
+		userID, tokenHash, expiresAt)
 	return err
 }
 
