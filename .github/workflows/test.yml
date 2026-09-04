@@ -12,6 +12,19 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: gatepass_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -24,6 +37,13 @@ jobs:
 
       - name: Verify dependencies
         run: go mod tidy
+
+      - name: Test environment
+        shell: bash
+        run: echo "PASSNOW_TEST_DSN=root:root@tcp(127.0.0.1:3306)/gatepass_test?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=UTC" >> "$GITHUB_ENV"
+
+      - name: Install migration tool dependencies
+        run: go run ./cmd/migrate -help
 
       - name: Vet
         run: go vet ./...
