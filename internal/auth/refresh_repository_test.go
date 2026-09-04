@@ -56,7 +56,10 @@ func TestRefreshTokenRepositoryRejectsUnknownAndExpiredTokens(t *testing.T) {
 
 	raw, hash, err := NewRefreshToken()
 	if err != nil { t.Fatal(err) }
-	if err := repo.Store(ctx, userID, hash, -time.Second); err != nil { t.Fatal(err) }
+
+	// MySQL DATETIME has second precision here. A TTL of -1s can still land
+	// in the same second as NOW(), so use a value comfortably in the past.
+	if err := repo.Store(ctx, userID, hash, -time.Hour); err != nil { t.Fatal(err) }
 	if _, err := repo.Consume(ctx, raw); err != ErrRefreshTokenInvalid {
 		t.Fatalf("expired token error = %v, want ErrRefreshTokenInvalid", err)
 	}
