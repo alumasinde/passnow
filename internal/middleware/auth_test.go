@@ -7,8 +7,16 @@ import (
 	"time"
 
 	"gatepass/internal/auth"
+	"gatepass/internal/reqctx"
 	"gatepass/internal/tenants"
 )
+
+func withTestTenant(r *http.Request, tenantID int64) *http.Request {
+	return r.WithContext(reqctx.WithTenant(r.Context(), &tenants.Tenant{
+		ID:     tenantID,
+		Status: tenants.StatusActive,
+	}))
+}
 
 func TestRequireAuthAcceptsMatchingTenant(t *testing.T) {
 	secret := []byte("middleware-secret")
@@ -19,7 +27,7 @@ func TestRequireAuthAcceptsMatchingTenant(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/test", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
-	req = req.WithContext(WithTenant(req.Context(), &tenants.Tenant{ID: 20, Status: tenants.StatusActive}))
+	req = withTestTenant(req, 20)
 
 	called := false
 	h := RequireAuth(secret)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -53,9 +61,9 @@ func TestRequireAuthRejectsMissingInvalidAndCrossTenantTokens(t *testing.T) {
 	}
 
 	cases := []struct {
-		name      string
-		header    string
-		tenantID  int64
+		name     string
+		header   string
+		tenantID int64
 	}{
 		{name: "missing bearer", header: "", tenantID: 20},
 		{name: "invalid token", header: "Bearer invalid.token.value", tenantID: 20},
@@ -68,7 +76,7 @@ func TestRequireAuthRejectsMissingInvalidAndCrossTenantTokens(t *testing.T) {
 			if tc.header != "" {
 				req.Header.Set("Authorization", tc.header)
 			}
-			req = req.WithContext(WithTenant(req.Context(), &tenants.Tenant{ID: tc.tenantID, Status: tenants.StatusActive}))
+			req = withTestTenant(req, tc.tenantID)
 
 			called := false
 			h := RequireAuth(secret)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
