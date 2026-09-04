@@ -12,9 +12,9 @@ import (
 func TestVisitRepositoryCheckInCheckOutAndMovements(t *testing.T) {
 	db := testutil.OpenMySQL(t)
 	for _, table := range []string{"visitors","id_types","visits","gates","users"} { testutil.RequireTable(t, db, table) }
+	ctx := context.Background()
 	var movementTable string
 	hasMovements := db.QueryRowContext(ctx, "SELECT TABLE_NAME FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'visit_movements'").Scan(&movementTable) == nil
-	ctx := context.Background()
 	idTypeID := testutil.MustQueryInt(t, db, "SELECT id FROM id_types WHERE active=1 AND deleted_at IS NULL LIMIT 1")
 	gateID := testutil.MustQueryInt(t, db, "SELECT id FROM gates WHERE active=1 AND deleted_at IS NULL LIMIT 1")
 	userID := testutil.MustQueryInt(t, db, "SELECT id FROM users WHERE deleted_at IS NULL LIMIT 1")
