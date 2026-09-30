@@ -1,12 +1,3 @@
-// Package platform handles platform-level (cross-tenant) operations —
-// currently just bootstrapping a brand new tenant with its first admin
-// user. This is the ONLY endpoint in the system that runs outside tenant
-// resolution (there's no tenant yet) and outside normal JWT auth (there's
-// no user yet) — it is gated instead by a static bootstrap token that only
-// the platform operator (you) holds. Rotate/disable this token in
-// production once initial tenants are provisioned, or replace this with a
-// proper platform-admin authentication scheme if self-service tenant
-// signup is ever needed.
 package platform
 
 import (
@@ -14,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"log"
 	"fmt"
 	"net/http"
 	"strings"
@@ -78,13 +70,6 @@ type BootstrapResult struct {
 	PrimaryDomain  string `json:"primary_domain"`
 }
 
-// Bootstrap atomically creates: the tenant, a "Tenant Admin" system role
-// granted every current permission, the first admin user (password
-// supplied by the caller, hashed here — never generated/returned by the
-// server, since this account isn't a "temporary password, change it
-// later" case, it's the account setting everything else up), and the
-// membership linking them. All in one transaction: a failure at any step
-// leaves no partial tenant behind.
 func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapResult, error) {
 	token, err := randomHex()
 	if err != nil { return nil, err }
@@ -150,15 +135,7 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapR
 		GrantAll bool
 	}{
 		{Name: "Tenant Admin", GrantAll: true},
-		{Name: "Owner"},
-		{Name: "General Manager"},
-		{Name: "HR Director"},
-		{Name: "HOD"},
-		{Name: "Security Manager"},
-		{Name: "Gate Supervisor"},
-		{Name: "Gate Officer"},
-		{Name: "Approver"},
-		{Name: "Employee"},
+
 	}
 	var roleID int64
 	for _, seed := range defaultRoles {
@@ -287,6 +264,9 @@ func (h *Handler) createTenant(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.svc.Bootstrap(r.Context(), in)
 	if err != nil {
+
+		    log.Printf("create tenant failed: %v", err)   // add this line
+
 		if strings.Contains(strings.ToLower(err.Error()), "duplicate") || strings.Contains(strings.ToLower(err.Error()), "unique") {
 			httpx.WriteError(w, httpx.ErrValidation.WithMessage("organization slug or administrator email is already in use"))
 			return

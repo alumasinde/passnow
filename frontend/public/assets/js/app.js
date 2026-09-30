@@ -347,7 +347,7 @@
         const payload = await response.json(); if (!response.ok) throw new Error(payload.message || 'Unable to compare roles.');
         const rows = Array.isArray(payload.data) ? payload.data : (Array.isArray(payload) ? payload : []);
         const codes = [...new Set(rows.flatMap(r => r.permission_codes || []))].sort();
-        content.innerHTML = '<div class="rbac-compare-summary">' + rows.map(r=>'<article><strong>'+escapeHTML(r.name)+'</strong><span>'+Number(r.permission_count||0)+' permissions</span><span>'+Number(r.user_count||0)+' users</span></article>').join('') + '</div><div class="rbac-compare-table-wrap"><table class="rbac-compare-table"><thead><tr><th>Permission</th>'+rows.map(r=>'<th>'+escapeHTML(r.name)+'</th>').join('')+'</tr></thead><tbody>'+codes.map(code=>'<tr><td>'+escapeHTML(code)+'</td>'+rows.map(r=>'<td>'+(r.permission_codes||[]).includes(code)?'<i class="fa-solid fa-check"></i>':'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+        content.innerHTML = '<div class="rbac-compare-summary">' + rows.map(r=>'<article><strong>'+escapeHTML(r.name)+'</strong><span>'+Number(r.permission_count||0)+' permissions</span><span>'+Number(r.user_count||0)+' users</span></article>').join('') + '</div><div class="rbac-compare-table-wrap"><table class="rbac-compare-table"><thead><tr><th>Permission</th>'+rows.map(r=>'<th>'+escapeHTML(r.name)+'</th>').join('')+'</tr></thead><tbody>'+codes.map(code=>'<tr><td>'+escapeHTML(code)+'</td>'+rows.map(r=>'<td>'+((r.permission_codes||[]).includes(code)?'<i class="fa-solid fa-check"></i>':'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
       } catch (e) { content.innerHTML='<div class="alert alert-danger">'+escapeHTML(e.message)+'</div>'; }
     });
   }

@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+
 final class Auth
 {
     public static function login(ApiClient $api, string $email, string $password): void
@@ -15,7 +16,7 @@ final class Auth
         $_SESSION['user'] = $r['user'] ?? [];
         $_SESSION['tenant_slug'] = strtolower(trim((string)($r['tenant_slug'] ?? localTenantSlug())));
         $_SESSION['authenticated_at'] = time();
-        $_SESSION['must_change_password'] = !empty($r['must_change_password'], $_SESSION['permissions']);
+        $_SESSION['must_change_password'] = (!empty($r['must_change_password']) && !empty($r['permissions']));
         $permissions = $r['permissions'] ?? (($r['user'] ?? [])['permissions'] ?? []);
         $_SESSION['permissions'] = is_array($permissions) ? array_values(array_unique(array_map('strval', $permissions))) : [];
     }
