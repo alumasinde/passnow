@@ -27,6 +27,8 @@ final class ApiClient
 
         $url = $this->baseUrl . $requestPath;
         $headers = ['Accept: application/json', 'Content-Type: application/json'];
+        if ($h = $this->clientIpHeader()) $headers[] = $h;
+        
         if ($tenantHost !== '') $headers[] = 'Host: ' . $tenantHost;
         if ($localTenantSlug !== '') $headers[] = 'X-Tenant-Slug: ' . $localTenantSlug;
         if ($accessToken) $headers[] = 'Authorization: Bearer ' . $accessToken;
@@ -73,6 +75,8 @@ final class ApiClient
 
         $url = $this->baseUrl . $requestPath;
         $headers = ['Accept: application/json'];
+        if ($h = $this->clientIpHeader()) $headers[] = $h;
+
         if ($tenantHost !== '') $headers[] = 'Host: ' . $tenantHost;
         if ($localTenantSlug !== '') $headers[] = 'X-Tenant-Slug: ' . $localTenantSlug;
         if ($accessToken) $headers[] = 'Authorization: Bearer ' . $accessToken;
@@ -97,15 +101,17 @@ final class ApiClient
         ]);
         $raw = curl_exec($ch);
         if ($raw === false) {
-            $err = curl_error($ch); $errno = curl_errno($ch); curl_close($ch);
-            throw new ApiException('The API could not be reached: ' . ($err !== '' ? $err : 'Unknown cURL transport error.'), 0, ['transport_error'=>$err,'transport_errno'=>$errno,'url'=>$url]);
+            $err = curl_error($ch);
+            $errno = curl_errno($ch);
+            curl_close($ch);
+            throw new ApiException('The API could not be reached: ' . ($err !== '' ? $err : 'Unknown cURL transport error.'), 0, ['transport_error' => $err, 'transport_errno' => $errno, 'url' => $url]);
         }
         $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         curl_close($ch);
         $decoded = json_decode($raw, true);
         if (!is_array($decoded)) throw new ApiException('The API returned an invalid response (HTTP ' . $status . ').', $status);
         if ($status < 200 || $status >= 300) {
-            throw new ApiException(self::errorMessage($decoded), $status, $decoded + ['request_url'=>$url]);
+            throw new ApiException(self::errorMessage($decoded), $status, $decoded + ['request_url' => $url]);
         }
         return $decoded;
     }
@@ -116,23 +122,36 @@ final class ApiClient
         $tenantHost = (string)AppContext::config('app.tenant_host', '');
         $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
         $segments = array_values(array_filter(explode('/', trim($currentPath, '/'))));
-        $reserved = ['login','logout','dashboard','platform','assets','api'];
+        $reserved = ['login', 'logout', 'dashboard', 'platform', 'assets', 'api'];
         $slug = strtolower(trim((string)($_SESSION['tenant_slug'] ?? '')));
         if ($slug === '' && $segments !== [] && !in_array(strtolower($segments[0]), $reserved, true)) $slug = strtolower($segments[0]);
         $url = $this->baseUrl . $requestPath;
         $headers = ['Accept: image/png'];
+        if ($h = $this->clientIpHeader()) $headers[] = $h;
+
         if ($tenantHost !== '') $headers[] = 'Host: ' . $tenantHost;
         if ($slug !== '') $headers[] = 'X-Tenant-Slug: ' . $slug;
         if ($accessToken) $headers[] = 'Authorization: Bearer ' . $accessToken;
-        $ch=curl_init($url);
-        curl_setopt_array($ch,[CURLOPT_CUSTOMREQUEST=>strtoupper($method),CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>false,CURLOPT_CONNECTTIMEOUT=>min($this->timeout,5),CURLOPT_TIMEOUT=>$this->timeout,CURLOPT_HTTPHEADER=>$headers,CURLOPT_SSL_VERIFYPEER=>true,CURLOPT_SSL_VERIFYHOST=>2]);
-        $raw=curl_exec($ch);
-        if($raw===false){$err=curl_error($ch);curl_close($ch);throw new ApiException('The API could not be reached: '.($err?:'Unknown transport error.'));}
-        $status=(int)curl_getinfo($ch,CURLINFO_RESPONSE_CODE);$type=(string)curl_getinfo($ch,CURLINFO_CONTENT_TYPE);curl_close($ch);
-        if($status<200||$status>=300)throw new ApiException('Unable to load binary API response (HTTP '.$status.').',$status);
-        return ['body'=>$raw,'content_type'=>$type?:'application/octet-stream'];
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [CURLOPT_CUSTOMREQUEST => strtoupper($method), CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_CONNECTTIMEOUT => min($this->timeout, 5), CURLOPT_TIMEOUT => $this->timeout, CURLOPT_HTTPHEADER => $headers, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2]);
+        $raw = curl_exec($ch);
+        if ($raw === false) {
+            $err = curl_error($ch);
+            curl_close($ch);
+            throw new ApiException('The API could not be reached: ' . ($err ?: 'Unknown transport error.'));
+        }
+        $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $type = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        curl_close($ch);
+        if ($status < 200 || $status >= 300) throw new ApiException('Unable to load binary API response (HTTP ' . $status . ').', $status);
+        return ['body' => $raw, 'content_type' => $type ?: 'application/octet-stream'];
     }
 
+    private function clientIpHeader(): ?string
+{
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+    return filter_var($ip, FILTER_VALIDATE_IP) ? 'X-Client-IP: ' . $ip : null;
+}
     private static function errorMessage(array $payload): string
     {
         $candidate = $payload['message'] ?? $payload['error'] ?? null;
