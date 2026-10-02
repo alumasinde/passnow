@@ -6,6 +6,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"os"
 	"strconv"
 	"time"
@@ -19,6 +20,7 @@ type Config struct {
 	WriteTimeout    time.Duration
 	IdleTimeout     time.Duration
 	ShutdownTimeout time.Duration
+	TrustedProxies  []string
 
 	DBHost            string
 	DBPort            string
@@ -29,14 +31,14 @@ type Config struct {
 	DBMaxIdleConns    int
 	DBConnMaxLifetime time.Duration
 
-	TenantDBEncryptionKey string
-	TenantDBMaxOpenConns int
-	TenantDBMaxIdleConns int
+	TenantDBEncryptionKey   string
+	TenantDBMaxOpenConns    int
+	TenantDBMaxIdleConns    int
 	TenantDBConnMaxLifetime time.Duration
 
-	DBProvisionHost string
-	DBProvisionPort string
-	DBProvisionUser string
+	DBProvisionHost     string
+	DBProvisionPort     string
+	DBProvisionUser     string
 	DBProvisionPassword string
 
 	JWTSecret       string
@@ -51,14 +53,13 @@ type Config struct {
 	GatepassWorkerInterval time.Duration
 	ApprovedGatepassTTL    time.Duration
 
-	MediaStoragePath   string
-	MediaPublicBaseURL string
+	MediaStoragePath    string
+	MediaPublicBaseURL  string
 	MediaMaxUploadBytes int64
 }
 
 func Load() (*Config, error) {
-	// Load .env when present. Existing process environment variables win,
-	// which keeps production deployments and CI configuration authoritative.
+	
 	if err := godotenv.Load(); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("config: load .env: %w", err)
 	}
@@ -69,6 +70,7 @@ func Load() (*Config, error) {
 		WriteTimeout:    getDuration("HTTP_WRITE_TIMEOUT", 15*time.Second),
 		IdleTimeout:     getDuration("HTTP_IDLE_TIMEOUT", 60*time.Second),
 		ShutdownTimeout: getDuration("HTTP_SHUTDOWN_TIMEOUT", 15*time.Second),
+		TrustedProxies:  getList("TRUSTED_PROXIES", []string{"127.0.0.1", "::1"}),
 
 		DBHost:            getEnv("DB_HOST", "127.0.0.1"),
 		DBPort:            getEnv("DB_PORT", "3306"),
@@ -79,14 +81,14 @@ func Load() (*Config, error) {
 		DBMaxIdleConns:    getInt("DB_MAX_IDLE_CONNS", 25),
 		DBConnMaxLifetime: getDuration("DB_CONN_MAX_LIFETIME", 5*time.Minute),
 
-		TenantDBEncryptionKey: getEnv("TENANT_DB_ENCRYPTION_KEY", ""),
-		TenantDBMaxOpenConns: getInt("TENANT_DB_MAX_OPEN_CONNS", 10),
-		TenantDBMaxIdleConns: getInt("TENANT_DB_MAX_IDLE_CONNS", 5),
+		TenantDBEncryptionKey:   getEnv("TENANT_DB_ENCRYPTION_KEY", ""),
+		TenantDBMaxOpenConns:    getInt("TENANT_DB_MAX_OPEN_CONNS", 10),
+		TenantDBMaxIdleConns:    getInt("TENANT_DB_MAX_IDLE_CONNS", 5),
 		TenantDBConnMaxLifetime: getDuration("TENANT_DB_CONN_MAX_LIFETIME", 5*time.Minute),
 
-		DBProvisionHost: getEnv("DB_PROVISION_HOST", getEnv("DB_HOST", "127.0.0.1")),
-		DBProvisionPort: getEnv("DB_PROVISION_PORT", getEnv("DB_PORT", "3306")),
-		DBProvisionUser: getEnv("DB_PROVISION_USER", ""),
+		DBProvisionHost:     getEnv("DB_PROVISION_HOST", getEnv("DB_HOST", "127.0.0.1")),
+		DBProvisionPort:     getEnv("DB_PROVISION_PORT", getEnv("DB_PORT", "3306")),
+		DBProvisionUser:     getEnv("DB_PROVISION_USER", ""),
 		DBProvisionPassword: getEnv("DB_PROVISION_PASSWORD", ""),
 
 		JWTSecret:       getEnv("JWT_SECRET", ""),
@@ -101,16 +103,19 @@ func Load() (*Config, error) {
 		GatepassWorkerInterval: getDuration("GATEPASS_WORKER_INTERVAL", time.Minute),
 		ApprovedGatepassTTL:    getDuration("APPROVED_GATEPASS_TTL", 24*time.Hour),
 
-		MediaStoragePath:   getEnv("MEDIA_STORAGE_PATH", "storage/media"),
-		MediaPublicBaseURL: getEnv("MEDIA_PUBLIC_BASE_URL", ""),
+		MediaStoragePath:    getEnv("MEDIA_STORAGE_PATH", "storage/media"),
+		MediaPublicBaseURL:  getEnv("MEDIA_PUBLIC_BASE_URL", ""),
 		MediaMaxUploadBytes: int64(getInt("MEDIA_MAX_UPLOAD_MB", 5)) * 1024 * 1024,
 	}
 
 	if cfg.DBUser == "" || cfg.DBPassword == "" {
 		return nil, fmt.Errorf("config: DB_USER and DB_PASSWORD are required")
 	}
-	if cfg.JWTSecret == "" || len(cfg.JWTSecret) < 32 {
+		if len(cfg.JWTSecret) < 32 {
 		return nil, fmt.Errorf("config: JWT_SECRET is required and must be >= 32 chars")
+	}
+	if strings.Contains(strings.ToLower(cfg.JWTSecret), "replace_with") {
+		return nil, fmt.Errorf("config: JWT_SECRET is still a placeholder; generate a real one")
 	}
 	return cfg, nil
 }
@@ -145,4 +150,18 @@ func getDuration(key string, fallback time.Duration) time.Duration {
 		}
 	}
 	return fallback
+}
+
+func getList(key string, fallback []string) []string {
+	v, ok := os.LookupEnv(key)
+	if !ok || strings.TrimSpace(v) == "" {
+		return fallback
+	}
+	var out []string
+	for _, p := range strings.Split(v, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }

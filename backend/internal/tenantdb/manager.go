@@ -16,6 +16,8 @@ type Manager struct {
 	maxOpen      int
 	maxIdle      int
 	maxLifetime  time.Duration
+	onInvalidate []func(tenantID int64)
+
 
 	mu    sync.Mutex
 	pools map[int64]*sql.DB
@@ -88,9 +90,13 @@ func (m *Manager) Invalidate(tenantID int64) {
 	m.mu.Lock()
 	db := m.pools[tenantID]
 	delete(m.pools, tenantID)
+	hooks := append([]func(int64){}, m.onInvalidate...)
 	m.mu.Unlock()
 	if db != nil {
 		_ = db.Close()
+	}
+	for _, fn := range hooks {
+		fn(tenantID)
 	}
 }
 
@@ -107,6 +113,12 @@ func (m *Manager) Close() error {
 		}
 	}
 	return first
+}
+
+func (m *Manager) OnInvalidate(fn func(tenantID int64)) {
+	m.mu.Lock()
+	m.onInvalidate = append(m.onInvalidate, fn)
+	m.mu.Unlock()
 }
 
 func mysqlDSN(c Credentials) string {

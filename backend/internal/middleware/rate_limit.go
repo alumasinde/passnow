@@ -1,9 +1,11 @@
 package middleware
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,6 +24,8 @@ type RateLimiter struct {
 	limit   int
 	window  time.Duration
 }
+
+var trustedProxies []*net.IPNet
 
 func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
 	if limit <= 0 {
@@ -70,14 +74,50 @@ func (l *RateLimiter) Middleware(keyPrefix string) func(http.Handler) http.Handl
 		})
 	}
 }
-
-func clientIP(r *http.Request) string {
-	// Do not trust X-Forwarded-For here. If the deployment is behind a
-	// trusted proxy, normalize the proxy chain there before it reaches this
-	// middleware. RemoteAddr is the safe default.
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err == nil {
-		return host
+// SetTrustedProxies parses CIDRs or bare IPs, e.g. "127.0.0.1", "10.0.0.0/8".
+func SetTrustedProxies(entries []string) error {
+	var nets []*net.IPNet
+	for _, e := range entries {
+		e = strings.TrimSpace(e)
+		if e == "" {
+			continue
+		}
+		if !strings.Contains(e, "/") {
+			if ip := net.ParseIP(e); ip != nil && ip.To4() != nil {
+				e += "/32"
+			} else {
+				e += "/128"
+			}
+		}
+		_, n, err := net.ParseCIDR(e)
+		if err != nil {
+			return fmt.Errorf("trusted proxy %q: %w", e, err)
+		}
+		nets = append(nets, n)
 	}
-	return r.RemoteAddr
+	trustedProxies = nets
+	return nil
+}
+
+func isTrustedProxy(ip net.IP) bool {
+	for _, n := range trustedProxies {
+		if n.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+// clientIP returns the peer address, unless the peer is a trusted proxy
+func clientIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	if peer := net.ParseIP(host); peer != nil && isTrustedProxy(peer) {
+		if v := net.ParseIP(strings.TrimSpace(r.Header.Get("X-Client-IP"))); v != nil {
+			return v.String()
+		}
+	}
+	return host
 }

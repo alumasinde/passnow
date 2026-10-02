@@ -23,6 +23,7 @@ import (
 	"gatepass/internal/gates"
 	"gatepass/internal/invite"
 	"gatepass/internal/media"
+	"gatepass/internal/middleware"
 	"gatepass/internal/navigation"
 	"gatepass/internal/platform"
 	"gatepass/internal/reqctx"
@@ -38,6 +39,11 @@ import (
 
 func main() {
 	cfg := mustLoadConfig()
+
+	if err := middleware.SetTrustedProxies(cfg.TrustedProxies); err != nil {
+		log.Fatalf("config: %v", err)
+	}
+
 	db := mustConnectDatabase(cfg)
 	defer db.Close()
 
@@ -118,8 +124,6 @@ func buildPlatform(db *sql.DB, cfg *config.Config) (*tenants.Repository, *platfo
 	return tenantRepo, platform.NewHandler(bootstrapSvc, cfg.PlatformBootstrapToken), platformAdminHandler, platformAdminRepo
 }
 
-// buildTenantAPI is the single place where tenant-scoped handlers are wired.
-// db is that tenant's own database pool.
 func buildTenantAPI(db *sql.DB, cfg *config.Config) *routes.API {
 	jwtSecret := []byte(cfg.JWTSecret)
 
@@ -176,6 +180,7 @@ func buildTenantAPI(db *sql.DB, cfg *config.Config) *routes.API {
 func newServer(cfg *config.Config, db *sql.DB, tenantRepo *tenants.Repository, tenantManager *tenantdb.Manager, bootstrapHandler *platform.Handler, platformAdminHandler *platform.AdminHandler, platformAdminRepo *platform.AdminRepository, jwtSecret []byte) (*http.Server, context.CancelFunc) {
 	rootMux := http.NewServeMux()
 	tenantMux := newTenantAPIHandler(tenantManager, cfg)
+	tenantManager.OnInvalidate(tenantMux.Evict)
 	routes.RegisterWeb(rootMux, db, bootstrapHandler, platformAdminHandler, platformAdminRepo, tenantRepo, tenantManager, jwtSecret)
 	handler := routes.BuildHandler(cfg, tenantRepo, rootMux, tenantMux)
 
@@ -262,4 +267,10 @@ func (h *tenantAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	handler.ServeHTTP(w, r)
+}
+
+func (h *tenantAPIHandler) Evict(tenantID int64) {
+	h.mu.Lock()
+	delete(h.handlers, tenantID)
+	h.mu.Unlock()
 }
