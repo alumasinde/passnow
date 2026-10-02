@@ -2,20 +2,12 @@ package httpx
 
 import "net/http"
 
-// AppError is a named, reusable error response. Add new ones here as the
-// system grows (e.g. ErrGatepassNotFound, ErrApprovalStepMismatch) instead
-// of typing status codes and message strings at each call site.
-type AppError struct {
-	Code    string // stable machine-readable code, e.g. "auth_required"
-	Message string // human-readable text shown to the client
-	Status  int    // HTTP status code
-}
 
-// ---------------------------------------------------------------------
-// EDIT THIS FILE to change wording, status codes, or add new error types.
-// Every handler references these by name (e.g. httpx.ErrAuthRequired) —
-// nothing else in the codebase should hardcode a message string or status.
-// ---------------------------------------------------------------------
+type AppError struct {
+	Code    string 
+	Message string 
+	Status  int    
+}
 
 var (
 	ErrAuthRequired = AppError{
@@ -54,12 +46,11 @@ var (
 	ErrInternal = AppError{
 		Code: "internal_error", Message: "something went wrong, please try again", Status: http.StatusInternalServerError,
 	}
+	ErrServiceUnavailable = AppError{
+		Code: "service_unavailable", Message: "service temporarily unavailable, please try again", Status: http.StatusServiceUnavailable,
+	}
 )
 
-// WithMessage returns a copy of the AppError with a different message —
-// use for validation errors where the detail varies per request
-// (e.g. httpx.ErrValidation.WithMessage("email and password are required"))
-// while keeping the same code/status.
 func (e AppError) WithMessage(msg string) AppError {
 	e.Message = msg
 	return e

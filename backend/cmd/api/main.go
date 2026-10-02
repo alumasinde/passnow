@@ -24,6 +24,7 @@ import (
 	"gatepass/internal/invite"
 	"gatepass/internal/media"
 	"gatepass/internal/middleware"
+	"gatepass/internal/httpx"
 	"gatepass/internal/navigation"
 	"gatepass/internal/platform"
 	"gatepass/internal/reqctx"
@@ -118,7 +119,7 @@ func buildPlatform(db *sql.DB, cfg *config.Config) (*tenants.Repository, *platfo
 	}
 
 	platformAdminRepo := platform.NewAdminRepository(db)
-	platformAdminSvc := platform.NewAdminService(platformAdminRepo, userRepo, jwtSecret, cfg.AccessTokenTTL)
+	platformAdminSvc := platform.NewAdminService(platformAdminRepo, userRepo, jwtSecret, cfg.AccessTokenTTL).WithBcryptCost(cfg.BcryptCost)
 	platformAdminHandler := platform.NewAdminHandler(platformAdminSvc)
 
 	return tenantRepo, platform.NewHandler(bootstrapSvc, cfg.PlatformBootstrapToken), platformAdminHandler, platformAdminRepo
@@ -261,9 +262,10 @@ func (h *tenantAPIHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "tenant context missing", http.StatusInternalServerError)
 		return
 	}
-	handler, err := h.handler(r.Context(), tenant.ID)
+		handler, err := h.handler(r.Context(), tenant.ID)
 	if err != nil {
-		http.Error(w, "tenant database is not available", http.StatusServiceUnavailable)
+		log.Printf("tenant %d database unavailable: %v", tenant.ID, err)
+		httpx.WriteError(w, httpx.ErrServiceUnavailable)
 		return
 	}
 	handler.ServeHTTP(w, r)

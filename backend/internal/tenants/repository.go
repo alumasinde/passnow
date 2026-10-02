@@ -88,3 +88,13 @@ func (r *Repository) ReadyIDs(ctx context.Context) ([]int64, error) {
 	}
 	return ids, rows.Err()
 }
+
+// DeleteUnprovisioned hard-deletes a tenant that never finished onboarding.
+// It refuses to touch a tenant whose database is READY, so it can never remove a live tenant.
+func (r *Repository) DeleteUnprovisioned(ctx context.Context, id int64) error {
+	_, err := r.db.ExecContext(ctx, `
+		DELETE t FROM tenants t
+		LEFT JOIN tenant_databases td ON td.tenant_id = t.id
+		WHERE t.id = ? AND (td.status IS NULL OR td.status <> 'ready')`, id)
+	return err
+}

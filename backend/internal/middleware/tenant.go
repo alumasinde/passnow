@@ -4,28 +4,19 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"errors"
+	"log"
 
 	"gatepass/internal/httpx"
 	"gatepass/internal/reqctx"
 	"gatepass/internal/tenants"
 )
 
-// TenantFromContext returns the resolved tenant. Every handler and
-// repository call downstream of this middleware MUST use this — never trust
-// a tenant_id from the request body/query/header. If this returns false,
-// the middleware chain is misconfigured; fail closed (401/500), never proceed.
-// (Thin re-export of reqctx so existing callers in this package don't change.)
+
 func TenantFromContext(ctx context.Context) (*tenants.Tenant, bool) {
 	return reqctx.TenantFromContext(ctx)
 }
 
-// ResolveTenant identifies the tenant for an inbound request in this order:
-//  1. Custom domain: Host header matches a verified tenants.custom_domain.
-//  2. Subdomain: Host is "<slug>.<baseDomain>".
-//  3. Path prefix: first path segment is "/<slug>/...". Used as a fallback
-//     for local/dev access or clients that can't do per-tenant DNS.
-//
-// baseDomain is the platform's own domain, e.g. "gatepass.example.com".
 func ResolveTenant(repo *tenants.Repository, baseDomain string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -33,22 +24,39 @@ func ResolveTenant(repo *tenants.Repository, baseDomain string) func(http.Handle
 			host := normalizeHost(stripPort(r.Host))
 			base := normalizeHost(baseDomain)
 
-			var (
-				t   *tenants.Tenant
-				err error
-			)
+			var t *tenants.Tenant
+
+			// dbErr remembers the first REAL lookup failure (anything other than
+			// "not found"), so a platform-database outage is answered with 503
+			// instead of being reported as "tenant not found".
+			var dbErr error
+			note := func(err error) {
+				if err != nil && !errors.Is(err, tenants.ErrNotFound) && dbErr == nil {
+					dbErr = err
+				}
+			}
 
 			switch {
 			case host != "" && !strings.HasSuffix(host, "."+base) && host != base:
 				// Resolve every registered domain first, including PassNow subdomains.
+				var err error
 				t, err = repo.ByDomain(ctx, host)
-				if err != nil { t, err = repo.ByCustomDomain(ctx, host) }
+				note(err)
+				if t == nil {
+					t, err = repo.ByCustomDomain(ctx, host)
+					note(err)
+				}
 
 			case strings.HasSuffix(host, "."+base):
+				var err error
 				t, err = repo.ByDomain(ctx, host)
+				note(err)
 				if t == nil {
 					sub := strings.TrimSuffix(host, "."+base)
-					if sub != "" && sub != "www" { t, err = repo.BySlug(ctx, sub) }
+					if sub != "" && sub != "www" {
+						t, err = repo.BySlug(ctx, sub)
+						note(err)
+					}
 				}
 			}
 
@@ -56,7 +64,9 @@ func ResolveTenant(repo *tenants.Repository, baseDomain string) func(http.Handle
 			// browser is served from one IP/host for every tenant.
 			if t == nil {
 				if slug := strings.ToLower(strings.TrimSpace(r.Header.Get("X-Tenant-Slug"))); slug != "" {
+					var err error
 					t, err = repo.BySlug(ctx, slug)
+					note(err)
 				}
 			}
 
@@ -66,18 +76,27 @@ func ResolveTenant(repo *tenants.Repository, baseDomain string) func(http.Handle
 			// work in development and production.
 			if slug, rest, ok := firstPathSegment(r.URL.Path); ok {
 				if t == nil {
-					if pt, perr := repo.BySlug(ctx, slug); perr == nil {
+					pt, perr := repo.BySlug(ctx, slug)
+					note(perr)
+					if perr == nil {
 						t = pt
 						r.URL.Path = rest
-					} else {
-						err = perr
 					}
 				} else if strings.EqualFold(slug, t.Slug) {
 					r.URL.Path = rest
 				}
 			}
 
-			if t == nil || !t.IsActive() {
+			if t == nil {
+				if dbErr != nil {
+					log.Printf("tenant resolution failed: host=%q err=%v", host, dbErr)
+					httpx.WriteError(w, httpx.ErrServiceUnavailable)
+					return
+				}
+				httpx.WriteError(w, httpx.ErrTenantNotFound)
+				return
+			}
+			if !t.IsActive() {
 				httpx.WriteError(w, httpx.ErrTenantNotFound)
 				return
 			}
@@ -97,10 +116,6 @@ func stripPort(host string) string {
 func normalizeHost(host string) string {
 	return strings.ToLower(strings.TrimSuffix(strings.TrimSpace(host), "."))
 }
-
-// firstPathSegment splits "/acme/api/v1/visitors" into ("acme",
-// "/api/v1/visitors", true). Returns ok=false for paths like "/api/v1/..."
-// that aren't tenant-prefixed (e.g. platform-level admin routes).
 func firstPathSegment(path string) (slug string, rest string, ok bool) {
 	trimmed := strings.TrimPrefix(path, "/")
 	parts := strings.SplitN(trimmed, "/", 2)

@@ -3,41 +3,45 @@ package platform
 import (
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"errors"
-	"log"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
-	"database/sql"
+	"time"
 
 	"gatepass/internal/auth"
 	"gatepass/internal/httpx"
 	"gatepass/internal/roles"
-	"gatepass/internal/tenants"
 	"gatepass/internal/tenantdb"
+	"gatepass/internal/tenants"
 	"gatepass/internal/users"
 )
 
 var ErrSlugTaken = errors.New("platform: tenant slug already in use")
 
 type Service struct {
-	tenantRepo *tenants.Repository
-	userRepo   *users.Repository
-	roleRepo   *roles.Repository
-	dbRepo     *tenantdb.Repository
-	cipher     *tenantdb.Cipher
-	installer  *tenantdb.Installer
+	tenantRepo  *tenants.Repository
+	userRepo    *users.Repository
+	roleRepo    *roles.Repository
+	dbRepo      *tenantdb.Repository
+	cipher      *tenantdb.Cipher
+	installer   *tenantdb.Installer
 	provisioner *tenantdb.Provisioner
-	bcryptCost int
-	baseDomain string
+	bcryptCost  int
+	baseDomain  string
 }
 
 func NewService(tenantRepo *tenants.Repository, userRepo *users.Repository, roleRepo *roles.Repository, bcryptCost int) *Service {
 	return &Service{tenantRepo: tenantRepo, userRepo: userRepo, roleRepo: roleRepo, bcryptCost: bcryptCost}
 }
 
-func (s *Service) WithBaseDomain(base string) *Service { s.baseDomain = strings.ToLower(strings.Trim(strings.TrimSpace(base), ".")); return s }
+func (s *Service) WithBaseDomain(base string) *Service {
+	s.baseDomain = strings.ToLower(strings.Trim(strings.TrimSpace(base), "."))
+	return s
+}
 
 func (s *Service) WithTenantDatabase(repo *tenantdb.Repository, cipher *tenantdb.Cipher, installer *tenantdb.Installer, provisioner *tenantdb.Provisioner) *Service {
 	s.dbRepo, s.cipher, s.installer, s.provisioner = repo, cipher, installer, provisioner
@@ -45,16 +49,16 @@ func (s *Service) WithTenantDatabase(repo *tenantdb.Repository, cipher *tenantdb
 }
 
 type BootstrapInput struct {
-	TenantName     string `json:"tenant_name"`
-	TenantSlug     string `json:"tenant_slug"`
-	AdminEmail     string `json:"admin_email"`
-	AdminPassword  string `json:"admin_password"`
-	AdminFirstName string `json:"admin_first_name"`
-	AdminLastName  string `json:"admin_last_name"`
-	DatabaseMode string `json:"database_mode"`
-	DatabaseHost string `json:"database_host"`
-	DatabasePort string `json:"database_port"`
-	DatabaseName string `json:"database_name"`
+	TenantName       string `json:"tenant_name"`
+	TenantSlug       string `json:"tenant_slug"`
+	AdminEmail       string `json:"admin_email"`
+	AdminPassword    string `json:"admin_password"`
+	AdminFirstName   string `json:"admin_first_name"`
+	AdminLastName    string `json:"admin_last_name"`
+	DatabaseMode     string `json:"database_mode"`
+	DatabaseHost     string `json:"database_host"`
+	DatabasePort     string `json:"database_port"`
+	DatabaseName     string `json:"database_name"`
 	DatabaseUsername string `json:"database_username"`
 	DatabasePassword string `json:"database_password"`
 }
@@ -70,23 +74,42 @@ type BootstrapResult struct {
 	PrimaryDomain  string `json:"primary_domain"`
 }
 
-func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapResult, error) {
+func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (result *BootstrapResult, err error) {
 	token, err := randomHex()
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	if s.dbRepo == nil || s.cipher == nil || s.installer == nil {
 		return nil, errors.New("tenant database onboarding is not configured")
 	}
 
 	// Only the tenant registry is created in the platform database.
 	tx, err := s.userRepo.BeginTx(ctx)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer tx.Rollback()
 
 	tenantID, err := s.tenantRepo.CreateTx(ctx, tx, &tenants.Tenant{
 		Name: in.TenantName, Slug: in.TenantSlug, CustomDomainToken: token,
 	})
-	if err != nil { return nil, err }
-	if err := tx.Commit(); err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	// From here the tenant row exists in the platform DB. If onboarding fails
+	// before the first administrator is committed, remove the half-built row so
+	// the slug is free again and the operator can simply retry. (The tenant
+	// database itself is left in place; a retry reuses it.)
+	adminCommitted := false
+	defer func() {
+		if err != nil && !adminCommitted {
+			s.rollbackTenant(tenantID, err)
+		}
+	}()
 
 	if s.baseDomain != "" && s.baseDomain != "localhost" {
 		if err := s.tenantRepo.AddDomain(ctx, tenantID, in.TenantSlug+"."+s.baseDomain, tenants.DomainSubdomain, true, true); err != nil {
@@ -109,12 +132,18 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapR
 	if strings.EqualFold(strings.TrimSpace(in.DatabaseMode), "create") && s.provisioner != nil {
 		creds.Host, creds.Port = s.provisioner.Host(), s.provisioner.Port()
 	}
-	if creds.Port == "" { creds.Port = "3306" }
+	if creds.Port == "" {
+		creds.Port = "3306"
+	}
 
 	tenantDB, err := sql.Open("mysql", tenantMySQLDSN(creds))
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer tenantDB.Close()
-	if err := tenantDB.PingContext(ctx); err != nil { return nil, fmt.Errorf("verify provisioned tenant database: %w", err) }
+	if err := tenantDB.PingContext(ctx); err != nil {
+		return nil, fmt.Errorf("verify provisioned tenant database: %w", err)
+	}
 
 	// Everything below is tenant-owned and therefore runs against tenantDB.
 	// The installer has already applied the tenant migration set, including the
@@ -122,25 +151,30 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapR
 	tenantUserRepo := users.NewRepository(tenantDB)
 	tenantRoleRepo := roles.NewRepository(tenantDB)
 	hash, err := auth.HashPassword(in.AdminPassword, s.bcryptCost)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	tenantTx, err := tenantUserRepo.BeginTx(ctx)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer tenantTx.Rollback()
 
 	// Seed the default tenant roles. Tenant Admin receives the full
 	// permission catalog; the remaining roles are safe defaults for a new
 	// installation and can be adjusted by the tenant administrator later.
 	defaultRoles := []struct {
-		Name    string
+		Name     string
 		GrantAll bool
 	}{
 		{Name: "Tenant Admin", GrantAll: true},
-
 	}
 	var roleID int64
 	for _, seed := range defaultRoles {
 		id, err := tenantRoleRepo.CreateRoleTx(ctx, tenantTx, seed.Name, true)
-		if err != nil { return nil, fmt.Errorf("seed default role %q: %w", seed.Name, err) }
+		if err != nil {
+			return nil, fmt.Errorf("seed default role %q: %w", seed.Name, err)
+		}
 		if seed.GrantAll {
 			if err := tenantRoleRepo.GrantAllPermissions(ctx, tenantTx, id); err != nil {
 				return nil, fmt.Errorf("seed tenant admin permissions: %w", err)
@@ -151,11 +185,17 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapR
 	userID, err := tenantUserRepo.CreateTx(ctx, tenantTx, &users.User{
 		Email: in.AdminEmail, PasswordHash: hash, FirstName: in.AdminFirstName, LastName: in.AdminLastName,
 	})
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	if _, err := tenantRoleRepo.CreateMembershipTx(ctx, tenantTx, userID, roleID, roles.MembershipActive); err != nil {
 		return nil, err
 	}
-	if err := tenantTx.Commit(); err != nil { return nil, fmt.Errorf("create tenant administrator: %w", err) }
+	if err := tenantTx.Commit(); err != nil {
+		return nil, fmt.Errorf("create tenant administrator: %w", err)
+	}
+
+	adminCommitted = true
 
 	// READY has one strict meaning: migrations, default roles and the first
 	// tenant administrator have all completed successfully.
@@ -165,7 +205,9 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapR
 
 	databaseHost := creds.Host
 	primaryDomain := ""
-	if s.baseDomain != "" && s.baseDomain != "localhost" { primaryDomain = in.TenantSlug+"."+s.baseDomain }
+	if s.baseDomain != "" && s.baseDomain != "localhost" {
+		primaryDomain = in.TenantSlug + "." + s.baseDomain
+	}
 	return &BootstrapResult{
 		TenantID: tenantID, Slug: in.TenantSlug, AdminID: userID, RoleID: roleID,
 		DatabaseStatus: "ready", DatabaseName: creds.Database, DatabaseHost: databaseHost,
@@ -175,32 +217,68 @@ func (s *Service) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapR
 
 func (s *Service) configureTenantDatabase(ctx context.Context, tenantID int64, name, slug, token string, in BootstrapInput) error {
 	mode := strings.ToLower(strings.TrimSpace(in.DatabaseMode))
-	if mode == "" { mode = "existing" }
+	if mode == "" {
+		mode = "existing"
+	}
 	creds := tenantdb.Credentials{Host: strings.TrimSpace(in.DatabaseHost), Port: strings.TrimSpace(in.DatabasePort), Database: strings.TrimSpace(in.DatabaseName), Username: strings.TrimSpace(in.DatabaseUsername), Password: in.DatabasePassword}
-	if creds.Port == "" { creds.Port = "3306" }
-	if mode != "create" && mode != "existing" { return errors.New("database mode must be create or existing") }
+	if creds.Port == "" {
+		creds.Port = "3306"
+	}
+	if mode != "create" && mode != "existing" {
+		return errors.New("database mode must be create or existing")
+	}
 	if mode == "create" {
-		if s.provisioner == nil || !s.provisioner.Enabled() { return errors.New("tenant database provisioning is not configured") }
+		if s.provisioner == nil || !s.provisioner.Enabled() {
+			return errors.New("tenant database provisioning is not configured")
+		}
 		// The provisioner is authoritative for CREATE DATABASE. Keep the
 		// connection metadata aligned with the server where the database was
 		// actually created instead of allowing a different form host here.
 		creds.Host = s.provisioner.Host()
 		creds.Port = s.provisioner.Port()
-		if err := s.provisioner.CreateDatabase(ctx, creds.Database); err != nil { return err }
+		if err := s.provisioner.CreateDatabase(ctx, creds.Database); err != nil {
+			return err
+		}
 	}
-	if err := tenantdb.Verify(ctx, creds); err != nil { return err }
-	secret, err := s.cipher.Encrypt(creds.Password); if err != nil { return err }
+	if err := tenantdb.Verify(ctx, creds); err != nil {
+		return err
+	}
+	secret, err := s.cipher.Encrypt(creds.Password)
+	if err != nil {
+		return err
+	}
 	conn := &tenantdb.Connection{TenantID: tenantID, Host: creds.Host, Port: creds.Port, DatabaseName: creds.Database, Username: creds.Username, EncryptedPassword: secret, Status: tenantdb.StatusVerified}
-	if err := s.dbRepo.Upsert(ctx, conn); err != nil { return err }
+	if err := s.dbRepo.Upsert(ctx, conn); err != nil {
+		return err
+	}
 	if err := s.installer.Install(ctx, creds, tenantID, name, slug, token); err != nil {
-		msg := err.Error(); _ = s.dbRepo.MarkStatus(ctx, tenantID, tenantdb.StatusError, false, &msg); return err
+		msg := err.Error()
+		_ = s.dbRepo.MarkStatus(ctx, tenantID, tenantdb.StatusError, false, &msg)
+		return err
 	}
 	// Keep the database verified until tenant-owned bootstrap data (roles and
 	// administrator) has been committed. Bootstrap promotes it to READY.
 	return nil
 }
 
-func (s *Service) provisionerHost() string { if s.provisioner == nil { return "" }; return s.provisioner.Host() }
+// rollbackTenant removes a tenant registry row that never finished onboarding.
+// It uses its own context because the request context may already be cancelled.
+func (s *Service) rollbackTenant(tenantID int64, cause error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := s.tenantRepo.DeleteUnprovisioned(ctx, tenantID); err != nil {
+		log.Printf("bootstrap rollback FAILED for tenant %d: %v (original error: %v)", tenantID, err, cause)
+		return
+	}
+	log.Printf("bootstrap rolled back tenant %d after error: %v", tenantID, cause)
+}
+
+func (s *Service) provisionerHost() string {
+	if s.provisioner == nil {
+		return ""
+	}
+	return s.provisioner.Host()
+}
 
 func randomHex() (string, error) {
 	b := make([]byte, 16)
@@ -265,7 +343,7 @@ func (h *Handler) createTenant(w http.ResponseWriter, r *http.Request) {
 	result, err := h.svc.Bootstrap(r.Context(), in)
 	if err != nil {
 
-		    log.Printf("create tenant failed: %v", err)   // add this line
+		log.Printf("create tenant failed: %v", err) // add this line
 
 		if strings.Contains(strings.ToLower(err.Error()), "duplicate") || strings.Contains(strings.ToLower(err.Error()), "unique") {
 			httpx.WriteError(w, httpx.ErrValidation.WithMessage("organization slug or administrator email is already in use"))
@@ -276,7 +354,6 @@ func (h *Handler) createTenant(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.WriteJSON(w, http.StatusCreated, result)
 }
-
 
 func tenantMySQLDSN(c tenantdb.Credentials) string {
 	return c.Username + ":" + c.Password + "@tcp(" + c.Host + ":" + c.Port + ")/" + c.Database + "?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=UTC"

@@ -26,6 +26,7 @@ func getDummyHash(cost int) string {
 	})
 	return dummyHash
 }
+func DummyPasswordHash(cost int) string { return getDummyHash(cost) }
 
 var (
 	ErrInvalidCredentials = errors.New("auth: invalid credentials")

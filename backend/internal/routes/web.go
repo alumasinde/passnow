@@ -9,8 +9,8 @@ import (
 	"gatepass/internal/config"
 	"gatepass/internal/middleware"
 	"gatepass/internal/platform"
-	"gatepass/internal/tenants"
 	"gatepass/internal/tenantdb"
+	"gatepass/internal/tenants"
 )
 
 // RegisterWeb registers routes that are intentionally outside tenant resolution:
@@ -34,7 +34,9 @@ func RegisterWeb(rootMux *http.ServeMux, db *sql.DB, bootstrapHandler *platform.
 	})
 
 	// Platform routes are intentionally outside tenant resolution.
-	rootMux.HandleFunc("POST /api/v1/platform/auth/login", platformAdminHandler.Login)
+
+	platformLoginLimiter := middleware.NewRateLimiter(5, time.Minute)
+	rootMux.Handle("POST /api/v1/platform/auth/login", platformLoginLimiter.Middleware("platform-login")(http.HandlerFunc(platformAdminHandler.Login)))
 	rootMux.Handle("GET /api/v1/platform/me", middleware.PlatformAdmin(jwtSecret, platformAdminRepo, http.HandlerFunc(platformAdminHandler.Me)))
 	tenantHandler := platform.NewTenantHandler(tenantRepo)
 	opsHandler := platform.NewTenantOpsHandler(tenantManager, tenantdb.NewInstaller("migrations/tenant"))
