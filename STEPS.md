@@ -370,10 +370,6 @@ From the API directory:
 go run ./cmd/migrate up
 ```
 
-Verify that all migrations complete successfully.
-
-Do not continue if migrations fail.
-
 ---
 
 # 11. Install PHP Dependencies

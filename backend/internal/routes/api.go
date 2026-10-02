@@ -9,16 +9,16 @@ import (
 	"gatepass/internal/dashboard"
 	"gatepass/internal/departments"
 	"gatepass/internal/employees"
+	"gatepass/internal/gatedevices"
 	"gatepass/internal/gatepasses"
 	"gatepass/internal/gates"
-	"gatepass/internal/gatedevices"
 	"gatepass/internal/invite"
 	"gatepass/internal/media"
 	"gatepass/internal/middleware"
 	"gatepass/internal/navigation"
 	"gatepass/internal/platform"
-	"gatepass/internal/roles"
 	"gatepass/internal/rbac"
+	"gatepass/internal/roles"
 	"gatepass/internal/settings"
 	"gatepass/internal/visitors"
 	"gatepass/internal/visits"
@@ -54,15 +54,18 @@ type API struct {
 
 	LoginLimiter   *middleware.RateLimiter
 	RefreshLimiter *middleware.RateLimiter
+	ActivateLimiter *middleware.RateLimiter
 }
 
 func NewAPI(jwtSecret []byte, roleRepo *roles.Repository) *API {
 	return &API{
-		JWTSecret:     jwtSecret,
-		RoleRepo:      roleRepo,
-		RBAC:          rbac.New(roleRepo),
-		LoginLimiter:  middleware.NewRateLimiter(10, time.Minute),
+		JWTSecret:      jwtSecret,
+		RoleRepo:       roleRepo,
+		RBAC:           rbac.New(roleRepo),
+		LoginLimiter:   middleware.NewRateLimiter(10, time.Minute),
 		RefreshLimiter: middleware.NewRateLimiter(30, time.Minute),
+		ActivateLimiter: middleware.NewRateLimiter(10, time.Minute),
+
 	}
 }
 
@@ -77,13 +80,13 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 
 	// --- tenant theme (public read for branded login/application shell) ---
 	mux.Handle("GET /api/v1/theme", http.HandlerFunc(api.ThemeHandler.Get))
-	mux.Handle("PUT /api/v1/theme", protected("permission.read", api.ThemeHandler.Update))
+	mux.Handle("PUT /api/v1/theme", protected("settings.update", api.ThemeHandler.Update))
 
 	// --- tenant media library ---
 	mux.Handle("GET /api/v1/media/public/{publicID}", http.HandlerFunc(api.MediaHandler.Public))
-	mux.Handle("POST /api/v1/media", protected("permission.read", api.MediaHandler.Upload))
-	mux.Handle("GET /api/v1/media", protected("permission.read", api.MediaHandler.List))
-	mux.Handle("DELETE /api/v1/media/{id}", protected("permission.read", api.MediaHandler.Delete))
+	mux.Handle("POST /api/v1/media", protected("media.create", api.MediaHandler.Upload))
+	mux.Handle("GET /api/v1/media", protected("media.read", api.MediaHandler.List))
+	mux.Handle("DELETE /api/v1/media/{id}", protected("media.delete", api.MediaHandler.Delete))
 
 	// --- auth ---
 	mux.Handle("POST /api/v1/auth/login", api.LoginLimiter.Middleware("login")(http.HandlerFunc(api.AuthHandler.Login)))
@@ -137,8 +140,8 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	// --- approval workflows ---
 	mux.Handle("GET /api/v1/approval-workflows", protected("workflow.read", api.WorkflowHandler.List))
 	mux.Handle("GET /api/v1/approval-workflows/{id}", protected("workflow.read", api.WorkflowHandler.Get))
-	mux.Handle("POST /api/v1/approval-workflows", protected("workflow.read", api.WorkflowHandler.Create))
-	mux.Handle("PATCH /api/v1/approval-workflows/{id}", protected("workflow.read", api.WorkflowHandler.Update))
+	mux.Handle("POST /api/v1/approval-workflows", protected("workflow.create", api.WorkflowHandler.Create))
+	mux.Handle("PATCH /api/v1/approval-workflows/{id}", protected("workflow.update", api.WorkflowHandler.Update))
 
 	// --- gates ---
 	mux.Handle("GET /api/v1/gates", protected("gate.read", api.GateHandler.List))
@@ -147,7 +150,7 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("PATCH /api/v1/gates/{id}", protected("gate.update", api.GateHandler.Update))
 
 	// --- authorized gate devices ---
-	mux.Handle("POST /api/v1/gate-devices/activate", http.HandlerFunc(api.GateDeviceHandler.Activate))
+	mux.Handle("POST /api/v1/gate-devices/activate",api.ActivateLimiter.Middleware("device-activate")(http.HandlerFunc(api.GateDeviceHandler.Activate)))
 	mux.Handle("GET /api/v1/gate-devices", protected("gate.read", api.GateDeviceHandler.List))
 	mux.Handle("POST /api/v1/gate-devices", protected("gate.create", api.GateDeviceHandler.Create))
 
@@ -162,8 +165,9 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	mux.Handle("GET /api/v1/gatepasses", protected("gatepass.read", api.GatepassHandler.List))
 	mux.Handle("GET /api/v1/gatepasses/{id}", protected("gatepass.read", api.GatepassHandler.Get))
 	mux.Handle("POST /api/v1/gatepasses/{id}/cancel", protected("gatepass.cancel", api.GatepassHandler.Cancel))
-	mux.Handle("POST /api/v1/gatepasses/{id}/approvals/{stepId}/approve", protected("approval.approve.assigned", api.GatepassHandler.Approve))
-	mux.Handle("POST /api/v1/gatepasses/{id}/approvals/{stepId}/reject", protected("approval.reject.assigned", api.GatepassHandler.Reject))
+	mux.Handle("POST /api/v1/gatepasses/{id}/approvals/{stepId}/approve", protected("approval.approve", api.GatepassHandler.Approve))
+	mux.Handle("POST /api/v1/gatepasses/{id}/approvals/{stepId}/reject", protected("approval.reject", api.GatepassHandler.Reject))
+
 	mux.Handle("POST /api/v1/gatepasses/{id}/check-out", protected("gatepass.check_out", api.GatepassHandler.CheckOut))
 	mux.Handle("POST /api/v1/gatepasses/{id}/check-in", protected("gatepass.verify", api.GatepassHandler.CheckIn))
 	mux.Handle("POST /api/v1/gatepasses/qr/token/{token}/check-out", protected("gatepass.check_out", api.GatepassHandler.QRCheckOut))
@@ -208,5 +212,6 @@ func RegisterAPI(mux *http.ServeMux, api *API) {
 	// --- dashboard and personal approval queue ---
 	mux.Handle("GET /api/v1/dashboard", protected("report.read.own", api.DashboardHandler.Dashboard))
 	mux.Handle("GET /api/v1/dashboard/summary", protected("report.read.own", api.DashboardHandler.Summary))
-	mux.Handle("GET /api/v1/approvals/pending", protectedAny([]string{"approval.approve.assigned", "approval.reject.assigned"}, api.GatepassHandler.MyPendingApprovals))
+	mux.Handle("GET /api/v1/approvals/pending", protectedAny([]string{"approval.approve", "approval.reject"}, api.GatepassHandler.MyPendingApprovals))
+
 }

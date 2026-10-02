@@ -53,14 +53,13 @@ type MovementItemInput struct {
 }
 
 type MovementInput struct {
-	DeviceKey *string `json:"device_key,omitempty"`
-	GateID   *int64             `json:"gate_id"`
-	GateName string              `json:"gate_name,omitempty"`
-	Notes    *string             `json:"notes"`
-	Items    []MovementItemInput `json:"items"`
-	// FullReturn closes all outstanding returnable quantities. If false,
-	// Items must describe the quantities being returned.
-	FullReturn bool `json:"full_return"`
+	DeviceKey   *string             `json:"device_key,omitempty"`
+	GateID      *int64              `json:"gate_id"`
+	GateName    string              `json:"gate_name,omitempty"`
+	Notes       *string             `json:"notes"`
+	Items       []MovementItemInput `json:"items"`
+	FullReturn  bool                `json:"full_return"`
+	DeviceToken *string             `json:"device_token,omitempty"`
 }
 
 type MovementDTO struct {

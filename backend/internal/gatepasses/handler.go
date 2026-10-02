@@ -9,17 +9,42 @@ import (
 	qrcode "github.com/skip2/go-qrcode"
 
 	"gatepass/internal/httpx"
-	"gatepass/internal/reqctx"
 	"gatepass/internal/rbac"
+	"gatepass/internal/reqctx"
 )
 
+// handler.go — replace the Handler struct and constructor
+type DeviceVerifier interface {
+	VerifyDevice(ctx context.Context, tenantID int64, token string) (deviceID, gateID int64, deviceKey string, err error)
+}
+
 type Handler struct {
-	svc   *Service
-	types *TypeRepository
+	svc     *Service
+	types   *TypeRepository
+	devices DeviceVerifier
 }
 
 func NewHandler(svc *Service, types *TypeRepository) *Handler {
 	return &Handler{svc: svc, types: types}
+}
+
+func (h *Handler) WithDeviceVerifier(v DeviceVerifier) *Handler { h.devices = v; return h }
+
+func (h *Handler) applyDevice(ctx context.Context, tenantID int64, in *MovementInput) error {
+	in.DeviceKey = nil
+	if in.DeviceToken == nil || *in.DeviceToken == "" {
+		return nil
+	}
+	if h.devices == nil {
+		return ErrMovementGateInvalid
+	}
+	_, gateID, key, err := h.devices.VerifyDevice(ctx, tenantID, *in.DeviceToken)
+	if err != nil {
+		return ErrMovementGateInvalid
+	}
+	in.GateID = &gateID
+	in.DeviceKey = &key
+	return nil
 }
 
 // --- Gatepass types (tenant-local configuration) -------------------------
@@ -54,7 +79,11 @@ func (h *Handler) GetType(w http.ResponseWriter, r *http.Request) {
 	}
 	t, err := h.types.ByID(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, ErrTypeNotFound) { httpx.WriteError(w, httpx.ErrNotFound) } else { httpx.WriteError(w, httpx.ErrInternal) }
+		if errors.Is(err, ErrTypeNotFound) {
+			httpx.WriteError(w, httpx.ErrNotFound)
+		} else {
+			httpx.WriteError(w, httpx.ErrInternal)
+		}
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, TypeToDTO(t))
@@ -170,8 +199,15 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
-	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w, httpx.ErrAuthRequired); return }
-	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) { httpx.WriteError(w, httpx.ErrForbidden); return }
+	claims, ok := reqctx.ClaimsFromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, httpx.ErrAuthRequired)
+		return
+	}
+	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) {
+		httpx.WriteError(w, httpx.ErrForbidden)
+		return
+	}
 	g, err := h.svc.Get(r.Context(), tenant.ID, id)
 	if err != nil {
 		writeServiceError(w, err)
@@ -191,14 +227,21 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		st := Status(s)
 		f.Status = &st
 	}
-	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w, httpx.ErrAuthRequired); return }
+	claims, ok := reqctx.ClaimsFromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, httpx.ErrAuthRequired)
+		return
+	}
 	if d, ok := rbac.DecisionFromContext(r.Context()); ok {
 		switch d.Scope {
 		case rbac.ScopeOwn:
 			f.CreatedBy = &claims.UserID
 		case rbac.ScopeDepartment:
 			dept, err := h.svc.UserDepartment(r.Context(), claims.UserID)
-			if err != nil || dept == nil { httpx.WriteError(w, httpx.ErrForbidden); return }
+			if err != nil || dept == nil {
+				httpx.WriteError(w, httpx.ErrForbidden)
+				return
+			}
 			f.DepartmentID = dept
 		}
 	}
@@ -234,7 +277,10 @@ func (h *Handler) act(w http.ResponseWriter, r *http.Request, approve bool) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
-	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, gatepassID) { httpx.WriteError(w, httpx.ErrForbidden); return }
+	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, gatepassID) {
+		httpx.WriteError(w, httpx.ErrForbidden)
+		return
+	}
 	stepID, err := strconv.ParseInt(r.PathValue("stepId"), 10, 64)
 	if err != nil {
 		httpx.WriteError(w, httpx.ErrNotFound)
@@ -268,11 +314,18 @@ func (h *Handler) CheckOut(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
-	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) { httpx.WriteError(w, httpx.ErrForbidden); return }
+	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) {
+		httpx.WriteError(w, httpx.ErrForbidden)
+		return
+	}
 	var in MovementInput
 	if !httpx.DecodeJSON(w, r, &in) {
 		return
 	}
+	if err := h.applyDevice(r.Context(), tenant.ID, &in); err != nil {
+	writeMovementError(w, err)
+	return
+}
 	g, err := h.svc.CheckOutMovement(r.Context(), tenant.ID, id, claims.UserID, in)
 	if err != nil {
 		writeMovementError(w, err)
@@ -297,11 +350,19 @@ func (h *Handler) CheckIn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
-	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) { httpx.WriteError(w, httpx.ErrForbidden); return }
+	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) {
+		httpx.WriteError(w, httpx.ErrForbidden)
+		return
+	}
 	var in MovementInput
 	if !httpx.DecodeJSON(w, r, &in) {
 		return
 	}
+
+	if err := h.applyDevice(r.Context(), tenant.ID, &in); err != nil {
+	writeMovementError(w, err)
+	return
+}
 	g, err := h.svc.CheckInMovement(r.Context(), tenant.ID, id, claims.UserID, in)
 	if err != nil {
 		writeMovementError(w, err)
@@ -310,17 +371,44 @@ func (h *Handler) CheckIn(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, withDetails(r, h.svc, tenant.ID, g))
 }
 
-func (h *Handler) QRCheckOut(w http.ResponseWriter, r *http.Request) { h.qrMovement(w,r,true) }
-func (h *Handler) QRCheckIn(w http.ResponseWriter, r *http.Request) { h.qrMovement(w,r,false) }
+func (h *Handler) QRCheckOut(w http.ResponseWriter, r *http.Request) { h.qrMovement(w, r, true) }
+func (h *Handler) QRCheckIn(w http.ResponseWriter, r *http.Request)  { h.qrMovement(w, r, false) }
 func (h *Handler) qrMovement(w http.ResponseWriter, r *http.Request, checkout bool) {
- tenant,ok:=reqctx.TenantFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return}
- claims,ok:=reqctx.ClaimsFromContext(r.Context());if !ok{httpx.WriteError(w,httpx.ErrAuthRequired);return}
- token:=r.PathValue("token"); qr,err:=h.svc.QRLookup(r.Context(),tenant.ID,token);if err!=nil{httpx.WriteError(w,httpx.ErrNotFound);return}
- var in MovementInput;if !httpx.DecodeJSON(w,r,&in){return}
- if in.GateID == nil && in.DeviceKey != nil { if gid,e:=h.svc.ResolveDeviceGate(r.Context(),*in.DeviceKey);e==nil{in.GateID=&gid}else{writeMovementError(w,e);return} }
- var g *Gatepass
- if checkout { g,err=h.svc.CheckOutMovement(r.Context(),tenant.ID,qr.GatepassID,claims.UserID,in) } else { g,err=h.svc.CheckInMovement(r.Context(),tenant.ID,qr.GatepassID,claims.UserID,in) }
- if err!=nil{writeMovementError(w,err);return};httpx.WriteJSON(w,http.StatusOK,withDetails(r,h.svc,tenant.ID,g))
+	tenant, ok := reqctx.TenantFromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, httpx.ErrAuthRequired)
+		return
+	}
+	claims, ok := reqctx.ClaimsFromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, httpx.ErrAuthRequired)
+		return
+	}
+	token := r.PathValue("token")
+	qr, err := h.svc.QRLookup(r.Context(), tenant.ID, token)
+	if err != nil {
+		httpx.WriteError(w, httpx.ErrNotFound)
+		return
+	}
+	var in MovementInput
+	if !httpx.DecodeJSON(w, r, &in) {
+		return
+	}
+	if err := h.applyDevice(r.Context(), tenant.ID, &in); err != nil {
+		writeMovementError(w, err)
+		return
+	}
+	var g *Gatepass
+	if checkout {
+		g, err = h.svc.CheckOutMovement(r.Context(), tenant.ID, qr.GatepassID, claims.UserID, in)
+	} else {
+		g, err = h.svc.CheckInMovement(r.Context(), tenant.ID, qr.GatepassID, claims.UserID, in)
+	}
+	if err != nil {
+		writeMovementError(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, withDetails(r, h.svc, tenant.ID, g))
 }
 
 func (h *Handler) Movements(w http.ResponseWriter, r *http.Request) {
@@ -334,8 +422,15 @@ func (h *Handler) Movements(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
-	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w, httpx.ErrAuthRequired); return }
-	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) { httpx.WriteError(w, httpx.ErrForbidden); return }
+	claims, ok := reqctx.ClaimsFromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, httpx.ErrAuthRequired)
+		return
+	}
+	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) {
+		httpx.WriteError(w, httpx.ErrForbidden)
+		return
+	}
 	items, err := h.svc.Movements(r.Context(), tenant.ID, id)
 	if err != nil {
 		writeServiceError(w, err)
@@ -360,7 +455,10 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
-	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) { httpx.WriteError(w, httpx.ErrForbidden); return }
+	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) {
+		httpx.WriteError(w, httpx.ErrForbidden)
+		return
+	}
 	var in CancelInput
 	if !httpx.DecodeJSON(w, r, &in) {
 		return
@@ -392,18 +490,24 @@ func (h *Handler) QRLookup(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, dto)
 }
 
-
 // QRTokenImage renders a QR image from the opaque token capability. The token
 // itself is random and validated against the tenant database before rendering.
 func (h *Handler) QRTokenImage(w http.ResponseWriter, r *http.Request) {
 	tenant, ok := reqctx.TenantFromContext(r.Context())
-	if !ok { httpx.WriteError(w, httpx.ErrAuthRequired); return }
+	if !ok {
+		httpx.WriteError(w, httpx.ErrAuthRequired)
+		return
+	}
 	token := r.PathValue("token")
 	if _, err := h.svc.QRLookup(r.Context(), tenant.ID, token); err != nil {
-		httpx.WriteError(w, httpx.ErrNotFound); return
+		httpx.WriteError(w, httpx.ErrNotFound)
+		return
 	}
 	png, err := qrcode.Encode(token, qrcode.Medium, 320)
-	if err != nil { httpx.WriteError(w, httpx.ErrInternal); return }
+	if err != nil {
+		httpx.WriteError(w, httpx.ErrInternal)
+		return
+	}
 	w.Header().Set("Content-Type", "image/png")
 	w.Header().Set("Cache-Control", "private, no-store")
 	_, _ = w.Write(png)
@@ -420,8 +524,15 @@ func (h *Handler) QRImage(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, httpx.ErrNotFound)
 		return
 	}
-	claims, ok := reqctx.ClaimsFromContext(r.Context()); if !ok { httpx.WriteError(w, httpx.ErrAuthRequired); return }
-	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) { httpx.WriteError(w, httpx.ErrForbidden); return }
+	claims, ok := reqctx.ClaimsFromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, httpx.ErrAuthRequired)
+		return
+	}
+	if !h.canAccessGatepass(r.Context(), claims.UserID, tenant.ID, id) {
+		httpx.WriteError(w, httpx.ErrForbidden)
+		return
+	}
 	token, err := h.svc.QRToken(r.Context(), tenant.ID, id)
 	if err != nil {
 		httpx.WriteError(w, httpx.ErrNotFound)
@@ -512,15 +623,22 @@ func withDetails(r *http.Request, svc *Service, tenantID int64, g *Gatepass) DTO
 	return svc.Details(r.Context(), tenantID, g)
 }
 
-
 func (h *Handler) canAccessGatepass(ctx context.Context, actorID, tenantID, gatepassID int64) bool {
 	d, ok := rbac.DecisionFromContext(ctx)
-	if !ok || d.Scope == rbac.ScopeNone || d.Scope == rbac.ScopeAll { return true }
+	if !ok || d.Scope == rbac.ScopeNone || d.Scope == rbac.ScopeAll {
+		return true
+	}
 	g, err := h.svc.Get(ctx, tenantID, gatepassID)
-	if err != nil { return false }
+	if err != nil {
+		return false
+	}
 	dept, err := h.svc.UserDepartment(ctx, actorID)
-	if err != nil { return false }
+	if err != nil {
+		return false
+	}
 	createdBy := int64(0)
-	if g.CreatedBy != nil { createdBy = *g.CreatedBy }
+	if g.CreatedBy != nil {
+		createdBy = *g.CreatedBy
+	}
 	return rbac.AllowsDepartment(d.Scope, actorID, dept, g.DepartmentID, createdBy)
 }

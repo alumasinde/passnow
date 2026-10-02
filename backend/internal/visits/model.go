@@ -17,29 +17,29 @@ const (
 type EntrySource string
 
 const (
-	EntrySourceWalkIn EntrySource = "walk_in"
+	EntrySourceWalkIn        EntrySource = "walk_in"
 	EntrySourcePreRegistered EntrySource = "pre_registered"
 )
 
 type Visit struct {
 	ID           int64
 	VisitorID    int64
-	EntrySource EntrySource
+	EntrySource  EntrySource
 	VisitTypeID  *int64
 	DepartmentID *int64
 	HostName     *string
 
-	Purpose      *string
-	ExpectedTime *time.Time
+	Purpose             *string
+	ExpectedTime        *time.Time
 	ExpectedDepartureAt *time.Time
-	ArrivedAt *time.Time
+	ArrivedAt           *time.Time
 
 	Status Status
 
-	BadgeNumber *string
-	BadgeToken  *string
-	QRToken *string
-	QRIssuedAt *time.Time
+	BadgeNumber     *string
+	BadgeToken      *string
+	QRToken         *string
+	QRIssuedAt      *time.Time
 	QRInvalidatedAt *time.Time
 
 	CheckedInAt  *time.Time
@@ -69,8 +69,27 @@ func (v *Visit) CanCancel() bool {
 	return v.Status == StatusScheduled || v.Status == StatusExpected
 }
 
-
 type MovementType string
-const ( MovementCheckIn MovementType="check_in"; MovementCheckOut MovementType="check_out" )
-type MovementInput struct { GateID int64 `json:"gate_id"`; DeviceID *int64 `json:"device_id,omitempty"`; Notes *string `json:"notes,omitempty"` }
-type Movement struct { ID int64 `json:"id"`; VisitID int64 `json:"visit_id"`; Type MovementType `json:"movement_type"`; GateID int64 `json:"gate_id"`; GateName string `json:"gate_name,omitempty"`; DeviceID *int64 `json:"device_id,omitempty"`; ActorUserID int64 `json:"actor_user_id"`; Notes *string `json:"notes,omitempty"`; OccurredAt time.Time `json:"occurred_at"` }
+
+const (
+	MovementCheckIn  MovementType = "check_in"
+	MovementCheckOut MovementType = "check_out"
+)
+
+type MovementInput struct {
+	GateID   int64   `json:"gate_id"`
+	DeviceID *int64  `json:"device_id,omitempty"`
+	Notes    *string `json:"notes,omitempty"`
+	DeviceToken *string `json:"device_token,omitempty"`
+}
+type Movement struct {
+	ID          int64        `json:"id"`
+	VisitID     int64        `json:"visit_id"`
+	Type        MovementType `json:"movement_type"`
+	GateID      int64        `json:"gate_id"`
+	GateName    string       `json:"gate_name,omitempty"`
+	DeviceID    *int64       `json:"device_id,omitempty"`
+	ActorUserID int64        `json:"actor_user_id"`
+	Notes       *string      `json:"notes,omitempty"`
+	OccurredAt  time.Time    `json:"occurred_at"`
+}

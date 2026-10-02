@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"syscall"
 	"sync"
+	"syscall"
 
 	"gatepass/internal/approvals"
 	"gatepass/internal/audit"
@@ -18,19 +18,19 @@ import (
 	"gatepass/internal/database"
 	"gatepass/internal/departments"
 	"gatepass/internal/employees"
+	"gatepass/internal/gatedevices"
 	"gatepass/internal/gatepasses"
 	"gatepass/internal/gates"
-	"gatepass/internal/gatedevices"
 	"gatepass/internal/invite"
 	"gatepass/internal/media"
 	"gatepass/internal/navigation"
 	"gatepass/internal/platform"
+	"gatepass/internal/reqctx"
 	"gatepass/internal/roles"
 	"gatepass/internal/routes"
-	"gatepass/internal/reqctx"
 	"gatepass/internal/settings"
-	"gatepass/internal/tenants"
 	"gatepass/internal/tenantdb"
+	"gatepass/internal/tenants"
 	"gatepass/internal/users"
 	"gatepass/internal/visitors"
 	"gatepass/internal/visits"
@@ -41,8 +41,7 @@ func main() {
 	db := mustConnectDatabase(cfg)
 	defer db.Close()
 
-	tenantRepo, api, bootstrapHandler, platformAdminHandler, platformAdminRepo := buildApplication(db, cfg)
-	_ = api
+	tenantRepo, bootstrapHandler, platformAdminHandler, platformAdminRepo := buildPlatform(db, cfg)
 	tenantManager := mustTenantDBManager(db, cfg)
 	defer tenantManager.Close()
 	srv, workerCancel := newServer(cfg, db, tenantRepo, tenantManager, bootstrapHandler, platformAdminHandler, platformAdminRepo, []byte(cfg.JWTSecret))
@@ -85,7 +84,10 @@ func mustTenantDBManager(db *sql.DB, cfg *config.Config) *tenantdb.Manager {
 	)
 }
 
-func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *routes.API, *platform.Handler, *platform.AdminHandler, *platform.AdminRepository) {
+// buildPlatform wires everything that lives in the platform database:
+// the tenant registry, tenant onboarding and platform-admin auth.
+// Tenant-scoped handlers are built per tenant in buildTenantAPI.
+func buildPlatform(db *sql.DB, cfg *config.Config) (*tenants.Repository, *platform.Handler, *platform.AdminHandler, *platform.AdminRepository) {
 	jwtSecret := []byte(cfg.JWTSecret)
 
 	tenantRepo := tenants.NewRepository(db)
@@ -94,71 +96,33 @@ func buildApplication(db *sql.DB, cfg *config.Config) (*tenants.Repository, *rou
 	}
 	userRepo := users.NewRepository(db)
 	roleRepo := roles.NewRepository(db)
-	refreshRepo := auth.NewRefreshTokenRepository(db)
-	settingsRepo := settings.NewRepository(db)
-	auditRepo := audit.NewRepository(db)
-	idTypeRepo := visitors.NewIDTypeRepository(db)
-	companyRepo := visitors.NewCompanyRepository(db)
-	visitorRepo := visitors.NewRepository(db)
-	visitTypeRepo := visits.NewVisitTypeRepository(db)
-	deptRepo := departments.NewRepository(db)
-	visitRepo := visits.NewRepository(db)
-	workflowRepo := approvals.NewRepository(db)
-	gpTypeRepo := gatepasses.NewTypeRepository(db)
-	gpItemRepo := gatepasses.NewItemRepository(db)
-	gpRepo := gatepasses.NewRepository(db, gpItemRepo)
-	gateRepo := gates.NewRepository(db)
-	employeeRepo := employees.NewRepository(db)
 
-	authSvc := auth.NewService(userRepo, roleRepo, refreshRepo, jwtSecret, cfg.BcryptCost, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
-	visitorSvc := visitors.NewService(visitorRepo, idTypeRepo, companyRepo, settingsRepo, auditRepo)
-	visitSvc := visits.NewService(visitRepo, visitorRepo, visitTypeRepo, deptRepo, auditRepo)
-	gpSvc := gatepasses.NewService(gpRepo, gpTypeRepo, gateRepo, deptRepo, visitorRepo, visitRepo, workflowRepo, roleRepo, settingsRepo, auditRepo, userRepo)
-	inviteSvc := invite.NewService(userRepo, roleRepo, cfg.BcryptCost)
-	employeeSvc := employees.NewService(employeeRepo, userRepo, roleRepo)
 	bootstrapSvc := platform.NewService(tenantRepo, userRepo, roleRepo, cfg.BcryptCost).WithBaseDomain(cfg.BaseDomain)
 	if cfg.TenantDBEncryptionKey != "" {
-		if cipher, err := tenantdb.NewCipher(cfg.TenantDBEncryptionKey); err == nil {
-			bootstrapSvc.WithTenantDatabase(
-				tenantdb.NewRepository(db),
-				cipher,
-				tenantdb.NewInstaller("migrations/tenant"),
-				tenantdb.NewProvisioner(cfg.DBProvisionHost, cfg.DBProvisionPort, cfg.DBProvisionUser, cfg.DBProvisionPassword),
-			)
-		} else {
+		cipher, err := tenantdb.NewCipher(cfg.TenantDBEncryptionKey)
+		if err != nil {
 			log.Fatalf("tenant database encryption: %v", err)
 		}
+		bootstrapSvc.WithTenantDatabase(
+			tenantdb.NewRepository(db),
+			cipher,
+			tenantdb.NewInstaller("migrations/tenant"),
+			tenantdb.NewProvisioner(cfg.DBProvisionHost, cfg.DBProvisionPort, cfg.DBProvisionUser, cfg.DBProvisionPassword),
+		)
 	}
+
 	platformAdminRepo := platform.NewAdminRepository(db)
 	platformAdminSvc := platform.NewAdminService(platformAdminRepo, userRepo, jwtSecret, cfg.AccessTokenTTL)
 	platformAdminHandler := platform.NewAdminHandler(platformAdminSvc)
 
-	api := routes.NewAPI(jwtSecret, roleRepo)
-	api.AuthHandler = auth.NewHandler(authSvc)
-	api.VisitorHandler = visitors.NewHandler(visitorSvc, idTypeRepo, companyRepo)
-	api.VisitorSettingsHandler = settings.NewVisitorSettingsHandler(settingsRepo)
-	api.GatepassSettingsHandler = settings.NewGatepassSettingsHandler(settingsRepo)
-	api.ThemeHandler = settings.NewThemeHandler(settingsRepo)
-	api.MediaHandler = media.NewHandler(media.NewRepository(db), cfg.MediaStoragePath, cfg.MediaPublicBaseURL, cfg.MediaMaxUploadBytes)
-	api.VisitTypeHandler = visits.NewVisitTypeHandler(visitTypeRepo)
-	api.DepartmentHandler = departments.NewHandler(deptRepo)
-	api.VisitHandler = visits.NewHandler(visitSvc)
-	api.WorkflowHandler = approvals.NewHandler(workflowRepo)
-	api.GatepassHandler = gatepasses.NewHandler(gpSvc, gpTypeRepo)
-	api.GateHandler = gates.NewHandler(gateRepo)
-	api.GateDeviceHandler = gatedevices.NewHandler(gatedevices.NewRepository(db))
-	api.EmployeeHandler = employees.NewHandler(employeeSvc)
-	api.RoleHandler = roles.NewHandler(roleRepo)
-	api.InviteHandler = invite.NewHandler(inviteSvc)
-	dashboardRepo := dashboard.NewRepository(db)
-	api.DashboardHandler = dashboard.NewHandler(dashboardRepo, dashboard.NewService(dashboardRepo, roleRepo))
-	api.NavigationHandler = navigation.NewHandler(navigation.NewService(roleRepo))
-
-	return tenantRepo, api, platform.NewHandler(bootstrapSvc, cfg.PlatformBootstrapToken), platformAdminHandler, platformAdminRepo
+	return tenantRepo, platform.NewHandler(bootstrapSvc, cfg.PlatformBootstrapToken), platformAdminHandler, platformAdminRepo
 }
 
+// buildTenantAPI is the single place where tenant-scoped handlers are wired.
+// db is that tenant's own database pool.
 func buildTenantAPI(db *sql.DB, cfg *config.Config) *routes.API {
 	jwtSecret := []byte(cfg.JWTSecret)
+
 	userRepo := users.NewRepository(db)
 	roleRepo := roles.NewRepository(db)
 	refreshRepo := auth.NewRefreshTokenRepository(db)
@@ -175,6 +139,7 @@ func buildTenantAPI(db *sql.DB, cfg *config.Config) *routes.API {
 	gpItemRepo := gatepasses.NewItemRepository(db)
 	gpRepo := gatepasses.NewRepository(db, gpItemRepo)
 	gateRepo := gates.NewRepository(db)
+	gateDeviceRepo := gatedevices.NewRepository(db)
 	employeeRepo := employees.NewRepository(db)
 
 	authSvc := auth.NewService(userRepo, roleRepo, refreshRepo, jwtSecret, cfg.BcryptCost, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
@@ -183,6 +148,7 @@ func buildTenantAPI(db *sql.DB, cfg *config.Config) *routes.API {
 	gpSvc := gatepasses.NewService(gpRepo, gpTypeRepo, gateRepo, deptRepo, visitorRepo, visitRepo, workflowRepo, roleRepo, settingsRepo, auditRepo, userRepo)
 	inviteSvc := invite.NewService(userRepo, roleRepo, cfg.BcryptCost)
 	employeeSvc := employees.NewService(employeeRepo, userRepo, roleRepo)
+	deviceVerifier := gatedevices.NewVerifier(gateDeviceRepo, jwtSecret)
 
 	api := routes.NewAPI(jwtSecret, roleRepo)
 	api.AuthHandler = auth.NewHandler(authSvc)
@@ -193,11 +159,11 @@ func buildTenantAPI(db *sql.DB, cfg *config.Config) *routes.API {
 	api.MediaHandler = media.NewHandler(media.NewRepository(db), cfg.MediaStoragePath, cfg.MediaPublicBaseURL, cfg.MediaMaxUploadBytes)
 	api.VisitTypeHandler = visits.NewVisitTypeHandler(visitTypeRepo)
 	api.DepartmentHandler = departments.NewHandler(deptRepo)
-	api.VisitHandler = visits.NewHandler(visitSvc)
+	api.VisitHandler = visits.NewHandler(visitSvc).WithDeviceVerifier(deviceVerifier)
 	api.WorkflowHandler = approvals.NewHandler(workflowRepo)
-	api.GatepassHandler = gatepasses.NewHandler(gpSvc, gpTypeRepo)
+	api.GatepassHandler = gatepasses.NewHandler(gpSvc, gpTypeRepo).WithDeviceVerifier(deviceVerifier)
 	api.GateHandler = gates.NewHandler(gateRepo)
-	api.GateDeviceHandler = gatedevices.NewHandler(gatedevices.NewRepository(db))
+	api.GateDeviceHandler = gatedevices.NewHandler(gateDeviceRepo, deviceVerifier)
 	api.EmployeeHandler = employees.NewHandler(employeeSvc)
 	api.RoleHandler = roles.NewHandler(roleRepo)
 	api.InviteHandler = invite.NewHandler(inviteSvc)

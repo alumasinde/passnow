@@ -1,8 +1,3 @@
-// Package invite handles adding a user to a tenant. It's a separate small
-// package (rather than living in users, roles, or auth) specifically to
-// avoid an import cycle: auth already imports both users and roles, so
-// this logic — which needs users + roles + auth's password hashing —
-// can't live in any of those three without creating one.
 package invite
 
 import (
@@ -20,8 +15,6 @@ import (
 )
 
 var ErrRoleNotFound = errors.New("invite: role not found")
-
-const DefaultInitialPassword = "PassNow@123"
 
 type Service struct {
 	users      *users.Repository
@@ -45,20 +38,8 @@ type Result struct {
 	UserID       int64  `json:"user_id"`
 	MembershipID int64  `json:"membership_id"`
 	Email        string `json:"email"`
-	// TemporaryPassword is returned ONCE, at invite time, because there is
-	// no email-sending infrastructure yet to deliver a proper invite link.
-	// The user should change it on first login. This is a deliberate,
-	// documented simplification — not a substitute for a real invite-email
-	// flow, which should replace this before production use with real
-	// external users.
 	TemporaryPassword string `json:"temporary_password,omitempty"`
 }
-
-// Invite adds a user to a tenant: reuses an existing global account by
-// email if one exists (a person already registered under a different
-// tenant), otherwise creates a new account with a random temporary
-// password. Either way, the membership itself is what actually grants
-// tenant access — creating/finding the user alone grants nothing.
 func (s *Service) Invite(ctx context.Context, tenantID int64, in Input) (*Result, error) {
 	if _, err := s.roles.RoleByID(ctx, in.RoleID); err != nil {
 		return nil, ErrRoleNotFound
@@ -71,7 +52,10 @@ func (s *Service) Invite(ctx context.Context, tenantID int64, in Input) (*Result
 	if err == nil {
 		return nil, users.ErrEmailTaken
 	} else {
-		tempPassword = DefaultInitialPassword
+		tempPassword, err = randomPassword() // already defined in this file, currently unused
+		if err != nil {
+			return nil, err
+		}
 		hash, err := auth.HashPassword(tempPassword, s.bcryptCost)
 		if err != nil {
 			return nil, err
@@ -97,7 +81,7 @@ func randomPassword() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-// --- HTTP handler ---------------------------------------------------------
+// --- HTTP handler 
 
 type Handler struct {
 	svc *Service
